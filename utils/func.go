@@ -59,7 +59,7 @@ func NewGenericFunc(fn interface{}) (*genericFunc, error) {
 }
 
 func NewInstanceFunc(instance interface{}, method string) (*genericFunc, error) {
-	if _, ok := reflect.TypeOf(instance).MethodByName(method); ok {
+	if HasMethod(instance, method) {
 		return NewGenericFunc(reflect.ValueOf(instance).MethodByName(method).Interface())
 	} else {
 		return nil, fmt.Errorf("method %s not found", method)
@@ -76,6 +76,11 @@ func NewElemTypeSlice(items ...interface{}) []reflect.Type {
 		}
 	}
 	return typeList
+}
+
+func HasMethod(instance interface{}, method string) bool {
+	_, ok := reflect.TypeOf(instance).MethodByName(method)
+	return ok
 }
 
 func CallMethod(instance interface{}, method string, args ...interface{}) interface{} {

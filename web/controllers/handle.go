@@ -29,7 +29,9 @@ func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) 
 	return func(ctx *gin.Context) {
 		controller := NewController(controllerName, ctx)
 
-		if res, err := callControllerMethod(controller, methodName); err == nil {
+		if !utils.HasMethod(controller, methodName) {
+			controller.JsonErrorResponse(404, fmt.Sprintf("method %s@%s not founud", controllerName, methodName), nil)
+		} else if res, err := callControllerMethod(controller, methodName); err == nil {
 			controller.JsonSuccessResponse(res)
 		} else {
 			controller.JsonErrorResponse(err.Code, err.Message, res)
@@ -37,8 +39,8 @@ func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) 
 	}
 }
 
-func callControllerMethod(controller ControllerInterface, method string, args ...interface{}) (interface{}, *ResponseException) {
-	res, err := utils.CallMethod2(controller, method, args...)
+func callControllerMethod(controller ControllerInterface, methodName string, args ...interface{}) (interface{}, *ResponseException) {
+	res, err := utils.CallMethod2(controller, methodName, args...)
 
 	errKind := reflect.ValueOf(err).Kind()
 	if errKind == reflect.Ptr && !reflect.ValueOf(err).IsNil() {
