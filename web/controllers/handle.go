@@ -13,12 +13,16 @@ func init() {
 	controllerRegistry = map[string]func(ctx *gin.Context) ControllerInterface{}
 }
 
-func NewController(controllerName string, ctx *gin.Context) ControllerInterface {
+func NewController(controllerName string, ctx *gin.Context) (ControllerInterface, error) {
 	if callback, ok := controllerRegistry[controllerName]; ok {
-		return callback(ctx)
-	} else {
-		panic(fmt.Sprintf("controller [%s] not exists", controllerName))
+		if controller := callback(ctx); controller != nil {
+			return controller, nil
+		} else {
+			return nil, fmt.Errorf("get nil controller [%s]", controllerName)
+		}
 	}
+
+	return nil, fmt.Errorf("controller [%s] not exists", controllerName)
 }
 
 func RegisterController(controllerName string, fn func(ctx *gin.Context) ControllerInterface) {
@@ -27,10 +31,12 @@ func RegisterController(controllerName string, fn func(ctx *gin.Context) Control
 
 func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
-		controller := NewController(controllerName, ctx)
+		controller, err := NewController(controllerName, ctx)
 
-		if !utils.HasMethod(controller, methodName) {
-			controller.JsonErrorResponse(404, fmt.Sprintf("method %s@%s not founud", controllerName, methodName), nil)
+		if err != nil {
+			(&Controller{Context: ctx}).JsonErrorResponse(404, err.Error(), nil)
+		} else if !utils.HasMethod(controller, methodName) {
+			controller.JsonErrorResponse(404, fmt.Sprintf("controller method [%s@%s] not founud", controllerName, methodName), nil)
 		} else if res, err := callControllerMethod(controller, methodName); err == nil {
 			controller.JsonSuccessResponse(res)
 		} else {

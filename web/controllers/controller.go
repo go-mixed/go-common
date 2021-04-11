@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
+	"go-common/utils"
 	"time"
 )
 
@@ -17,7 +18,9 @@ type ControllerInterface interface {
 func (c *Controller) JsonErrorResponse(code int, message string, data interface{}) {
 	duration := time.Now().Sub(c.Context.GetTime("request_at"))
 
-	c.Context.JSON(400, Result{
+	statusCode := utils.If(code >= 400 && code <= 599, code, 400).(int)
+
+	c.Context.JSON(statusCode, Result{
 		Code:     code,
 		Message:  message,
 		Data:     data,
