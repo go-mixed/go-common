@@ -24,7 +24,7 @@ func (c *Controller) JsonErrorResponse(code int, message string, data interface{
 		Code:     code,
 		Message:  message,
 		Data:     data,
-		Duration: float64(duration) / float64(time.Second),
+		Duration: float64(duration) / float64(time.Millisecond),
 		At:       time.Now().UnixNano() / int64(time.Millisecond),
 	})
 }
@@ -36,7 +36,7 @@ func (c *Controller) JsonSuccessResponse(data interface{}) {
 		Code:     0,
 		Message:  "",
 		Data:     data,
-		Duration: float64(duration) / float64(time.Second),
+		Duration: float64(duration) / float64(time.Millisecond),
 		At:       time.Now().UnixNano() / int64(time.Millisecond),
 	})
 }
