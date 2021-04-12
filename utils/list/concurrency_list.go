@@ -1,4 +1,4 @@
-package utils
+package list
 
 import (
 	"container/list"
@@ -17,7 +17,7 @@ func NewConcurrencyList() *ConcurrencyList {
 	}
 }
 
-// 返回头部元素，不会在列表中删除
+// HeadElement 返回头部元素，不会在列表中删除
 func (c *ConcurrencyList) HeadElement() *list.Element {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -25,7 +25,7 @@ func (c *ConcurrencyList) HeadElement() *list.Element {
 	return c.elements.Front()
 }
 
-// 返回尾部元素，不会在列表中删除
+// TailElement 返回尾部元素，不会在列表中删除
 func (c *ConcurrencyList) TailElement() *list.Element {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -33,7 +33,7 @@ func (c *ConcurrencyList) TailElement() *list.Element {
 	return c.elements.Back()
 }
 
-// 返回第几个元素，下标从0开始，如果是负数，则从尾部往头部数数
+// AtElement 返回第几个元素，下标从0开始，如果是负数，则从尾部往头部数数
 func (c *ConcurrencyList) AtElement(index int) *list.Element {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -58,7 +58,7 @@ func (c *ConcurrencyList) AtElement(index int) *list.Element {
 	return nil
 }
 
-// 返回头部的值，不会在列表中删除
+// Head 返回头部的值，不会在列表中删除
 func (c *ConcurrencyList) Head() interface{} {
 	res := c.HeadElement()
 
@@ -68,7 +68,7 @@ func (c *ConcurrencyList) Head() interface{} {
 	return nil
 }
 
-// 返回尾部的值，不会在列表中删除
+// Tail 返回尾部的值，不会在列表中删除
 func (c *ConcurrencyList) Tail() interface{} {
 	res := c.TailElement()
 
@@ -78,7 +78,7 @@ func (c *ConcurrencyList) Tail() interface{} {
 	return nil
 }
 
-// 返回第几个值，下标从0开始，如果是负数，则从尾部往头部数数
+// At 返回第几个值，下标从0开始，如果是负数，则从尾部往头部数数
 func (c *ConcurrencyList) At(index int) interface{} {
 	res := c.AtElement(index)
 
@@ -88,7 +88,7 @@ func (c *ConcurrencyList) At(index int) interface{} {
 	return nil
 }
 
-// 添加一个值到列表尾部
+// Push 添加一个值到列表尾部
 func (c *ConcurrencyList) Push(value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -96,7 +96,7 @@ func (c *ConcurrencyList) Push(value interface{}) {
 	c.elements.PushBack(value)
 }
 
-// 添加一个值到列表头部
+// PushHead 添加一个值到列表头部
 func (c *ConcurrencyList) PushHead(value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -104,7 +104,7 @@ func (c *ConcurrencyList) PushHead(value interface{}) {
 	c.elements.PushFront(value)
 }
 
-// 弹出头部的值，会在列表中删除该头部的元素
+// Pop 弹出头部的值，会在列表中删除该头部的元素
 func (c *ConcurrencyList) Pop() interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -118,7 +118,7 @@ func (c *ConcurrencyList) Pop() interface{} {
 	return nil
 }
 
-// 弹出尾部的值，会在列表中删除该尾部的元素
+// PopTail 弹出尾部的值，会在列表中删除该尾部的元素
 func (c *ConcurrencyList) PopTail() interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -132,7 +132,7 @@ func (c *ConcurrencyList) PopTail() interface{} {
 	return nil
 }
 
-// 移除第一个匹配的值，会从头部依次开始查找，只会删除第一个匹配的值
+// Remove 移除第一个匹配的值，会从头部依次开始查找，只会删除第一个匹配的值
 func (c *ConcurrencyList) Remove(value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -145,7 +145,7 @@ func (c *ConcurrencyList) Remove(value interface{}) {
 	}
 }
 
-// 移除一个元素
+// RemoveElement 移除一个元素
 func (c *ConcurrencyList) RemoveElement(element *list.Element) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -158,7 +158,7 @@ func (c *ConcurrencyList) RemoveElement(element *list.Element) {
 	}
 }
 
-// 返回列表的长度
+// Len 返回列表的长度
 func (c *ConcurrencyList) Len() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -166,7 +166,7 @@ func (c *ConcurrencyList) Len() int {
 	return c.elements.Len()
 }
 
-// 清空列表
+// Clear 清空列表
 func (c *ConcurrencyList) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

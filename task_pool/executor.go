@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"go-common/utils"
+	"go-common/utils/list"
 	"os"
 	"os/signal"
 	"runtime"
@@ -60,8 +61,8 @@ type Executor struct {
 	stopChan chan bool // 全局停止通道
 	termChan chan os.Signal
 
-	runningJobs *utils.ConcurrencyList
-	queueJobs   *utils.ConcurrencyList
+	runningJobs *list.ConcurrencyList
+	queueJobs   *list.ConcurrencyList
 }
 
 /**
@@ -79,8 +80,8 @@ func NewExecutor(params Params) (*Executor, error) {
 		stopped:     false,
 		wg:          &sync.WaitGroup{},
 		stopChan:    make(chan bool),
-		queueJobs:   utils.NewConcurrencyList(),
-		runningJobs: utils.NewConcurrencyList(),
+		queueJobs:   list.NewConcurrencyList(),
+		runningJobs: list.NewConcurrencyList(),
 	}
 
 	return executor, nil

@@ -5,18 +5,7 @@ import (
 	"encoding/hex"
 	"reflect"
 	"runtime"
-	"strconv"
 )
-
-func IsInt(val string) bool {
-	_, err := strconv.Atoi(val)
-	return err == nil
-}
-
-func IsInt64(val string) bool {
-	_, err := strconv.ParseInt(val, 10, 64)
-	return err == nil
-}
 
 func If(e bool, a, b interface{}) interface{} {
 	if e {

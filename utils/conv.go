@@ -5,6 +5,16 @@ import (
 	"strings"
 )
 
+func IsInt(val string) bool {
+	_, err := strconv.Atoi(val)
+	return err == nil
+}
+
+func IsInt64(val string) bool {
+	_, err := strconv.ParseInt(val, 10, 64)
+	return err == nil
+}
+
 func ParseInt(s string, base int, bitSize int, _default int64) int64 {
 	if i, err := strconv.ParseInt(s, base, bitSize); err == nil {
 		return i
@@ -48,7 +58,7 @@ func I64toa(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
 
-// XX.xx% => 0.XXxx
+// PercentageToFloat XX.xx% => 0.XXxx
 func PercentageToFloat(p string) float32 {
 	return Atof(strings.TrimSuffix(p, "%"), 0) / 100
 }
