@@ -119,9 +119,9 @@ func (e *Executor) Submit(runnables ...Runnable) []*Job {
 }
 
 /**
- * 停止所有任务，会等待任务池中的任务运行完毕
- * 正在运行的任务，会发送 stopChan 通道通知它停止
- * 对于未运行的任务，不会删除，可以使用 QueueJobs 查看
+ * 停止所有任务，会等待正在运行的任务运行完毕
+ * 正在运行的任务，会关闭 stopChan 通道通知它停止
+ * 对于未运行的任务，不会删除，后续可以通过 QueueJobs 查看
  * 注意：停止后的任务池将结束生命周期，即使再添加任务到 Submit 中也不会启动，除非 Reset
  */
 func (e *Executor) Stop() {
@@ -194,7 +194,7 @@ func (e *Executor) Reset(keepRemainJobs bool) {
 
 /**
  * 往任务池中塞任务并执行，如果任务池已满，则不会做任何操作。
- * 会被 Submit onJobDone 触发
+ * 此方法会被 Submit onJobDone 触发
  */
 func (e *Executor) runNextJob() {
 	e.mu.Lock() // 此任务只能被1个协程运行

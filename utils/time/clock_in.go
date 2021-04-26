@@ -63,12 +63,29 @@ func (c *ClockIn) Duration(name string) time.Duration {
 	return time.Now().Sub(c.LastTickAt(name))
 }
 
-// DoIfAfter 如果最后一次打开已经超过了duration，则执行一个方法，并打卡一次
-func (c *ClockIn) DoIfAfter(fn func() error, name string, duration time.Duration) (bool, error) {
+// DoIfAfter 如果最后一次打开已经超过了duration，则执行 fn，并打卡一次，否则将立即退出（不会执行fn），并返回 false
+// 注意：这并不是一个time.After方法
+// 符合条件是指：duration < time.Now() - LastTickAt
+func (c *ClockIn) DoIfAfter(name string, duration time.Duration, fn func()) bool {
 	if c.IsAfter(name, duration) {
-		err := fn()
+		fn()
 		c.Tick(name)
-		return true, err
+		return true
 	}
-	return false, nil
+	return false
+}
+
+// DoAfter 如果符合条件，会立即执行fn，不然，会使用time.AfterFunc方法等待符合条件后执行，最终都会打卡一次
+// 符合条件是指：duration < time.Now() - LastTickAt
+func (c *ClockIn) DoAfter(name string, duration time.Duration, fn func()) {
+	lastAt := c.LastTickAt(name)
+	delta := time.Now().Sub(lastAt)
+	if duration <= delta { // 已经超过了要求的时间
+		fn()
+		c.Tick(name)
+	} else {
+		time.AfterFunc(duration-delta, func() {
+			c.DoAfter(name, duration, fn)
+		})
+	}
 }
