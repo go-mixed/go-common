@@ -37,6 +37,8 @@ func ReadAndRestoreReader(reader *io.ReadCloser) []byte {
 	}
 
 	_bytes, _ := ioutil.ReadAll(*reader)
+	// close original reader
+	(*reader).Close()
 
 	// Restore the io.ReadCloser to its original state
 	*reader = BytesToReaderWithCloser(_bytes)
