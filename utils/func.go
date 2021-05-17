@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 )
 
 // functionCache keeps genericFunc reflection objects in cache.
@@ -212,4 +213,9 @@ func Invoke9(fn interface{}, args ...interface{}) (interface{}, interface{}, int
 		fmt.Printf("invoke fail: %s", err.Error())
 	}
 	return nil, nil, nil, nil, nil, nil, nil, nil, nil
+}
+
+// NameOfFunction
+func NameOfFunction(f interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
 }

@@ -1,51 +1,113 @@
 package web
 
 import (
-	"github.com/gin-contrib/pprof"
-	ginzap "github.com/gin-contrib/zap"
-	"github.com/gin-gonic/gin"
+	"crypto/tls"
 	"go-common/utils"
 	"net/http"
-	"path/filepath"
-	"time"
 )
 
-type ServerOptions struct {
-	Debug bool
-	Host  string
-	Cert  string
-	Key   string
+
+type Certificate struct {
+	CertFile string
+	KeyFile string
 }
 
-func NewGinEngine(options *ServerOptions) *gin.Engine {
-	logger := utils.GetLogger()
-
-	router := gin.Default()
-	router.Use(ginzap.Ginzap(logger, time.RFC3339, true)) // 使用zap作为logger
-	router.Use(func(context *gin.Context) {
-		context.Set("request_at", time.Now())
-	}) // 注册当前时间
-	pprof.Register(router) // 注册火焰图pprof
-
-	// 注册模板
-	router.LoadHTMLGlob(filepath.Join(utils.GetCurrentDir(), "resources/views/**/*"))
-	// 注册静态文件夹
-	router.Static("/assets", filepath.Join(utils.GetCurrentDir(), "resources/assets"))
-	router.StaticFile("/favicon.ico", filepath.Join(utils.GetCurrentDir(), "resources/assets/img/favicon.ico"))
-
-	return router
+type IServerConfig interface {
+	http.Handler
+	GetHost() string
+	IsTLS() bool
+	GetCertificates() []*Certificate
 }
 
-func RunServer(options *ServerOptions, router *gin.Engine, stopChan <-chan bool) error {
+type domainConfig struct {
+	cert    *Certificate
+	domains []string
+	handler http.Handler
+}
 
-	if !options.Debug {
-		gin.SetMode(gin.ReleaseMode)
+type ServerConfig struct {
+	Host    string
+	domains []*domainConfig
+}
+
+func NewServerConfig(host string) *ServerConfig {
+	return &ServerConfig{
+		Host:    host,
+		domains: make([]*domainConfig, 0, 1),
 	}
+}
+
+func NewCertificate(certFile, keyFile string) *Certificate {
+	if certFile == "" || keyFile == "" {
+		return nil
+	}
+	return &Certificate{
+		CertFile: certFile,
+		KeyFile:  keyFile,
+	}
+}
+
+func (c *ServerConfig) AddDomain(domains []string, handler http.Handler, cert *Certificate) *ServerConfig {
+	c.domains = append(c.domains, &domainConfig{
+		cert:    cert,
+		domains: domains,
+		handler: handler,
+	})
+
+	return c
+}
+
+func (c *ServerConfig) GetHost() string {
+	return c.Host
+}
+
+func (c *ServerConfig) IsTLS() bool {
+	for _, domain := range c.domains {
+		if domain.cert != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *ServerConfig) GetCertificates() []*Certificate {
+	var certs []*Certificate
+	for _, domain := range c.domains {
+		certs = append(certs, domain.cert)
+	}
+	return certs
+}
+
+func (c *ServerConfig) match(domain string) http.Handler {
+	if len(c.domains) == 1 {
+		return c.domains[0].handler
+	}
+	return nil
+}
+
+func (c *ServerConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	isTLS := c.IsTLS()
+	if isTLS {
+		for _, domain := range c.domains {
+			if domain.cert == nil {
+				panic("all domains must have tls certs.")
+			}
+		}
+	}
+
+	if handler := c.match(r.Host); handler != nil {
+		handler.ServeHTTP(w, r)
+	}
+}
+
+// RunServer
+func RunServer(stopChan <-chan bool, serverConfig IServerConfig) error {
+
 	sugarLogger := utils.GetSugaredLogger()
 
 	server := &http.Server{
-		Addr:    options.Host,
-		Handler: router,
+		Addr:    serverConfig.GetHost(),
+		Handler: serverConfig,
 	}
 
 	go func() {
@@ -57,8 +119,9 @@ func RunServer(options *ServerOptions, router *gin.Engine, stopChan <-chan bool)
 	}()
 
 	// 启动http server
-	if options.Cert == "" || options.Key == "" {
-		sugarLogger.Infof("Start http server on %s", options.Host)
+	if ! serverConfig.IsTLS() {
+
+		sugarLogger.Infof("Start http server on %s", serverConfig.GetHost())
 
 		if err := server.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
@@ -68,9 +131,14 @@ func RunServer(options *ServerOptions, router *gin.Engine, stopChan <-chan bool)
 			}
 		}
 	} else { // 启动https server
-		sugarLogger.Infof("Start https server on %s", options.Host)
+		//
+		if err := SetServerTLSCerts(server, serverConfig.GetCertificates()); err != nil {
+			return err
+		}
 
-		if err := server.ListenAndServeTLS(options.Cert, options.Key); err != nil {
+		sugarLogger.Infof("Start https server on %s", serverConfig.GetHost())
+
+		if err := server.ListenAndServeTLS("", ""); err != nil {
 			if err == http.ErrServerClosed {
 				sugarLogger.Info("https server closed")
 			} else {
@@ -80,4 +148,23 @@ func RunServer(options *ServerOptions, router *gin.Engine, stopChan <-chan bool)
 	}
 
 	return nil
+}
+
+func SetServerTLSCerts(srv *http.Server, certs []*Certificate) error {
+	var err error
+
+	if srv.TLSConfig == nil {
+		srv.TLSConfig = &tls.Config{}
+	}
+
+	srv.TLSConfig.Certificates = make([]tls.Certificate, len(certs))
+	for i, v := range certs {
+		srv.TLSConfig.Certificates[i], err = tls.LoadX509KeyPair(v.CertFile, v.KeyFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
 }
