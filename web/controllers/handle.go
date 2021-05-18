@@ -33,7 +33,6 @@ func RegisterController(controllerName string, fn func(ctx *gin.Context) IContro
 func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		controller, err := NewController(controllerName, ctx)
-
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusNotFound)
 			_, _ = ctx.Writer.WriteString(err.Error())
@@ -42,7 +41,7 @@ func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) 
 		} else if res, err := callControllerMethod(controller, methodName); err == nil {
 			controller.SuccessResponse(0, res)
 		} else {
-			controller.ErrorResponse(NewResponseException(err.GetCode(), http.StatusBadRequest, err.GetMessage()), res)
+			controller.ErrorResponse(err, res)
 		}
 	}
 }
@@ -50,8 +49,9 @@ func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) 
 func callControllerMethod(controller IController, methodName string, args ...interface{}) (interface{}, IResponseException) {
 	res, err := utils.CallMethod2(controller, methodName, args...)
 
-	errKind := reflect.ValueOf(err).Kind()
-	if errKind == reflect.Ptr && !reflect.ValueOf(err).IsNil() {
+	errValueOf := reflect.ValueOf(err)
+	errKind := errValueOf.Kind()
+	if errKind == reflect.Ptr && !errValueOf.IsNil() {
 		switch err.(type) {
 		case IResponseException:
 			return res, err.(IResponseException)
