@@ -11,8 +11,8 @@ import (
 )
 
 type Certificate struct {
-	CertFile string
-	KeyFile  string
+	CertFile string `json:"cert"`
+	KeyFile  string `json:"key"`
 
 	certFileInfo os.FileInfo
 	keyFileInfo  os.FileInfo
@@ -26,7 +26,6 @@ type IServerConfig interface {
 }
 
 type domainConfig struct {
-	cert    *Certificate
 	domain  string
 	handler http.Handler
 }
@@ -90,15 +89,16 @@ func (c *ServerConfig) ContainsCert(cert *Certificate) bool {
 
 // AddServeHandler 添加域名, serveHTTP, 证书
 // 注意: 如果有传递证书，证书DNS Name必须包含所传递的domains（此函数并不检查），不然，需要分多次添加
-func (c *ServerConfig) AddServeHandler(domains []string, handler http.Handler, cert *Certificate) error {
+func (c *ServerConfig) AddServeHandler(domains utils.Domains, handler http.Handler, certs []*Certificate) error {
 	if c.running {
 		return fmt.Errorf("server is running, can not add handler anymore")
 	}
 
-	if cert != nil && (cert.CertFileInfo() == nil || cert.KeyFileInfo() == nil) {
-		return fmt.Errorf("cert or key file is not invalid")
-	} else if cert != nil { // 添加cert列表
-		if !c.ContainsCert(cert) {
+	for _, cert := range certs {
+		if cert.CertFileInfo() == nil || cert.KeyFileInfo() == nil {
+			return fmt.Errorf("cert \"%s\" or key \"%s\" is invalid", cert.CertFile, cert.KeyFile)
+		}
+		if !c.ContainsCert(cert) { // 添加cert列表
 			c.certs = append(c.certs, cert)
 		}
 	}
@@ -112,7 +112,6 @@ func (c *ServerConfig) AddServeHandler(domains []string, handler http.Handler, c
 		}
 
 		domainConfigs = append(domainConfigs, &domainConfig{
-			cert:    cert,
 			domain:  domain,
 			handler: handler,
 		})
@@ -128,8 +127,8 @@ func (c *ServerConfig) AddServeHandler(domains []string, handler http.Handler, c
 }
 
 // SetDefaultServeHandler 设置默认的ServeHandler, 即添加一个通配符*的域名
-func (c *ServerConfig) SetDefaultServeHandler(handler http.Handler, cert *Certificate) error {
-	return c.AddServeHandler([]string{"*"}, handler, cert)
+func (c *ServerConfig) SetDefaultServeHandler(handler http.Handler, certs []*Certificate) error {
+	return c.AddServeHandler([]string{"*"}, handler, certs)
 }
 
 // GetHost 获取待监听的HOST, 比如: 0.0.0.0:80

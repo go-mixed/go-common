@@ -17,9 +17,9 @@ func init() {
 func main() {
 	fmt.Printf("version: %s\n", version())
 
-	fmt.Printf("indexOf interface{}: %d", list.IndexOf([]string{"1", "2"}, "2"))
+	fmt.Printf("indexOf interface{}: %d\n", list.IndexOf([]string{"1", "2"}, "2"))
 
-	domains := []string{
+	domains := utils.Domains{
 		"*.b.com",
 		"b.com",
 		"*.com",
@@ -32,9 +32,7 @@ func main() {
 		"c?.*.b.com",
 		"b.*",
 	}
-	utils.SortDomains(&domains, func(v interface{}) string {
-		return v.(string)
-	})
+	domains = domains.Sort()
 
 	fmt.Printf("sort domains: %#v", domains)
 }
