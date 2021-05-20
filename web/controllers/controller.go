@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
+	"net/http"
 	"time"
 )
 
@@ -11,17 +12,19 @@ type Controller struct {
 
 type IController interface {
 	SuccessResponse(code, data interface{})
-	ErrorResponse(exception IResponseException, data interface{})
+	ErrorResponse(err error, data interface{})
 }
 
 // ErrorResponse default error response
-func (c *Controller) ErrorResponse(exception IResponseException, data interface{}) {
+func (c *Controller) ErrorResponse(err error, data interface{}) {
 	duration := time.Now().Sub(c.Context.GetTime("request_at"))
 
+	_err := c.EnsureErrorResponse(err)
+
 	c.Context.Abort()
-	c.Context.JSON(exception.GetStatusCode(), Result{
-		Code:     exception.GetCode(),
-		Message:  exception.GetMessage(),
+	c.Context.JSON(_err.GetStatusCode(), Result{
+		Code:     _err.GetCode(),
+		Message:  _err.GetMessage(),
 		Data:     data,
 		Duration: float64(duration) / float64(time.Millisecond),
 		At:       time.Now().UnixNano() / int64(time.Millisecond),
@@ -41,6 +44,14 @@ func (c *Controller) SuccessResponse(code, data interface{}) {
 	})
 }
 
-func (c *Controller) shouldBindQuery() {
-
+// EnsureErrorResponse turn error to IResponseException
+func (c *Controller) EnsureErrorResponse(err error) IResponseException {
+	var _err IResponseException
+	switch err.(type) {
+	case IResponseException:
+		_err = err.(IResponseException)
+	default:
+		_err = NewResponseException(-1, http.StatusBadRequest, err.Error())
+	}
+	return _err
 }

@@ -46,22 +46,21 @@ func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) 
 	}
 }
 
-func callControllerMethod(controller IController, methodName string, args ...interface{}) (interface{}, IResponseException) {
+func callControllerMethod(controller IController, methodName string, args ...interface{}) (interface{}, error) {
 	res, err := utils.CallMethod2(controller, methodName, args...)
 
+	// format string/error/any pointer to error
 	errValueOf := reflect.ValueOf(err)
 	errKind := errValueOf.Kind()
 	if errKind == reflect.Ptr && !errValueOf.IsNil() {
 		switch err.(type) {
-		case IResponseException:
-			return res, err.(IResponseException)
 		case error:
-			return res, NewResponseException(-1, http.StatusBadRequest, err.(error).Error())
+			return res, err.(error)
 		default:
-			return res, NewResponseException(-1, http.StatusBadRequest, fmt.Sprintf("%#v", err))
+			return res, fmt.Errorf("%#v", err)
 		}
 	} else if errKind == reflect.String && err != "" {
-		return res, NewResponseException(-1, http.StatusBadRequest, err.(string))
+		return res, fmt.Errorf("%#v", err.(string))
 	}
 
 	return res, nil
