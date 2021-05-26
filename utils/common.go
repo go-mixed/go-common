@@ -1,12 +1,14 @@
 package utils
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"reflect"
 	"runtime"
 )
 
+// If 类似三目运算, 但是这不是真正的三目运算, 因为不论 e为何值, a, b的表达式都会被运算, 其它语言中, e为true时, b不会运算
+// 比如: If(a != nil, a.XX, "default"), 如果a为nil, a.XX运算会导致程序会崩溃
+// 比如: If(e, a.fastFn(), a.SlowFn()), 不论e为何值, fastFn/SlowFn 都会被运行, 只是不返回SlowFn的值罢了
+// 此时只能 if a != nil {} else {}
 func If(e bool, a, b interface{}) interface{} {
 	if e {
 		if reflect.TypeOf(a).Kind() == reflect.Func {
@@ -20,11 +22,7 @@ func If(e bool, a, b interface{}) interface{} {
 	return b
 }
 
-func Md5(text string) string {
-	hash := md5.Sum([]byte(text))
-	return hex.EncodeToString(hash[:])
-}
-
+// GetFrame 获取调用栈列表
 func GetFrame(skipFrames int) runtime.Frame {
 	// We need the frame at index skipFrames+2, since we never want runtime.Callers and getFrame
 	targetFrameIndex := skipFrames + 2
@@ -48,6 +46,8 @@ func GetFrame(skipFrames int) runtime.Frame {
 	return frame
 }
 
+// IsInterfaceNil 指针是否为nil
 func IsInterfaceNil(v interface{}) bool {
-	return v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil())
+	vOf := reflect.ValueOf(v)
+	return v == nil || (vOf.Kind() == reflect.Ptr && vOf.IsNil())
 }

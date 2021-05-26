@@ -58,8 +58,12 @@ func I64toa(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
 
-func HexToInt64(hex string) int64 {
+func HexToInt(hex string) int64 {
 	return ParseInt(hex, 16, 64, 0)
+}
+
+func IntToHex(i int64) string {
+	return strconv.FormatInt(i, 16)
 }
 
 // PercentageToFloat XX.xx% => 0.XXxx

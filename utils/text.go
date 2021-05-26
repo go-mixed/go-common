@@ -1,5 +1,10 @@
 package utils
 
+import (
+	"crypto/md5"
+	"encoding/hex"
+)
+
 // WildcardMatchSimple - finds whether the text matches/satisfies the pattern string.
 // supports only '*' wildcard in the pattern.
 // considers a file system path as a flat name space.
@@ -41,11 +46,16 @@ func deepWildcardMatchRune(str, pattern []rune, simple bool) bool {
 				return false
 			}
 		case '*':
-			return deepWildcardMatchRune(str, pattern[1:], simple) ||
-				(len(str) > 0 && deepWildcardMatchRune(str[1:], pattern, simple))
+			return deepWildcardMatchRune(str, pattern[1:], simple) || // 当前str[0]的字符是否匹配*之后(pattern[1])的字符
+				(len(str) > 0 && deepWildcardMatchRune(str[1:], pattern, simple)) // 上面没匹配到, 则继续用*匹配下一个(str[1])字符
 		}
 		str = str[1:]
 		pattern = pattern[1:]
 	}
 	return len(str) == 0 && len(pattern) == 0
+}
+
+func Md5(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
 }

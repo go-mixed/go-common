@@ -67,6 +67,10 @@ func (d Domains) IsEmpty() bool {
 
 func (d Domains) Sort() Domains {
 	_d := d[:]
+
+	if d.IsEmpty() {
+		return _d
+	}
 	// 按照域名的特有方式进行排序
 	SortDomains(&_d, func(v interface{}) string {
 		return v.(string)
