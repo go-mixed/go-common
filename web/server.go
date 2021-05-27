@@ -23,7 +23,7 @@ type Certificate struct {
 }
 
 
-type Middleware func(w http.ResponseWriter, r *http.Request, nextHandler http.HandlerFunc)
+type Middleware func(w http.ResponseWriter, r *http.Request, nextHandler http.Handler)
 
 type DomainConfig struct {
 	domain  string
@@ -33,13 +33,15 @@ type DomainConfig struct {
 type HttpServer struct {
 	Host                 string
 	orderedDomainConfigs []*DomainConfig
-	middleware []Middleware
-	handler http.HandlerFunc
+	middleware           []Middleware
+	// 真正执行的handler入口
+	handlerStack         http.Handler
 	certs                []*Certificate
 	// 为了加快命中, 会将域名所指向的handler进行缓存,此处是该缓存过期市场, 小于60s会修改为60s, 无法设为永久
 	domainCacheExpired time.Duration
 	mu sync.Mutex
 	logger *zap.SugaredLogger
+	domainCache *cache.Cache
 }
 
 func NewHttpServer(host string) *HttpServer {
@@ -49,8 +51,9 @@ func NewHttpServer(host string) *HttpServer {
 		domainCacheExpired: 60 * time.Second,
 		mu: sync.Mutex{},
 		logger: utils.GetSugaredLogger(),
+		domainCache: cache.New(60 * time.Second, 30 * time.Second),
 	}
-	s.handler = s.defaultHandler // 最后的handler
+	s.handlerStack = s.defaultHandlerFunc() // 最后的handler
 	return s
 }
 
@@ -106,8 +109,8 @@ func (c *HttpServer) ContainsCert(cert *Certificate) bool {
 // AddServeHandler 添加域名, serveHTTP, 证书
 // 可以使用 AddCertificate 传递证书
 // 注意: 如果有传递证书，证书DNS Name必须包含所传递的domains（此函数并不检查），不然，需要分多次添加
-func (c *HttpServer) AddServeHandler(domains utils.Domains, handler http.Handler, certs []*Certificate) error {
-	if err := c.AddCertificate(certs...); err != nil {
+func (c *HttpServer) AddServeHandler(domains utils.Domains, handler http.Handler, cert *Certificate) error {
+	if err := c.AddCertificate(cert); err != nil {
 		return err
 	}
 
@@ -133,27 +136,48 @@ func (c *HttpServer) AddServeHandler(domains utils.Domains, handler http.Handler
 		return v.(*DomainConfig).domain
 	})
 
+	c.ClearDomainCache()
+
 	c.orderedDomainConfigs = domainConfigs
 	return nil
 }
 
+// Use 添加中间件
+// 这种嵌套方式的中间件, 可以运行在controller前, 也可以运行在controller后
+// 运行在 controller 前
+// Use(func(w, r, next) {
+// 		r.Path = "/abc" + r.Path // 修改path
+//      next.ServeHTTP(w, r)
+// }
+// controller 后
+// Use(func(w, r, next) {
+//      next.ServeHTTP(w, r) // 先运行
+// 		w.Write(...)
+// }
+//
 func (c *HttpServer) Use(fn... Middleware) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.middleware = append(c.middleware, fn...)
 
-	// 创建中间件管道
-	var last http.HandlerFunc = c.defaultHandler
+	// 倒着创建中间件管道
+	// 嵌套顺序为
+	// c.handlerStack = func m1(w, r) {
+	//    func m2(w, r) {
+	//        c.defaultHandlerFunc()(w, r)
+	//    }(w, r)
+	// }
+	var last = c.defaultHandlerFunc()
 	for i := len(c.middleware) - 1; i >= 0; i-- {
-		func(_last http.HandlerFunc, m Middleware){
+		func(_last http.HandlerFunc, m Middleware) {
 			last = func(w http.ResponseWriter, r *http.Request) {
 				m(w, r, _last)
 			}
 		}(last, c.middleware[i])
 	}
 
-	c.handler = last
+	c.handlerStack = last
 }
 
 func (c *HttpServer) SetLogger(logger *zap.SugaredLogger) {
@@ -165,6 +189,9 @@ func (c *HttpServer) AddCertificate(certs... *Certificate) error  {
 	defer c.mu.Unlock()
 
 	for _, cert := range certs {
+		if cert == nil {
+			continue
+		}
 		if cert.CertFileInfo() == nil || cert.KeyFileInfo() == nil {
 			return fmt.Errorf("cert \"%s\" or key \"%s\" is invalid", cert.CertFile, cert.KeyFile)
 		}
@@ -188,15 +215,14 @@ func (c *HttpServer) RemoveDomainHandler(domain string) {
 	}
 }
 
-// ClearDomainMatchCache 清理域名的匹配结果，对于域名解绑之后要立即生效的可以使用本函数
-// 此函数没办法清理通配符
-func (c *HttpServer) ClearDomainMatchCache(domain string) {
-	cache.Delete(fmt.Sprintf("domain-handler-%s", domain))
+// ClearDomainCache 清理域名的匹配结果
+func (c *HttpServer) ClearDomainCache() {
+	c.domainCache.Flush()
 }
 
 // SetDefaultServeHandler 设置默认的ServeHandler, 即添加一个通配符*的域名
-func (c *HttpServer) SetDefaultServeHandler(handler http.Handler, certs []*Certificate) error {
-	return c.AddServeHandler([]string{"*"}, handler, certs)
+func (c *HttpServer) SetDefaultServeHandler(handler http.Handler, cert *Certificate) error {
+	return c.AddServeHandler([]string{"*"}, handler, cert)
 }
 
 // GetHost 获取待监听的HOST, 比如: 0.0.0.0:80
@@ -219,8 +245,13 @@ func (c *HttpServer) GetCertificates() []*Certificate {
 
 // MatchDomain 匹配域名, 使用通配符的方式，如果只添加了一个domain，则不论是否匹配都返回该serveHandler
 func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
+	// 只有一个的情况快速返回
+	if len(c.orderedDomainConfigs) == 1 && c.orderedDomainConfigs[0].domain == "*" {
+		return c.orderedDomainConfigs[0]
+	}
+
 	// 此处可以用Lru cache做持久保存 但是因为域名可能会解绑, 所以需要过期时间
-	domainConfig, _ := cache.Remember(fmt.Sprintf("domain-handler-%s", domain), 60 * time.Second, func() (interface{}, error) {
+	domainConfig, _ := c.domainCache.Remember(fmt.Sprintf("domain-handlerStack-%s", domain), 60 * time.Second, func() (interface{}, error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
@@ -238,15 +269,17 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 	return nil
 }
 
-func (c *HttpServer) defaultHandler(w http.ResponseWriter, r *http.Request) {
-	if domainConfig := c.MatchDomain(r.Host); domainConfig != nil {
-		domainConfig.handler.ServeHTTP(w, r)
+func (c *HttpServer) defaultHandlerFunc() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if domainConfig := c.MatchDomain(r.Host); domainConfig != nil {
+			domainConfig.handler.ServeHTTP(w, r)
+		}
 	}
 }
 
 // ServeHTTP HTTP入口函数，匹配域名之后 分发到不同handler
 func (c *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c.handler(w, r)
+	c.handlerStack.ServeHTTP(w, r)
 }
 
 // Run 对外主函数, 用于运行http(s) server，并且可以监听stopChan来停止服务器
@@ -298,8 +331,6 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 
 	return nil
 }
-
-
 
 // SetServerTLSCerts 给http.Server{}一次添加多个TLS证书
 func SetServerTLSCerts(srv *http.Server, certs []*Certificate) error {
