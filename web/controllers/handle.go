@@ -30,7 +30,7 @@ func RegisterController(controllerName string, fn func(ctx *gin.Context) IContro
 	controllerRegistry[controllerName] = fn
 }
 
-func ControllerHandle(controllerName, methodName string) func(ctx *gin.Context) {
+func ControllerHandler(controllerName, methodName string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		controller, err := NewController(controllerName, ctx)
 		if err != nil {
