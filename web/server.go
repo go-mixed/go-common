@@ -294,7 +294,7 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 	}
 
 	go func() {
-		<- c.ListenStopChan(stopChan)
+		<- c.listenStopChan(stopChan)
 
 		if err := server.Close(); err != nil {
 			c.logger.Fatal("Server Close: ", err)
@@ -342,7 +342,7 @@ func (c *HttpServer) listenStopChan(stopChan <-chan bool) <-chan bool {
 		go func() {
 			select {
 			case <-termChan:
-				c.logger.Info("exit signal received.")
+				c.logger.Info("exit signal of process received.")
 				close(_stopChan)
 			}
 		}()
