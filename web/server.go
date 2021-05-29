@@ -9,8 +9,10 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -283,9 +285,8 @@ func (c *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Run 对外主函数, 用于运行http(s) server，并且可以监听stopChan来停止服务器
+// 如果stopChan为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
 func (c *HttpServer) Run(stopChan <-chan bool) error {
-
-	sugarLogger := utils.GetSugaredLogger()
 
 	server := &http.Server{
 		Addr:    c.GetHost(),
@@ -293,21 +294,21 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 	}
 
 	go func() {
-		<-stopChan
+		<- c.ListenStopChan(stopChan)
 
 		if err := server.Close(); err != nil {
-			sugarLogger.Fatal("Server Close: ", err)
+			c.logger.Fatal("Server Close: ", err)
 		}
 	}()
 
 	// 启动http server
 	if !c.IsTLS() {
 
-		sugarLogger.Infof("Start http server on %s", c.GetHost())
+		c.logger.Infof("Start http server on %s", c.GetHost())
 
 		if err := server.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
-				sugarLogger.Info("http server closed")
+				c.logger.Info("http server closed")
 			} else {
 				return err
 			}
@@ -318,11 +319,11 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 			return err
 		}
 
-		sugarLogger.Infof("Start https server on %s", c.GetHost())
+		c.logger.Infof("Start https server on %s", c.GetHost())
 
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			if err == http.ErrServerClosed {
-				sugarLogger.Info("https server closed")
+				c.logger.Info("https server closed")
 			} else {
 				return err
 			}
@@ -330,6 +331,25 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 	}
 
 	return nil
+}
+// 监听停止信号, stopChan为nil 则收听进程退出信号
+func (c *HttpServer) listenStopChan(stopChan <-chan bool) <-chan bool {
+	if stopChan == nil {
+		var _stopChan = make(chan bool)
+		termChan := make(chan os.Signal)
+		//监听指定信号: 终端断开, ctrl+c, kill, ctrl+/
+		signal.Notify(termChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+		go func() {
+			select {
+			case <-termChan:
+				c.logger.Info("exit signal received.")
+				close(_stopChan)
+			}
+		}()
+		return _stopChan
+	} else {
+		return stopChan
+	}
 }
 
 // SetServerTLSCerts 给http.Server{}一次添加多个TLS证书
