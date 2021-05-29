@@ -6,7 +6,6 @@ import (
 	"go-common/cache"
 	"go-common/utils"
 	"go-common/utils/list"
-	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
@@ -42,7 +41,7 @@ type HttpServer struct {
 	// 为了加快命中, 会将域名所指向的handler进行缓存,此处是该缓存过期市场, 小于60s会修改为60s, 无法设为永久
 	domainCacheExpired time.Duration
 	mu sync.Mutex
-	logger *zap.SugaredLogger
+	logger utils.ILogger
 	domainCache *cache.Cache
 }
 
@@ -52,7 +51,7 @@ func NewHttpServer(host string) *HttpServer {
 		orderedDomainConfigs: make([]*DomainConfig, 0, 1),
 		domainCacheExpired: 60 * time.Second,
 		mu: sync.Mutex{},
-		logger: utils.GetSugaredLogger(),
+		logger: utils.NewDefaultLogger(),
 		domainCache: cache.New(60 * time.Second, 30 * time.Second),
 	}
 	s.handlerStack = s.defaultHandlerFunc() // 最后的handler
@@ -182,7 +181,7 @@ func (c *HttpServer) Use(fn... Middleware) {
 	c.handlerStack = last
 }
 
-func (c *HttpServer) SetLogger(logger *zap.SugaredLogger) {
+func (c *HttpServer) SetLogger(logger utils.ILogger) {
 	c.logger = logger
 }
 

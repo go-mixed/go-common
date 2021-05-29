@@ -4,12 +4,42 @@ import (
 	"github.com/utahta/go-cronowriter"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"log"
 	"os"
 	"path/filepath"
 )
 
 var logger *zap.Logger
 var sugarLogger *zap.SugaredLogger
+
+type ILogger interface {
+	Fatal(v ...interface{})
+	Fatalf(format string, v ...interface{})
+	Error(v ...interface{})
+	Errorf(format string, v ...interface{})
+	Panic(v ...interface{})
+	Panicf(format string, v ...interface{})
+
+	Debug(v ...interface{})
+	Debugf(format string, v ...interface{})
+	Info(v ...interface{})
+	Infof(format string, v ...interface{})
+	Warn(v ...interface{})
+	Warnf(format string, v ...interface{})
+}
+
+type DefaultLogger struct {
+	stdOutLog *log.Logger
+	stdErrLog *log.Logger
+}
+
+func NewDefaultLogger() ILogger {
+	return &DefaultLogger{
+		stdOutLog: log.New(os.Stdout, "", log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile | log.Lmsgprefix),
+		stdErrLog: log.New(os.Stderr, "", log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile | log.Lmsgprefix),
+	}
+}
+
 
 /**
  * 初始化Logger
@@ -23,7 +53,7 @@ func InitLogger(filename string, errorFilename string) {
 	// 获取log writer
 	writeSyncer := getLogWriter(filename)
 	writeStdout := zapcore.AddSync(os.Stdout)
-	encoder := getEncoder()
+	encoder := getLogEncoder()
 
 	errorLevel := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
 		return level >= zapcore.ErrorLevel
@@ -62,11 +92,11 @@ func GetLogger() *zap.Logger {
 	return logger
 }
 
-func GetSugaredLogger() *zap.SugaredLogger {
+func GetSugaredLogger() ILogger {
 	return sugarLogger
 }
 
-func getEncoder() zapcore.Encoder {
+func getLogEncoder() zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
@@ -82,4 +112,64 @@ func getLogWriter(filename string) zapcore.WriteSyncer {
 	path := filename[0:len(filename)-len(ext)] + ".%Y-%m-%d" + ext
 
 	return zapcore.AddSync(cronowriter.MustNew(path))
+}
+
+func (d DefaultLogger) Fatal(v ...interface{}) {
+	d.stdErrLog.SetPrefix("FATAL\t")
+	d.stdErrLog.Fatal(v...)
+}
+
+func (d DefaultLogger) Fatalf(format string, v ...interface{}) {
+	d.stdErrLog.SetPrefix("FATAL\t")
+	d.stdErrLog.Fatalf(format, v...)
+}
+
+func (d DefaultLogger) Error(v ...interface{}) {
+	d.stdErrLog.SetPrefix("ERROR\t")
+	d.stdErrLog.Print(v...)
+}
+
+func (d DefaultLogger) Errorf(format string, v ...interface{}) {
+	d.stdErrLog.SetPrefix("ERROR\t")
+	d.stdErrLog.Printf(format, v...)
+}
+
+func (d DefaultLogger) Panic(v ...interface{}) {
+	d.stdErrLog.SetPrefix("PANIC\t")
+	d.stdErrLog.Panic(v...)
+}
+
+func (d DefaultLogger) Panicf(format string, v ...interface{}) {
+	d.stdErrLog.SetPrefix("PANIC\t")
+	d.stdErrLog.Panicf(format, v...)
+}
+
+func (d DefaultLogger) Debug(v ...interface{}) {
+	d.stdOutLog.SetPrefix("DEBUG\t")
+	d.stdOutLog.Print(v...)
+}
+
+func (d DefaultLogger) Debugf(format string, v ...interface{}) {
+	d.stdOutLog.SetPrefix("DEBUG\t")
+	d.stdOutLog.Printf(format, v...)
+}
+
+func (d DefaultLogger) Info(v ...interface{}) {
+	d.stdOutLog.SetPrefix("INFO\t")
+	d.stdOutLog.Print(v...)
+}
+
+func (d DefaultLogger) Infof(format string, v ...interface{}) {
+	d.stdOutLog.SetPrefix("INFO\t")
+	d.stdOutLog.Printf(format, v...)
+}
+
+func (d DefaultLogger) Warn(v ...interface{}) {
+	d.stdOutLog.SetPrefix("WARN\t")
+	d.stdOutLog.Print(v...)
+}
+
+func (d DefaultLogger) Warnf(format string, v ...interface{}) {
+	d.stdOutLog.SetPrefix("WARN\t")
+	d.stdOutLog.Printf(format, v...)
 }
