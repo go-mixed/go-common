@@ -1,10 +1,17 @@
 package utils
 
 import (
+	"bytes"
+	"context"
+	"encoding/hex"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"net/http"
 	"net/url"
+	"regexp"
+	"sort"
+	"strings"
+	"unicode/utf8"
 )
 
 var HttpReason = map[int]string{
@@ -110,4 +117,100 @@ func CloseResponseWriter(w http.ResponseWriter) error {
 	}
 
 	return nil
+}
+
+// Expects ascii encoded strings - from output of urlEncodePath
+func percentEncodeSlash(s string) string {
+	return strings.Replace(s, "/", "%2F", -1)
+}
+
+// QueryEncode - encodes query values in their URL encoded form. In
+// addition to the percent encoding performed by urlEncodePath() used
+// here, it also percent encodes '/' (forward slash)
+func QueryEncode(v url.Values) string {
+	if v == nil {
+		return ""
+	}
+	var buf bytes.Buffer
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		vs := v[k]
+		prefix := percentEncodeSlash(EncodePath(k)) + "="
+		for _, v := range vs {
+			if buf.Len() > 0 {
+				buf.WriteByte('&')
+			}
+			buf.WriteString(prefix)
+			buf.WriteString(percentEncodeSlash(EncodePath(v)))
+		}
+	}
+	return buf.String()
+}
+
+// if object matches reserved string, no need to encode them
+var reservedObjectNames = regexp.MustCompile("^[a-zA-Z0-9-_.~/]+$")
+
+// EncodePath encode the strings from UTF-8 byte representations to HTML hex escape sequences
+//
+// This is necessary since regular url.Parse() and url.Encode() functions do not support UTF-8
+// non english characters cannot be parsed due to the nature in which url.Encode() is written
+//
+// This function on the other hand is a direct replacement for url.Encode() technique to support
+// pretty much every UTF-8 character.
+func EncodePath(pathName string) string {
+	if reservedObjectNames.MatchString(pathName) {
+		return pathName
+	}
+	var encodedPathname strings.Builder
+	for _, s := range pathName {
+		if 'A' <= s && s <= 'Z' || 'a' <= s && s <= 'z' || '0' <= s && s <= '9' { // §2.3 Unreserved characters (mark)
+			encodedPathname.WriteRune(s)
+			continue
+		}
+		switch s {
+		case '-', '_', '.', '~', '/': // §2.3 Unreserved characters (mark)
+			encodedPathname.WriteRune(s)
+			continue
+		default:
+			_len := utf8.RuneLen(s)
+			if _len < 0 {
+				// if utf8 cannot convert return the same string as is
+				return pathName
+			}
+			u := make([]byte, _len)
+			utf8.EncodeRune(u, s)
+			for _, r := range u {
+				_hex := hex.EncodeToString([]byte{r})
+				encodedPathname.WriteString("%" + strings.ToUpper(_hex))
+			}
+		}
+	}
+	return encodedPathname.String()
+}
+
+// UnescapeQueries Escape encodedQuery string into unescaped list of query params, returns error
+// if any while unescaping the values.
+func UnescapeQueries(encodedQuery string) (unescapedQueries []string, err error) {
+	for _, query := range strings.Split(encodedQuery, "&") {
+		var unescapedQuery string
+		unescapedQuery, err = url.QueryUnescape(query)
+		if err != nil {
+			return nil, err
+		}
+		unescapedQueries = append(unescapedQueries, unescapedQuery)
+	}
+	return unescapedQueries, nil
+}
+
+func SetRequestKeyValue(r *http.Request, key, value interface{}) *http.Request {
+	c := context.WithValue(r.Context(), key, value)
+	return r.WithContext(c)
+}
+
+func GetRequestValue(r *http.Request, key interface{}) interface{} {
+	return r.Context().Value(key)
 }
