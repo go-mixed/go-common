@@ -46,6 +46,10 @@ func Atof64(s string, _default float64) float64 {
 	return ParseFloat(s, 32, _default)
 }
 
+func Ftoa(f float64) string {
+	return strconv.FormatFloat(f, 'f', -1, 64)
+}
+
 func Atoi64(s string, _default int64) int64 {
 	return ParseInt(s, 10, 64, _default)
 }

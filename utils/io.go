@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -54,4 +55,13 @@ func GetCurrentDir() string {
 		return ""
 	}
 	return filepath.Dir(_path)
+}
+
+
+func PathExists(name string) bool {
+	_, err := os.Stat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	return err != nil
 }
