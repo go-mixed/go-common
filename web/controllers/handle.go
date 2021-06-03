@@ -31,6 +31,10 @@ func RegisterController(controllerName string, fn func(ctx *gin.Context) IContro
 }
 
 func ControllerHandler(controllerName, methodName string) gin.HandlerFunc {
+	return ControllerHandlerFunc(controllerName, methodName, nil, nil)
+}
+
+func ControllerHandlerFunc(controllerName, methodName string, before func(IController), after func(IController, interface{}, error) (interface{}, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		controller, err := NewController(controllerName, ctx)
 		if err != nil {
@@ -38,11 +42,16 @@ func ControllerHandler(controllerName, methodName string) gin.HandlerFunc {
 			_, _ = ctx.Writer.WriteString(err.Error())
 		} else if !utils.HasMethod(controller, methodName) {
 			controller.ErrorResponse(NewResponseException(http.StatusNotFound, http.StatusNotFound, fmt.Sprintf("controller method [%s@%s] not founud", controllerName, methodName)), nil)
-		} else if res, err := callControllerMethod(controller, methodName); err == nil {
-			controller.SuccessResponse(0, res)
 		} else {
-			controller.ErrorResponse(err, res)
+			before(controller)
+			r, e := callControllerMethod(controller, methodName)
+			if res, err := after(controller, r, e); err == nil {
+				controller.SuccessResponse(0, res)
+			} else {
+				controller.ErrorResponse(err, res)
+			}
 		}
+
 	}
 }
 

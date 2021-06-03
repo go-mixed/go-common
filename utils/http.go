@@ -80,7 +80,7 @@ var HttpReason = map[int]string{
 	511: "Network Authentication Required", // RFC6585
 }
 
-//ValuesToJson 是一个将Query转化为Json的函数
+// ValuesToJson 是一个将Query转化为Json的函数
 func ValuesToJson(values *url.Values) []byte {
 	var _values = map[string]interface{}{}
 	for key, val := range *values {
@@ -97,6 +97,16 @@ func ValuesToJson(values *url.Values) []byte {
 	return bytes
 }
 
+// MapToValues 一个简单的string map -> url.Values
+func MapToValues(data map[string]string) url.Values {
+	values := url.Values{}
+	for k, v := range data {
+		values.Set(k, v)
+	}
+	return values
+}
+
+// CloseResponseWriter 关闭ResponseWrite
 func CloseResponseWriter(w http.ResponseWriter) error {
 	hj, ok := w.(http.Hijacker)
 

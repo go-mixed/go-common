@@ -34,5 +34,44 @@ func main() {
 	}
 	domains = domains.Sort()
 
-	fmt.Printf("sort domains: %#v", domains)
+	fmt.Printf("sort domains: %#v\n", domains)
+
+	type User struct {
+		Name string
+		Age int
+	}
+
+	var a map[string]string
+	fmt.Printf("map a is nil: %v\n", utils.IsInterfaceNil(a))
+
+	var users []User
+	fmt.Printf("struct is nil: %v\n", utils.IsInterfaceNil(users))
+
+	if err := utils.JsonListUnmarshal([]string{
+		"{\"Name\": \"a\", \"Age\": 20}",
+		"{\"Name\": \"b\", \"Age\": 21}"}, &users); err != nil {
+		fmt.Printf("err: %s\n", err.Error())
+	}
+
+	fmt.Printf("json to slice %#v\n", users)
+
+	j := `{
+	"a": {
+		"b": [
+			{
+				"Name": "A",
+				"Age": 20
+			}
+		]
+	}
+	}`
+
+	var user User
+	if err := utils.JsonExtractIntoPtr(j, &user, "a.b.0"); err != nil {
+		fmt.Printf("err: %s\n", err.Error())
+	}
+
+	fmt.Printf("json with label %#v\n", user)
+
 }
+
