@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/hex"
 	"strconv"
 	"strings"
 )
@@ -62,8 +63,12 @@ func I64toa(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
 
-func HexToInt(hex string) int64 {
-	return ParseInt(hex, 16, 64, 0)
+func HexToInt(_hex string) int64 {
+	return ParseInt(_hex, 16, 64, 0)
+}
+
+func HexToBytes(_hex string) ([]byte, error) {
+	return hex.DecodeString(_hex)
 }
 
 func IntToHex(i int64) string {

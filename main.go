@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go-common/utils"
 	"go-common/utils/list"
+	"time"
 )
 
 func version() string {
@@ -47,6 +48,50 @@ func main() {
 	var users []User
 	fmt.Printf("struct is nil: %v\n", utils.IsInterfaceNil(users))
 
+	var b = map[string]interface{}{}
+	b["a"] = 1
+	b["b"] = 3.1415926
+	b["c"] = 3 * time.Second
+	b["d"] = "string"
+	b["e"] = []string{"l1", "l2"}
+	keys := utils.MapKeys(b).([]string)
+	j, err := utils.JsonMarshal(utils.MapToUrlValues(b, keys))
+	if err != nil {
+		fmt.Printf("err: %s\n", err.Error())
+	}
+	fmt.Printf("map keys: %#v\n", keys)
+	fmt.Printf("map to values json: %s\n", j)
+
+	var c = map[string]string{}
+	c["a"] = "3"
+	c["b"] = "4"
+	c["v"] = "53"
+
+	var values []string
+	t := time.Now()
+	for i := 0; i < 100000; i++ {
+		values = utils.MapKeys(c).([]string)
+	}
+	fmt.Printf("map keys: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+
+	t = time.Now()
+	for i := 0; i < 100000; i++ {
+		values = utils.MapStringKeys(c)
+	}
+	fmt.Printf("map keys: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+	t = time.Now()
+	for i := 0; i < 100000; i++ {
+		values = utils.MapValues(c).([]string)
+	}
+	fmt.Printf("map values: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+
+	t = time.Now()
+	for i := 0; i < 100000; i++ {
+		values = utils.MapStringValues(c)
+	}
+	fmt.Printf("map values: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+
+
 	if err := utils.JsonListUnmarshal([]string{
 		"{\"Name\": \"a\", \"Age\": 20}",
 		"{\"Name\": \"b\", \"Age\": 21}"}, &users); err != nil {
@@ -55,7 +100,7 @@ func main() {
 
 	fmt.Printf("json to slice %#v\n", users)
 
-	j := `{
+	j = `{
 	"a": {
 		"b": [
 			{
@@ -67,7 +112,7 @@ func main() {
 	}`
 
 	var user User
-	if err := utils.JsonExtractIntoPtr(j, &user, "a.b.0"); err != nil {
+	if err := utils.JsonExtractIntoPtr([]byte(j), &user, "a.b.0"); err != nil {
 		fmt.Printf("err: %s\n", err.Error())
 	}
 
