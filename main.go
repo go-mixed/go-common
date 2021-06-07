@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go-common/utils"
 	"go-common/utils/list"
+	"io"
 	"time"
 )
 
@@ -58,6 +59,7 @@ func main() {
 	j, err := utils.JsonMarshal(utils.MapToUrlValues(b, keys))
 	if err != nil {
 		fmt.Printf("err: %s\n", err.Error())
+		return
 	}
 	fmt.Printf("map keys: %#v\n", keys)
 	fmt.Printf("map to values json: %s\n", j)
@@ -96,6 +98,7 @@ func main() {
 		"{\"Name\": \"a\", \"Age\": 20}",
 		"{\"Name\": \"b\", \"Age\": 21}"}, &users); err != nil {
 		fmt.Printf("err: %s\n", err.Error())
+		return
 	}
 
 	fmt.Printf("json to slice %#v\n", users)
@@ -114,9 +117,31 @@ func main() {
 	var user User
 	if err := utils.JsonExtractIntoPtr([]byte(j), &user, "a.b.0"); err != nil {
 		fmt.Printf("err: %s\n", err.Error())
+		return
 	}
 
 	fmt.Printf("json with label %#v\n", user)
+
+	f, err := utils.NewMultipartFileReader([]string{"examples/part1.txt", "examples/part2.txt", "examples/part3.txt"}, 1000, 68000, 45954)
+	if err != nil {
+		fmt.Printf("err: %s\n", err.Error())
+		return
+	}
+	defer f.Close()
+	var buf = make([]byte, 1024)
+	for {
+		n, err := f.Read(buf)
+		if n > 0 {
+			//fmt.Println( string(buf[:n]))
+		}
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Printf("err: %s\n", err.Error())
+		}
+	}
+
+	fmt.Printf("cross 3 multipart file md5: ab0723708785f96b305a828349858d16 == %x", f.Checksums(nil))
 
 }
 
