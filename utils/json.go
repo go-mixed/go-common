@@ -32,7 +32,7 @@ func JsonListUnmarshal(jsonList []string, to interface{}) error {
 	for _, _json := range jsonList {
 		newInstance := reflect.New(typeOfV).Elem()
 		// 传递newInstance的指针给 json.Unmarshal
-		if err := jsoniter.ConfigCompatibleWithStandardLibrary.UnmarshalFromString(_json, newInstance.Addr().Interface()); err != nil {
+		if err := JsonUnmarshal(_json, newInstance.Addr().Interface()); err != nil {
 			return err
 		}
 

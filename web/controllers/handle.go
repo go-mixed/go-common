@@ -5,7 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-common/utils"
 	"net/http"
-	"reflect"
+	"errors"
 )
 
 var controllerRegistry map[string]func(ctx *gin.Context) IController
@@ -34,6 +34,14 @@ func ControllerHandler(controllerName, methodName string) gin.HandlerFunc {
 	return ControllerHandlerFunc(controllerName, methodName, nil, nil)
 }
 
+func emptyBefore(IController) {
+
+}
+
+func emptyAfter(c IController, v interface{}, e error) (interface{}, error) {
+	return v, e
+}
+
 func ControllerHandlerFunc(controllerName, methodName string, before func(IController), after func(IController, interface{}, error) (interface{}, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		controller, err := NewController(controllerName, ctx)
@@ -43,6 +51,13 @@ func ControllerHandlerFunc(controllerName, methodName string, before func(IContr
 		} else if !utils.HasMethod(controller, methodName) {
 			controller.ErrorResponse(NewResponseException(http.StatusNotFound, http.StatusNotFound, fmt.Sprintf("controller method [%s@%s] not founud", controllerName, methodName)), nil)
 		} else {
+			if before == nil {
+				before = emptyBefore
+			}
+			if after == nil {
+				after = emptyAfter
+			}
+
 			before(controller)
 			r, e := callControllerMethod(controller, methodName)
 			if res, err := after(controller, r, e); err == nil {
@@ -58,18 +73,17 @@ func ControllerHandlerFunc(controllerName, methodName string, before func(IContr
 func callControllerMethod(controller IController, methodName string, args ...interface{}) (interface{}, error) {
 	res, err := utils.CallMethod2(controller, methodName, args...)
 
-	// format string/error/any pointer to error
-	errValueOf := reflect.ValueOf(err)
-	errKind := errValueOf.Kind()
-	if errKind == reflect.Ptr && !errValueOf.IsNil() {
+	if !utils.IsInterfaceNil(err) {
 		switch err.(type) {
 		case error:
 			return res, err.(error)
+		case string:
+			if err != "" {
+				return res, errors.New(err.(string))
+			}
 		default:
 			return res, fmt.Errorf("%#v", err)
 		}
-	} else if errKind == reflect.String && err != "" {
-		return res, fmt.Errorf("%#v", err.(string))
 	}
 
 	return res, nil

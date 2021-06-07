@@ -24,6 +24,7 @@ func MapStringKeys(data map[string]string) []string {
 	i := 0
 	for k := range data {
 		list[i] = k
+		i++
 	}
 	return list
 }
@@ -56,6 +57,7 @@ func MapStringValues(data map[string]string) []string {
 	i := 0
 	for _, v := range data {
 		list[i] = v
+		i++
 	}
 	return list
 }

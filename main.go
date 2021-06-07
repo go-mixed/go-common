@@ -140,7 +140,13 @@ func main() {
 			fmt.Printf("err: %s\n", err.Error())
 		}
 	}
-
+	/*
+	s = ''
+	for i in range(1, 1000):
+	    s += "%010dabcdefghijklmnopqrstuvwxyz1234567890" % i
+	import hashlib
+	print(hashlib.md5(s[1000:69000].encode('utf-8')).hexdigest())
+	 */
 	fmt.Printf("cross 3 multipart file md5: ab0723708785f96b305a828349858d16 == %x", f.Checksums(nil))
 
 }
