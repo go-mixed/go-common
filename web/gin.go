@@ -2,7 +2,6 @@ package web
 
 import (
 	"github.com/gin-contrib/pprof"
-	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"go-common/utils"
 	"path/filepath"
@@ -38,10 +37,12 @@ func NewGinEngine(options *GinOptions) *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	router.Use(ginzap.Ginzap(logger, time.RFC3339, true)) // 使用zap作为logger
+	router.Use(GinZap(logger, time.RFC3339, true)) // 使用zap作为logger
 	router.Use(func(context *gin.Context) {
 		context.Set("request_at", time.Now())
 	}) // 注册当前时间
+
+	router.Use(gin.Recovery())
 
 	if options.RegisterPprof {
 		pprof.Register(router) // 注册火焰图pprof

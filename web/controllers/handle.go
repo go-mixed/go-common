@@ -1,11 +1,11 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"go-common/utils"
 	"net/http"
-	"errors"
 )
 
 var controllerRegistry map[string]func(ctx *gin.Context) IController
