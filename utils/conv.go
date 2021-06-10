@@ -71,6 +71,10 @@ func HexToBytes(_hex string) ([]byte, error) {
 	return hex.DecodeString(_hex)
 }
 
+func BytesToHex(bytes []byte) string {
+	return hex.EncodeToString(bytes)
+}
+
 func IntToHex(i int64) string {
 	return strconv.FormatInt(i, 16)
 }

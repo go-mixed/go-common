@@ -6,6 +6,7 @@ import (
 	"go-common/cache"
 	"go-common/utils"
 	"go-common/utils/list"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -272,7 +273,11 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 
 func (c *HttpServer) defaultHandlerFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if domainConfig := c.MatchDomain(r.Host); domainConfig != nil {
+		var domain = r.Host
+		if strings.Contains(r.Host, ":") {
+			domain, _ , _ = net.SplitHostPort(r.Host)
+		}
+		if domainConfig := c.MatchDomain(domain); domainConfig != nil {
 			domainConfig.handler.ServeHTTP(w, r)
 		}
 	}

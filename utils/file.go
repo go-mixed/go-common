@@ -156,6 +156,26 @@ func (r *MultipartFileReader) Read(buf []byte) (int, error) {
 	return currentRead, nil
 }
 
+// DryRead 读取所有数据, 但是不返回文件内容, 文件大会很耗时
+// 通过此方式可以在执行 DryRead 后调用 Checksums 得到文件的md5
+func (r *MultipartFileReader) DryRead() (int64, error) {
+	buf := make([]byte, 1024)
+	var size int64 = 0
+	for {
+		n, err := r.Read(buf)
+		size += int64(n)
+
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return size, err
+		}
+	}
+
+	return size, nil
+}
+
+
 // Checksums 需要read结束之后才能得到正确的md5
 func (r *MultipartFileReader) Checksums(into []byte) []byte {
 	if r.checksums != nil {
