@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"net"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -245,4 +246,12 @@ func SetRequestKeyValue(r *http.Request, key, value interface{}) *http.Request {
 
 func GetRequestValue(r *http.Request, key interface{}) interface{} {
 	return r.Context().Value(key)
+}
+
+func DomainFromRequestHost(r *http.Request) string {
+	var domain = r.Host
+	if strings.Contains(r.Host, ":") {
+		domain, _, _ = net.SplitHostPort(r.Host)
+	}
+	return domain
 }

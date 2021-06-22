@@ -46,7 +46,7 @@ func main() {
 	var a map[string]string
 	fmt.Printf("map a is nil: %v\n", utils.IsInterfaceNil(a))
 
-	var users []User
+	var users []*User
 	fmt.Printf("struct is nil: %v\n", utils.IsInterfaceNil(users))
 
 	var b = map[string]interface{}{}
@@ -96,6 +96,7 @@ func main() {
 
 	if err := utils.JsonListUnmarshal([]string{
 		"{\"Name\": \"a\", \"Age\": 20}",
+		"",
 		"{\"Name\": \"b\", \"Age\": 21}"}, &users); err != nil {
 		fmt.Printf("err: %s\n", err.Error())
 		return

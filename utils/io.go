@@ -63,5 +63,5 @@ func PathExists(name string) bool {
 	if errors.Is(err, os.ErrNotExist) {
 		return false
 	}
-	return err != nil
+	return err == nil
 }

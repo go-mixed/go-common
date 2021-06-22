@@ -7,12 +7,25 @@ import (
 	"strings"
 )
 
-// JsonListUnmarshal 将json字符串数组 传唤为一个 []interface{}
+// JsonListUnmarshal 将json字符串数组 转换成一个 []interface{}
 // 例子
 // type User struct { Name string Age int}
 // var users []User
 // JsonListIntoSlicePtr([]string{"{\"Name\": \"a\", \"Age\": 20}", "{\"Name\": \"b\", \"Age\": 21}"}, &users)
 func JsonListUnmarshal(jsonList []string, to interface{}) error {
+	var list [][]byte
+	for _, _j := range jsonList {
+		if _j == "" {
+			list = append(list, nil)
+		} else {
+			list = append(list, []byte(_j))
+		}
+	}
+	
+	return JsonListUnmarshalFromBytes(list, to)
+}
+
+func JsonListUnmarshalFromBytes(jsonList [][]byte, to interface{}) error {
 	toValue := reflect.ValueOf(to)
 	if toValue.Kind() == reflect.Ptr {
 		toValue = toValue.Elem()
@@ -30,9 +43,14 @@ func JsonListUnmarshal(jsonList []string, to interface{}) error {
 	newSlice := reflect.MakeSlice(reflect.SliceOf(typeOfV), 0, 0)
 
 	for _, _json := range jsonList {
+		if _json == nil {
+			newSlice = reflect.Append(newSlice, reflect.Zero(typeOfV))
+			continue
+		}
+
 		newInstance := reflect.New(typeOfV).Elem()
 		// 传递newInstance的指针给 json.Unmarshal
-		if err := JsonUnmarshal(_json, newInstance.Addr().Interface()); err != nil {
+		if err := JsonUnmarshalFromBytes(_json, newInstance.Addr().Interface()); err != nil {
 			return err
 		}
 
