@@ -29,14 +29,11 @@ func GinZap(logger *zap.Logger, timeFormat string, utc bool) gin.HandlerFunc {
 		// some evil middlewares modify this values
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
-		//requestHeader, _ := utils.JsonMarshal(c.Request.Header)
 
 		c.Next()
 
-		//responseHeader, _ := utils.JsonMarshal(c.Writer.Header())
-
+		latency := time.Since(start)
 		end := time.Now()
-		latency := end.Sub(start)
 		if utc {
 			end = end.UTC()
 		}

@@ -65,6 +65,13 @@ func (d Domains) IsEmpty() bool {
 	return len(d) == 0
 }
 
+func (d Domains) ToLower() Domains {
+	for k, v := range d {
+		d[k] = strings.ToLower(v)
+	}
+	return d
+}
+
 func (d Domains) Sort() Domains {
 	_d := d[:]
 
@@ -78,13 +85,14 @@ func (d Domains) Sort() Domains {
 	return _d
 }
 
-func (d Domains) Match(domain string) bool {
+func (d Domains) Match(domain string) (bool, string) {
+	domain = strings.ToLower(domain)
 	for _, _d := range d {
 		if WildcardMatch(_d, domain) {
-			return true
+			return true, _d
 		}
 	}
-	return false
+	return false, ""
 }
 
 // IsValidDomain validates if input string is a valid domain name.

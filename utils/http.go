@@ -248,10 +248,10 @@ func GetRequestValue(r *http.Request, key interface{}) interface{} {
 	return r.Context().Value(key)
 }
 
-func DomainFromRequestHost(r *http.Request) string {
-	var domain = r.Host
-	if strings.Contains(r.Host, ":") {
-		domain, _, _ = net.SplitHostPort(r.Host)
+func DomainFromRequestHost(host string) string {
+	var domain = host
+	if strings.Contains(host, ":") {
+		domain, _, _ = net.SplitHostPort(host)
 	}
 	return domain
 }

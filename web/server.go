@@ -272,7 +272,7 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 
 func (c *HttpServer) defaultHandlerFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		domain := utils.DomainFromRequestHost(r)
+		domain := utils.DomainFromRequestHost(r.Host)
 		if domainConfig := c.MatchDomain(domain); domainConfig != nil {
 			domainConfig.handler.ServeHTTP(w, r)
 		}

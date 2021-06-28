@@ -17,7 +17,10 @@ func init() {
 }
 
 func main() {
+
 	fmt.Printf("version: %s\n", version())
+
+	fmt.Printf("Atoi %d\n", utils.Atoi("0000123", 0))
 
 	fmt.Printf("indexOf interface{}: %d\n", list.IndexOf([]string{"1", "2"}, "2"))
 
@@ -49,20 +52,46 @@ func main() {
 	var users []*User
 	fmt.Printf("struct is nil: %v\n", utils.IsInterfaceNil(users))
 
-	var b = map[string]interface{}{}
-	b["a"] = 1
-	b["b"] = 3.1415926
-	b["c"] = 3 * time.Second
-	b["d"] = "string"
-	b["e"] = []string{"l1", "l2"}
-	keys := utils.MapKeys(b).([]string)
-	j, err := utils.JsonMarshal(utils.MapToUrlValues(b, keys))
+	type _b struct {
+		A int `json:"a"`
+		B float32 `json:"b"`
+		C time.Duration `json:"c"`
+		D string `json:"d"`
+		E []string `json:"e"`
+		F time.Time `json:"-"`
+	}
+	var b = _b{
+		A: 1,
+		B: 3.1415926,
+		C: 3 * time.Second,
+		D: "string",
+		E: []string{"l1", "l2"},
+	}
+	m, err := utils.ToMap(b, "json")
 	if err != nil {
 		fmt.Printf("err: %s\n", err.Error())
 		return
 	}
-	fmt.Printf("map keys: %#v\n", keys)
-	fmt.Printf("map to values json: %s\n", j)
+	fmt.Printf("struct to map: %#v\n", m)
+
+	m, err = utils.ToMap([]string{"a", "b", "c"}, "")
+	if err != nil {
+		fmt.Printf("err: %s\n", err.Error())
+		return
+	}
+	fmt.Printf("struct to map: %#v\n", m)
+
+
+	b1 := map[interface{}]interface{}{}
+	b1["a"] = "v2"
+	b1[1] = 123
+	b1[3.141] = "pi"
+	m, err = utils.ToMap(b1, "")
+	if err != nil {
+		fmt.Printf("err: %s\n", err.Error())
+		return
+	}
+	fmt.Printf("struct to map: %#v\n", m)
 
 	var c = map[string]string{}
 	c["a"] = "3"
@@ -74,18 +103,18 @@ func main() {
 	for i := 0; i < 100000; i++ {
 		values = utils.MapKeys(c).([]string)
 	}
-	fmt.Printf("map keys: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+	fmt.Printf("map keys: %#v %d\n", values, time.Since(t).Milliseconds())
 
 	t = time.Now()
 	for i := 0; i < 100000; i++ {
 		values = utils.MapStringKeys(c)
 	}
-	fmt.Printf("map keys: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+	fmt.Printf("map keys: %#v %d\n", values, time.Since(t).Milliseconds())
 	t = time.Now()
 	for i := 0; i < 100000; i++ {
 		values = utils.MapValues(c).([]string)
 	}
-	fmt.Printf("map values: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+	fmt.Printf("map values: %#v %d\n", values, time.Since(t).Milliseconds())
 
 	t = time.Now()
 	for i := 0; i < 100000; i++ {
@@ -104,7 +133,7 @@ func main() {
 
 	fmt.Printf("json to slice %#v\n", users)
 
-	j = `{
+	j := `{
 	"a": {
 		"b": [
 			{

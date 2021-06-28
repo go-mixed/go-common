@@ -1,6 +1,9 @@
 package utils
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 // MapKeys 获取map的所有keys MapKeys({1: 'a', 2: 'c'}).([]int)
 // 相比直接foreach来取 要慢接近8倍
@@ -60,4 +63,45 @@ func MapStringValues(data map[string]string) []string {
 		i++
 	}
 	return list
+}
+
+func ToMap(data interface{}, tag string) (map[string]interface{}, error) {
+	var result = map[string]interface{}{}
+
+	vOf := reflect.ValueOf(data)
+	if data == nil || (vOf.Kind() == reflect.Ptr && vOf.IsNil()) {
+		return result, nil
+	}
+
+	if vOf.Kind() == reflect.Ptr {
+		vOf = vOf.Elem()
+	}
+
+	switch vOf.Kind() {
+	case reflect.Map:
+		for _, kOf := range vOf.MapKeys() {
+			k := fmt.Sprintf("%v", kOf.Interface())
+			result[k] = vOf.MapIndex(kOf).Interface()
+		}
+	case reflect.Struct:
+		tOf := vOf.Type()
+		for i := 0; i < tOf.NumField(); i++ {
+			field := tOf.Field(i)
+			name := field.Name
+			if tag != "" {
+				tagName, ok := field.Tag.Lookup(tag)
+				if ok && tagName != "-" && tagName != "_" {
+					name = tagName
+				}
+			}
+			result[name] = vOf.Field(i).Interface()
+		}
+	case reflect.Slice:
+		for i := 0; i < vOf.Len(); i++ {
+			result[ Itoa(i) ] = vOf.Index(i).Interface()
+		}
+	}
+
+
+	return result, nil
 }

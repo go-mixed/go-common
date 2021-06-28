@@ -100,3 +100,4 @@ func JsonExtractIntoPtr(_json []byte, to interface{}, label string) error {
 	}
 	return JsonUnmarshalFromBytes(b, to)
 }
+
