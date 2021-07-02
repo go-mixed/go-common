@@ -57,11 +57,31 @@ func GetCurrentDir() string {
 	return filepath.Dir(_path)
 }
 
-
+// PathExists 检测路径是否存在, 不区分文件/文件夹
 func PathExists(name string) bool {
 	_, err := os.Stat(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return false
 	}
 	return err == nil
+}
+
+// IsFile 是否是文件
+func IsFile(name string) bool {
+	stat, err := os.Stat(name)
+	if err != nil {
+		return false
+	}
+
+	return stat.Mode().IsRegular()
+}
+
+// IsDir 是否是目录
+func IsDir(name string) bool {
+	stat, err := os.Stat(name)
+	if err != nil {
+		return false
+	}
+
+	return stat.Mode().IsDir()
 }

@@ -3,6 +3,7 @@ package cache
 import (
 	ocache "github.com/patrickmn/go-cache"
 	"time"
+	"sync"
 )
 
 var defaultCache *Cache
@@ -22,11 +23,13 @@ func init() {
 
 type Cache struct {
 	ocache.Cache
+	mu sync.Map
 }
 
 func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
 	return &Cache{
 		Cache: *ocache.New(defaultExpiration, cleanupInterval),
+		mu: sync.Map{},
 	}
 }
 
@@ -37,6 +40,13 @@ func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]
 }
 
 func (c *Cache) Remember(k string, expire time.Duration, callback func() (interface{}, error)) (interface{}, error) {
+	// 基于Key的锁
+	_mu, _ := c.mu.LoadOrStore(k, &sync.Mutex{})
+	mu := _mu.(*sync.Mutex)
+	mu.Lock()
+	defer mu.Unlock()
+	defer c.mu.Delete(k)
+	
 	if v, ok := c.Get(k); ok {
 		return v, nil
 	} else {

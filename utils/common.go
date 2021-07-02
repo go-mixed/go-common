@@ -49,8 +49,11 @@ func GetFrame(skipFrames int) runtime.Frame {
 
 // IsInterfaceNil 指针是否为nil
 func IsInterfaceNil(v interface{}) bool {
+	if v == nil {
+		return true
+	}
 	vOf := reflect.ValueOf(v)
-	return v == nil || (vOf.Kind() == reflect.Ptr && vOf.IsNil())
+	return (vOf.Kind() == reflect.Ptr && vOf.IsNil())
 }
 
 

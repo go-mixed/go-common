@@ -35,6 +35,8 @@ func NewMultipartFileReader(paths []string, start int64, length int64, expectedT
 		stat, err := os.Stat(path)
 		if err != nil {
 			return nil, fmt.Errorf("path \"%s\" error: %w", path, err)
+		} else if !IsFile(path) {
+			return nil, fmt.Errorf("path \"%s\" is not a file", path)
 		}
 
 		sizes[i] = stat.Size()
