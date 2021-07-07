@@ -3,9 +3,11 @@ package list
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // Find 类似slice.IndexOf, 需要传递fn来判断是否相等
+// 注意 这是反射实现的函数, 会降低运行性能
 func Find(slice interface{}, fn func(value interface{}) bool) int {
 	s := reflect.ValueOf(slice)
 	if s.Kind() == reflect.Slice {
@@ -19,10 +21,41 @@ func Find(slice interface{}, fn func(value interface{}) bool) int {
 }
 
 // IndexOf 简化版slice.IndexOf，需要完全相等才会返回index
+// 注意: 使用反射会降低运行性能, 尽量使用: StrIndexOf, IntIndexOf
 func IndexOf(slice interface{}, findMe interface{}) int {
 	return Find(slice, func(value interface{}) bool {
 		return value == findMe
 	})
+}
+// StrIndexOf 字符串数组的IndexOf
+func StrIndexOf(slice []string, findMe string, ignoreCase bool) int {
+	if ignoreCase {
+		findMe = strings.ToLower(findMe)
+	}
+	for i := 0; i < len(slice); i++ {
+		v := slice[i]
+		if ignoreCase {
+			v = strings.ToLower(v)
+		}
+		if findMe == v {
+			return i
+		}
+	}
+
+	return -1
+}
+
+// IntIndexOf int型数组的IndexOf
+func IntIndexOf(slice []int, findMe int) int {
+	for i := 0; i < len(slice); i++ {
+		v := slice[i]
+
+		if findMe == v {
+			return i
+		}
+	}
+
+	return -1
 }
 
 // ToInterfaces 将interface{} 转为 []interface{}, 因为不能直接slice.([]interface{}) 此函数使用场景可以参照 SortDomains

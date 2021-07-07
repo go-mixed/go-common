@@ -152,24 +152,14 @@ func main() {
 
 	fmt.Printf("json with label %#v\n", user)
 
-	f, err := utils.NewMultipartFileReader([]string{"examples/part1.txt", "examples/part2.txt", "examples/part3.txt"}, 1000, 68000, 45954)
+	f, err := utils.NewMultipartFileReader([]string{"examples/part1.txt", "examples/part2.txt", "examples/part3.txt"}, 45954)
 	if err != nil {
 		fmt.Printf("err: %s\n", err.Error())
 		return
 	}
 	defer f.Close()
-	var buf = make([]byte, 1024)
-	for {
-		n, err := f.Read(buf)
-		if n > 0 {
-			//fmt.Println( string(buf[:n]))
-		}
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			fmt.Printf("err: %s\n", err.Error())
-		}
-	}
+	f.Seek(1000, io.SeekStart)
+	f.DryRead(68000)
 	/*
 	s = ''
 	for i in range(1, 1000):
