@@ -25,10 +25,13 @@ type MultipartFileReader struct {
 }
 
 // NewMultipartFileReader 多个文件分块组成一个文件的reader
-// eg: 读取整个文件 NewMultipartFileReader(["file1", "file2"], 0, -1, -1)
-// eg: 偏移值从30开始, 读取100长度 读取文件 NewMultipartFileReader(["file1", "file2"], 30, 100, -1)
-// parameter: expectedTotalSize: 期望得到文件大小总数, 可以检查分块文件大小是否完整, 如果不检查 则设置为-1
-func NewMultipartFileReader(paths []string, expectedTotalSize int64) (*MultipartFileReader, error) {
+// 注意, 如果在读取中修改了某分片文件的长度, 最终读取得到的数据可能不符合预期
+// eg: 偏移值从30开始, 读取100长度
+// reader := NewMultipartFileReader(["file1", "file2"])
+// reader.Seek(30)
+// var buf = make([]byte, 100)
+// reader.reader(buf)
+func NewMultipartFileReader(paths []string) (*MultipartFileReader, error) {
 	sizes := make([]int64, len(paths))
 
 	var totalSize int64
@@ -42,10 +45,6 @@ func NewMultipartFileReader(paths []string, expectedTotalSize int64) (*Multipart
 
 		sizes[i] = stat.Size()
 		totalSize += sizes[i]
-	}
-
-	if expectedTotalSize != -1 && expectedTotalSize != totalSize {
-		return nil, fmt.Errorf("expectedTotalSize: %d is not equal to real total size: %d", expectedTotalSize, totalSize)
 	}
 
 	return &MultipartFileReader{
@@ -192,24 +191,10 @@ func (r *MultipartFileReader) Read(buf []byte) (int, error) {
 // 通过此方式可以在执行 DryRead 后调用 Checksums 得到文件的md5
 func (r *MultipartFileReader) DryRead(readSize int64) (int64, error) {
 	if readSize == -1 {
-		return io.CopyN(ioutil.Discard, r, readSize)
+		return io.Copy(ioutil.Discard, r)
 	} else {
 		return io.CopyN(ioutil.Discard, r, readSize)
 	}
-	//buf := make([]byte, 1024)
-	//var size int64 = 0
-	//for {
-	//	n, err := r.Read(buf)
-	//	size += int64(n)
-	//
-	//	if err == io.EOF {
-	//		break
-	//	} else if err != nil {
-	//		return size, err
-	//	}
-	//}
-	//
-	//return size, nil
 }
 
 

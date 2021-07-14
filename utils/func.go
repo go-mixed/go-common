@@ -60,8 +60,9 @@ func NewGenericFunc(fn interface{}) (*genericFunc, error) {
 }
 
 func NewInstanceFunc(instance interface{}, method string) (*genericFunc, error) {
-	if HasMethod(instance, method) {
-		return NewGenericFunc(reflect.ValueOf(instance).MethodByName(method).Interface())
+	vOf := reflect.ValueOf(instance)
+	if _, ok := vOf.Type().MethodByName(method); ok {
+		return NewGenericFunc(vOf.MethodByName(method).Interface())
 	} else {
 		return nil, fmt.Errorf("method %s not found", method)
 	}

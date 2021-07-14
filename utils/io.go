@@ -85,3 +85,11 @@ func IsDir(name string) bool {
 
 	return stat.Mode().IsDir()
 }
+
+func FileSize(name string) int64 {
+	stat, err := os.Stat(name)
+	if err != nil {
+		return 0
+	}
+	return stat.Size()
+}

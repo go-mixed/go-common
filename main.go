@@ -152,12 +152,16 @@ func main() {
 
 	fmt.Printf("json with label %#v\n", user)
 
-	f, err := utils.NewMultipartFileReader([]string{"examples/part1.txt", "examples/part2.txt", "examples/part3.txt"}, 45954)
+	f, err := utils.NewMultipartFileReader([]string{"examples/part1.txt", "examples/part2.txt", "examples/part3.txt"})
 	if err != nil {
 		fmt.Printf("err: %s\n", err.Error())
 		return
 	}
 	defer f.Close()
+	if 45954 != f.Size() {
+		fmt.Printf("reader size not equal to 45954")
+		return
+	}
 	f.Seek(1000, io.SeekStart)
 	f.DryRead(68000)
 	/*
