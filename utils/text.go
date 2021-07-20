@@ -3,6 +3,8 @@ package utils
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
+	"reflect"
 )
 
 // WildcardMatchSimple - finds whether the text matches/satisfies the pattern string.
@@ -58,4 +60,46 @@ func deepWildcardMatchRune(str, pattern []rune, simple bool) bool {
 func Md5(text string) string {
 	hash := md5.Sum([]byte(text))
 	return hex.EncodeToString(hash[:])
+}
+
+type Stringer interface {
+	String() string
+}
+
+// ToString 将任意类型转为字符串, 标量或标量的子类型可以直接转, 其它转为json的字符串
+// 注意: type ABC string 这种类型会走到default分支, 为了减少反射带来的性能负担, 可以自行强制转换: string(abc)
+func ToString(v interface{}) string {
+	// 先用 type assert检查, 支持标量, 速度更快
+	switch v.(type) {
+	case []rune:
+		return string(v.([]rune))
+	case []byte:
+		return string(v.([]byte))
+	case string:
+		return v.(string)
+	case bool:
+		return If(v.(bool), "true", "false").(string)
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64, complex64, complex128:
+		return fmt.Sprintf("%v", v)
+	case Stringer:
+		return v.(Stringer).String()
+	case error:
+		return v.(error).Error()
+	default:
+		// 针对 type ABC string 这种需要使用typeof.kind检查
+		switch reflect.TypeOf(v).Kind() {
+			case reflect.Bool:
+				return If(reflect.ValueOf(v).Bool(), "true", "false").(string)
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+				reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+				reflect.String:
+				return fmt.Sprintf("%v", v)
+			default: // 均不符合 则使用json来处理
+				j, _ := JsonMarshal(v)
+				return j
+		}
+	}
 }
