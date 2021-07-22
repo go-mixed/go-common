@@ -2,51 +2,51 @@ package cache
 
 import (
 	ocache "github.com/patrickmn/go-cache"
-	"time"
 	"sync"
+	"time"
 )
 
-var defaultCache *Cache
+var defaultCache *MemoryCache
 
 const (
 	// NoExpiration For use with functions that take an expiration time.
 	NoExpiration time.Duration = -1
 	// DefaultExpiration For use with functions that take an expiration time. Equivalent to
-	// passing in the same expiration duration as was given to New() or
+	// passing in the same expiration duration as was given to NewMemoryCache() or
 	// NewFrom() when the cache was created (e.g. 5 minutes.)
 	DefaultExpiration time.Duration = 0
 )
 
 func init() {
-	defaultCache = New(5*time.Minute, 1*time.Minute)
+	defaultCache = NewMemoryCache(5*time.Minute, 1*time.Minute)
 }
 
-type Cache struct {
+type MemoryCache struct {
 	ocache.Cache
 	mu sync.Map
 }
 
-func New(defaultExpiration, cleanupInterval time.Duration) *Cache {
-	return &Cache{
+func NewMemoryCache(defaultExpiration, cleanupInterval time.Duration) *MemoryCache {
+	return &MemoryCache{
 		Cache: *ocache.New(defaultExpiration, cleanupInterval),
-		mu: sync.Map{},
+		mu:    sync.Map{},
 	}
 }
 
-func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]ocache.Item) *Cache {
-	return &Cache{
+func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]ocache.Item) *MemoryCache {
+	return &MemoryCache{
 		Cache: *ocache.NewFrom(defaultExpiration, cleanupInterval, items),
 	}
 }
 
-func (c *Cache) Remember(k string, expire time.Duration, callback func() (interface{}, error)) (interface{}, error) {
+func (c *MemoryCache) Remember(k string, expire time.Duration, callback func() (interface{}, error)) (interface{}, error) {
 	// 基于Key的锁
 	_mu, _ := c.mu.LoadOrStore(k, &sync.Mutex{})
 	mu := _mu.(*sync.Mutex)
 	mu.Lock()
 	defer mu.Unlock()
 	defer c.mu.Delete(k)
-	
+
 	if v, ok := c.Get(k); ok {
 		return v, nil
 	} else {
@@ -58,7 +58,6 @@ func (c *Cache) Remember(k string, expire time.Duration, callback func() (interf
 		}
 	}
 }
-
 
 func SetNoExpiration(k string, v interface{}) {
 	defaultCache.Set(k, v, NoExpiration)

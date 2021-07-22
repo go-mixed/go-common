@@ -3,7 +3,7 @@ package web
 import (
 	"crypto/tls"
 	"fmt"
-	"go-common/cache"
+	"go-common-cache"
 	"go-common/utils"
 	"go-common/utils/list"
 	"net/http"
@@ -23,7 +23,6 @@ type Certificate struct {
 	keyFileInfo  os.FileInfo
 }
 
-
 type Middleware func(w http.ResponseWriter, r *http.Request, nextHandler http.Handler)
 
 type DomainConfig struct {
@@ -36,23 +35,23 @@ type HttpServer struct {
 	orderedDomainConfigs []*DomainConfig
 	middleware           []Middleware
 	// 真正执行的handler入口
-	handlerStack         http.Handler
-	certs                []*Certificate
+	handlerStack http.Handler
+	certs        []*Certificate
 	// 为了加快命中, 会将域名所指向的handler进行缓存,此处是该缓存过期市场, 小于60s会修改为60s, 无法设为永久
 	domainCacheExpired time.Duration
-	mu sync.Mutex
-	logger utils.ILogger
-	domainCache *cache.Cache
+	mu                 sync.Mutex
+	logger             utils.ILogger
+	domainCache        *cache.MemoryCache
 }
 
 func NewHttpServer(host string) *HttpServer {
 	s := &HttpServer{
 		Host:                 host,
 		orderedDomainConfigs: make([]*DomainConfig, 0, 1),
-		domainCacheExpired: 60 * time.Second,
-		mu: sync.Mutex{},
-		logger: utils.NewDefaultLogger(),
-		domainCache: cache.New(60 * time.Second, 30 * time.Second),
+		domainCacheExpired:   60 * time.Second,
+		mu:                   sync.Mutex{},
+		logger:               utils.NewDefaultLogger(),
+		domainCache:          cache.NewMemoryCache(60*time.Second, 30*time.Second),
 	}
 	s.handlerStack = s.defaultHandlerFunc() // 最后的handler
 	return s
@@ -88,9 +87,8 @@ func (c *HttpServer) HasDefaultDomain() bool {
 
 // SetDomainCacheExpired 设置匹配到域名的缓存过期时间
 func (c *HttpServer) SetDomainCacheExpired(domainCacheExpired time.Duration) {
-	c.domainCacheExpired = utils.If(domainCacheExpired < 60 * time.Second, 60 * time.Second, domainCacheExpired).(time.Duration)
+	c.domainCacheExpired = utils.If(domainCacheExpired < 60*time.Second, 60*time.Second, domainCacheExpired).(time.Duration)
 }
-
 
 // ContainsDomain 是否包含此域名, 此函数是判断完全相等, 如果需要匹配通配符, 使用 MatchDomain
 func (c *HttpServer) ContainsDomain(domain string) bool {
@@ -117,7 +115,7 @@ func (c *HttpServer) AddServeHandler(domains utils.Domains, handler http.Handler
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// 添加
 	domainConfigs := c.orderedDomainConfigs[:]
 	for _, domain := range domains {
@@ -156,7 +154,7 @@ func (c *HttpServer) AddServeHandler(domains utils.Domains, handler http.Handler
 // 		w.Write(...)
 // }
 //
-func (c *HttpServer) Use(fn... Middleware) {
+func (c *HttpServer) Use(fn ...Middleware) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -185,7 +183,7 @@ func (c *HttpServer) SetLogger(logger utils.ILogger) {
 	c.logger = logger
 }
 
-func (c *HttpServer) AddCertificate(certs... *Certificate) error  {
+func (c *HttpServer) AddCertificate(certs ...*Certificate) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -252,7 +250,7 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 	}
 
 	// 此处可以用Lru cache做持久保存 但是因为域名可能会解绑, 所以需要过期时间
-	domainConfig, _ := c.domainCache.Remember(fmt.Sprintf("domain-handlerStack-%s", domain), 60 * time.Second, func() (interface{}, error) {
+	domainConfig, _ := c.domainCache.Remember(fmt.Sprintf("domain-handlerStack-%s", domain), 60*time.Second, func() (interface{}, error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
@@ -294,7 +292,7 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 	}
 
 	go func() {
-		<- c.listenStopChan(stopChan)
+		<-c.listenStopChan(stopChan)
 
 		if err := server.Close(); err != nil {
 			c.logger.Fatal("Server Close: ", err)
@@ -332,6 +330,7 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 
 	return nil
 }
+
 // 监听停止信号, stopChan为nil 则收听进程退出信号
 func (c *HttpServer) listenStopChan(stopChan <-chan bool) <-chan bool {
 	if stopChan == nil {

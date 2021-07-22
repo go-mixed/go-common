@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	jsoniter "github.com/json-iterator/go"
 	"io/ioutil"
 )
 
@@ -13,9 +12,7 @@ func LoadSettings(v interface{}, filename string) error {
 		return fmt.Errorf("settings file error: %w", err)
 	}
 
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
-
-	err = json.Unmarshal(content, v)
+	err = JsonUnmarshalFromBytes(content, v)
 
 	if err != nil {
 		return fmt.Errorf("settings json error: %w", err)

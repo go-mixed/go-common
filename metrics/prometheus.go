@@ -5,7 +5,7 @@ import (
 )
 
 type Registry struct {
-	Registry *prometheus.Registry
+	Registry        *prometheus.Registry
 	RegistryOptions *prometheus.Opts
 }
 
@@ -13,8 +13,17 @@ func NewRegistry(options *prometheus.Opts) *Registry {
 	registry := prometheus.NewRegistry()
 
 	return &Registry{
-		Registry: registry,
+		Registry:        registry,
 		RegistryOptions: options,
+	}
+}
+
+// MustRegister implements Registerer.
+func (reg *Registry) MustRegister(cs ...prometheus.Collector) {
+	for _, c := range cs {
+		if err := reg.Register(c); err != nil {
+			panic(err)
+		}
 	}
 }
 
