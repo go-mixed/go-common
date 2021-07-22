@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-common-cache"
 	"go-common/utils"
+	http2 "go-common/utils/http"
 	"go-common/utils/list"
 	"net/http"
 	"os"
@@ -30,8 +31,18 @@ type DomainConfig struct {
 	handler http.Handler
 }
 
-type HttpServer struct {
+type HttpServerOptions struct {
 	Host                 string
+	IdleTimeout time.Duration
+	ReadTimeout time.Duration
+	WriteTimeout time.Duration
+	MaxHeaderBytes     int
+	ReadHeaderTimeout  time.Duration
+}
+
+type HttpServer struct {
+	*HttpServerOptions
+
 	orderedDomainConfigs []*DomainConfig
 	middleware           []Middleware
 	// 真正执行的handler入口
@@ -42,11 +53,12 @@ type HttpServer struct {
 	mu                 sync.Mutex
 	logger             utils.ILogger
 	domainCache        *cache.MemoryCache
+
 }
 
-func NewHttpServer(host string) *HttpServer {
+func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
 	s := &HttpServer{
-		Host:                 host,
+		HttpServerOptions: httpServerOptions,
 		orderedDomainConfigs: make([]*DomainConfig, 0, 1),
 		domainCacheExpired:   60 * time.Second,
 		mu:                   sync.Mutex{},
@@ -64,6 +76,13 @@ func NewCertificate(certFile, keyFile string) *Certificate {
 	return &Certificate{
 		CertFile: certFile,
 		KeyFile:  keyFile,
+	}
+}
+
+func DefaultServerOptions(host string) *HttpServerOptions {
+	return &HttpServerOptions{
+		Host: host,
+		IdleTimeout: 10 * time.Second,
 	}
 }
 
@@ -270,7 +289,7 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 
 func (c *HttpServer) defaultHandlerFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		domain := utils.DomainFromRequestHost(r.Host)
+		domain := http2.DomainFromRequestHost(r.Host)
 		if domainConfig := c.MatchDomain(domain); domainConfig != nil {
 			domainConfig.handler.ServeHTTP(w, r)
 		}
@@ -284,10 +303,15 @@ func (c *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Run 对外主函数, 用于运行http(s) server，并且可以监听stopChan来停止服务器
 // 如果stopChan为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
-func (c *HttpServer) Run(stopChan <-chan bool) error {
+func (c *HttpServer) Run(stopChan <-chan bool) (*http.Server, error) {
 
 	server := &http.Server{
 		Addr:    c.GetHost(),
+		IdleTimeout: c.IdleTimeout,
+		ReadTimeout: c.ReadTimeout,
+		WriteTimeout: c.WriteTimeout,
+		MaxHeaderBytes: c.MaxHeaderBytes,
+		ReadHeaderTimeout: c.ReadHeaderTimeout,
 		Handler: c,
 	}
 
@@ -308,13 +332,13 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 			if err == http.ErrServerClosed {
 				c.logger.Info("http server closed")
 			} else {
-				return err
+				return server, err
 			}
 		}
 	} else { // 启动https server
 		//
 		if err := SetServerTLSCerts(server, c.GetCertificates()); err != nil {
-			return err
+			return server, err
 		}
 
 		c.logger.Infof("Start https server on %s", c.GetHost())
@@ -323,12 +347,12 @@ func (c *HttpServer) Run(stopChan <-chan bool) error {
 			if err == http.ErrServerClosed {
 				c.logger.Info("https server closed")
 			} else {
-				return err
+				return server, err
 			}
 		}
 	}
 
-	return nil
+	return server, nil
 }
 
 // 监听停止信号, stopChan为nil 则收听进程退出信号

@@ -16,6 +16,7 @@ package promhttp
 import (
 	"errors"
 	dto "github.com/prometheus/client_model/go"
+	http2 "go-common/utils/http"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -123,7 +124,7 @@ func IsLabelCurried(c prometheus.Collector, label string) bool {
 	return true
 }
 
-func ComputeApproximateRequestSize(r *http.Request, rd *RequestBodyReaderDelegator) int64 {
+func ComputeApproximateRequestSize(r *http.Request, rd *http2.RequestBodyReaderDelegator) int64 {
 	var s int = 0
 	if r.URL != nil {
 		s += len(r.URL.String())

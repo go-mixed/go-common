@@ -1,4 +1,4 @@
-package utils
+package http
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"go-common/utils"
 	"net"
 	"net/http"
 	"net/url"
@@ -86,7 +87,7 @@ var HttpReason = map[int]string{
 func ValuesToJson(values *url.Values) []byte {
 	var _values = map[string]interface{}{}
 	for key, val := range *values {
-		_values[key] = If(len(val) <= 1, val[0], val)
+		_values[key] = utils.If(len(val) <= 1, val[0], val)
 	}
 
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -116,7 +117,7 @@ func MapToUrlValues(data map[string]interface{}, includeFields []string) url.Val
 				values.Add(k, fmt.Sprintf("%v", vOf.Index(i).Interface()))
 			}
 		case reflect.Bool:
-			values.Set(k, If(v.(bool), "true", "false").(string))
+			values.Set(k, utils.If(v.(bool), "true", "false").(string))
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 			reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
