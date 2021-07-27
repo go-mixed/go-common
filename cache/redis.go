@@ -36,7 +36,7 @@ func (c *RedisCache) Set(key string, val interface{}, expiration time.Duration) 
 		c.Logger.Infof("redis Set %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
-	_, err := c.redisClient.Set(c.Ctx, key, utils.ToString(val), expiration).Result()
+	_, err := c.redisClient.Set(c.Ctx, key, utils.ToString(val, true), expiration).Result()
 	if err != nil {
 		return err
 	}

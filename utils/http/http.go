@@ -5,12 +5,10 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	jsoniter "github.com/json-iterator/go"
 	"go-common/utils"
 	"net"
 	"net/http"
 	"net/url"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -90,42 +88,26 @@ func ValuesToJson(values *url.Values) []byte {
 		_values[key] = utils.If(len(val) <= 1, val[0], val)
 	}
 
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
-	bytes, err := json.Marshal(_values)
+	buf, err := utils.JsonMarshalToBytes(_values)
 
 	if err != nil {
 		return nil
 	}
 
-	return bytes
+	return buf
 }
 
 // MapToUrlValues 一个简单的map -> url.Values, 需要传入需要转换的字节名列表
 // map的value尽量为字符串/数字/浮点数字, 不然转换出来的结果可能不符合预期
 func MapToUrlValues(data map[string]interface{}, includeFields []string) url.Values {
 	values := url.Values{}
-	if includeFields == nil {
+	if len(includeFields) <= 0 {
 		return values
 	}
 
 	for _, k := range includeFields {
 		v := data[k]
-		vOf := reflect.ValueOf(v)
-		switch vOf.Kind() {
-		case reflect.Slice:
-			for i := 0; i < vOf.Len(); i++ {
-				values.Add(k, fmt.Sprintf("%v", vOf.Index(i).Interface()))
-			}
-		case reflect.Bool:
-			values.Set(k, utils.If(v.(bool), "true", "false").(string))
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-			reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-			reflect.String:
-			values.Set(k, fmt.Sprintf("%v", data[k]))
-		default:
-			values.Set(k, fmt.Sprintf("%#v", data[k]))
-		}
+		values.Add(k, utils.ToString(v, true))
 	}
 	return values
 }

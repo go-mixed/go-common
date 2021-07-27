@@ -47,7 +47,14 @@ func ReadAndRestoreReader(reader *io.ReadCloser) []byte {
 	return _bytes
 }
 
+// GetCurrentDir 得到当前执行文件的路径
+// 为了方便调试, 也可以设置环境变量 CURRENT_DIRECTORY 来替代真正的文件路径
 func GetCurrentDir() string {
+	// 为了方便调试
+	p := os.Getenv("CURRENT_DIRECTORY")
+	if p != "" {
+		return p
+	}
 	// 读取当前执行文件的目录
 	_path, err := os.Executable()
 	if err != nil {
