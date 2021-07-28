@@ -1,4 +1,4 @@
-package utils
+package core_utils
 
 import (
 	"fmt"

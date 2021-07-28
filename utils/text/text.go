@@ -1,9 +1,10 @@
-package utils
+package text_utils
 
 import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"go-common/utils/core"
 	"reflect"
 )
 
@@ -72,12 +73,14 @@ type Stringer interface {
 func ToString(v interface{}, otherTypeAsJson bool) string {
 	// 先用 type assert检查, 支持标量, 速度更快
 	switch v.(type) {
+	case []rune:
+		return string(v.([]rune))
 	case []byte:
 		return string(v.([]byte))
 	case string:
 		return v.(string)
 	case bool:
-		return If(v.(bool), "true", "false").(string)
+		return core_utils.If(v.(bool), "true", "false").(string)
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, complex64, complex128:
@@ -89,20 +92,20 @@ func ToString(v interface{}, otherTypeAsJson bool) string {
 	default:
 		// 针对 type ABC string 这种需要使用typeof.kind检查
 		switch reflect.TypeOf(v).Kind() {
-			case reflect.Bool:
-				return If(reflect.ValueOf(v).Bool(), "true", "false").(string)
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-				reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-				reflect.String:
-				return fmt.Sprintf("%v", v)
-			default: // 均不符合 则使用json来处理
-				if otherTypeAsJson {
-					j, _ := JsonMarshal(v)
-					return j
-				} else {
-					return ""
-				}
+		case reflect.Bool:
+			return core_utils.If(reflect.ValueOf(v).Bool(), "true", "false").(string)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+			reflect.String:
+			return fmt.Sprintf("%v", v)
+		default: // 均不符合 则使用json来处理
+			if otherTypeAsJson {
+				j, _ := JsonMarshal(v)
+				return j
+			} else {
+				return ""
+			}
 		}
 	}
 }

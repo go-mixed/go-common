@@ -4,6 +4,7 @@ import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"go-common/utils"
+	"go-common/utils/io"
 	"path/filepath"
 	"time"
 )
@@ -13,11 +14,11 @@ type GinOptions struct {
 	RegisterPprof    bool
 	HTMLTemplatePath string
 	StaticPath       string
-	StaticFiles map[string]string
+	StaticFiles      map[string]string
 }
 
 func DefaultGinOptions(debug, registerPprof bool) *GinOptions {
-	currentDir := utils.GetCurrentDir()
+	currentDir := io_utils.GetCurrentDir()
 	return &GinOptions{
 		Debug:            debug,
 		RegisterPprof:    registerPprof,

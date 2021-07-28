@@ -3,7 +3,7 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
-	"go-common/utils"
+	"go-common/utils/core"
 	"net/http"
 	"time"
 )
@@ -25,7 +25,7 @@ func (c *Controller) Render(data render.Render) error {
 
 // ErrorResponse default error response
 func (c *Controller) ErrorResponse(err error, data interface{}) {
-	if !utils.IsInterfaceNil(data) {
+	if !core_utils.IsInterfaceNil(data) {
 		switch data.(type) {
 		case render.Render:
 			c.Render(data.(render.Render))
@@ -49,7 +49,7 @@ func (c *Controller) ErrorResponse(err error, data interface{}) {
 
 // SuccessResponse default success response
 func (c *Controller) SuccessResponse(code, data interface{}) {
-	if !utils.IsInterfaceNil(data) {
+	if !core_utils.IsInterfaceNil(data) {
 		switch data.(type) {
 		case render.Render:
 			c.Render(data.(render.Render))

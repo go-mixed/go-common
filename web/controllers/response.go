@@ -1,9 +1,15 @@
 package controllers
 
-import "fmt"
+import (
+	"fmt"
+	"go-common/utils/core"
+	text_utils "go-common/utils/text"
+	"io"
+	"io/ioutil"
+)
 
 type Result struct {
-	Code     interface{}         `json:"code"`
+	Code     interface{} `json:"code"`
 	Message  string      `json:"message,omitempty"`
 	Data     interface{} `json:"data,omitempty"`
 	Duration float64     `json:"duration"`
@@ -20,18 +26,17 @@ type IResponseException interface {
 	SetMessage(string)
 }
 
-
 type ResponseException struct {
-	Code    interface{}
+	Code       interface{}
 	StatusCode int
-	Message string
+	Message    string
 }
 
 func NewResponseException(code interface{}, statusCode int, message string) *ResponseException {
 	return &ResponseException{
-		Code:    code,
-		StatusCode:  statusCode,
-		Message: message,
+		Code:       code,
+		StatusCode: statusCode,
+		Message:    message,
 	}
 }
 
@@ -63,6 +68,32 @@ func (e *ResponseException) SetMessage(message string) {
 	e.Message = message
 }
 
+// ParseResult 读取JSON内容解析为 Result, 并且解析 Result.Data 为 outData
+func ParseResult(j []byte, outData interface{}) (*Result, error) {
+	result := &Result{}
+	if err := text_utils.JsonUnmarshalFromBytes(j, result); err != nil {
+		return nil, err
+	}
 
+	if !core_utils.IsInterfaceNil(outData) && !core_utils.IsInterfaceNil(result.Data) {
+		d, _ := text_utils.JsonMarshalToBytes(result.Data)
+		if err := text_utils.JsonUnmarshalFromBytes(d, outData); err != nil {
+			return result, err
+		}
+	}
 
+	return result, nil
+}
 
+// ParseResultFromReader 从reader中读取JSON内容并解析为 Result, 并且解析 Result.Data 为 outData
+// 会关闭reader
+func ParseResultFromReader(reader io.ReadCloser, outData interface{}) (*Result, error) {
+	defer reader.Close()
+
+	j, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return ParseResult(j, outData)
+}

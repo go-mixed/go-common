@@ -1,8 +1,9 @@
-package utils
+package text_utils
 
 import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"go-common/utils/core"
 	"reflect"
 	"strings"
 )
@@ -21,7 +22,7 @@ func JsonListUnmarshal(jsonList []string, to interface{}) error {
 			list = append(list, []byte(_j))
 		}
 	}
-	
+
 	return JsonListUnmarshalFromBytes(list, to)
 }
 
@@ -58,7 +59,7 @@ func JsonListUnmarshalFromBytes(jsonList [][]byte, to interface{}) error {
 	}
 
 	toValue.Set(newSlice)
-	return  nil
+	return nil
 }
 
 func JsonUnmarshal(_json string, to interface{}) error {
@@ -89,7 +90,7 @@ func JsonExtractIntoPtr(_json []byte, to interface{}, label string) error {
 		return err
 	}
 
-	j, err := NestAccess(m, strings.Split(label, ".")...)
+	j, err := core_utils.NestAccess(m, strings.Split(label, ".")...)
 	if err != nil {
 		return err
 	}
@@ -100,4 +101,3 @@ func JsonExtractIntoPtr(_json []byte, to interface{}, label string) error {
 	}
 	return JsonUnmarshalFromBytes(b, to)
 }
-

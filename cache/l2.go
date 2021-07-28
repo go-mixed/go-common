@@ -2,6 +2,8 @@ package cache
 
 import (
 	"go-common/utils"
+	"go-common/utils/core"
+	text_utils "go-common/utils/text"
 	"strings"
 	"time"
 )
@@ -47,8 +49,8 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual interface{}) ([]b
 	}
 
 	_val, ok := val.([]byte)
-	if ok && _val != nil && !utils.IsInterfaceNil(actual) {
-		if err := utils.JsonUnmarshalFromBytes(_val, actual); err != nil {
+	if ok && _val != nil && !core_utils.IsInterfaceNil(actual) {
+		if err := text_utils.JsonUnmarshalFromBytes(_val, actual); err != nil {
 			l.logger.Errorf("redis json unmarshal: %s of error: %s", val, err.Error())
 			return _val, err
 		}
@@ -58,19 +60,19 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual interface{}) ([]b
 }
 
 func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) (map[string][]byte, error) {
-	res, err := l.memCache.Remember("mget:"+utils.Md5(strings.Join(keys, "|")), expire, func() (interface{}, error) {
+	res, err := l.memCache.Remember("mget:"+text_utils.Md5(strings.Join(keys, "|")), expire, func() (interface{}, error) {
 		return l.cache.MGet(keys, nil)
 	})
 	if err != nil {
 		return nil, err
 	}
 	_res, ok := res.(map[string][]byte)
-	if ok && len(_res) > 0 && !utils.IsInterfaceNil(actual) {
+	if ok && len(_res) > 0 && !core_utils.IsInterfaceNil(actual) {
 		var _vals [][]byte
 		for _, v := range _res {
 			_vals = append(_vals, v)
 		}
-		if err := utils.JsonListUnmarshalFromBytes(_vals, actual); err != nil {
+		if err := text_utils.JsonListUnmarshalFromBytes(_vals, actual); err != nil {
 			l.logger.Errorf("redis json unmarshal: %v of error: %s", _vals, err.Error())
 			return nil, err
 		}
@@ -105,12 +107,12 @@ func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual inte
 		return nil, err
 	}
 	_res, ok := res.(map[string][]byte)
-	if ok && !utils.IsInterfaceNil(actual) {
+	if ok && !core_utils.IsInterfaceNil(actual) {
 		var _vals [][]byte
 		for _, v := range _res {
 			_vals = append(_vals, v)
 		}
-		if err := utils.JsonListUnmarshalFromBytes(_vals, actual); err != nil {
+		if err := text_utils.JsonListUnmarshalFromBytes(_vals, actual); err != nil {
 			l.logger.Errorf("redis json unmarshal: %v of error: %s", _vals, err.Error())
 			return nil, err
 		}

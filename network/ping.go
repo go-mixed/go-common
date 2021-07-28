@@ -16,9 +16,9 @@ func MixPing(ip string, timeout time.Duration, arpIface string) (ok bool, hwAddr
 	return Arping(ip, timeout, arpIface)
 }
 
-/**
+/** Ping
  * 只能运行在linux上
- * 需要在本机执行之后才能ping通 sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"
+ * 需要在本机执行后面的语句之后才能ping通 sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"
  */
 func Ping(ip string, timeout time.Duration) (ok bool, duration time.Duration) {
 	pinger, err := ping.NewPinger(ip)

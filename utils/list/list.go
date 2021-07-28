@@ -1,4 +1,4 @@
-package list
+package list_utils
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ func IndexOf(slice interface{}, findMe interface{}) int {
 		return value == findMe
 	})
 }
+
 // StrIndexOf 字符串数组的IndexOf
 func StrIndexOf(slice []string, findMe string, ignoreCase bool) int {
 	if ignoreCase {

@@ -1,4 +1,4 @@
-package list
+package list_utils
 
 import (
 	"container/list"

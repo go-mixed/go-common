@@ -3,7 +3,9 @@ package cache
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"go-common/utils"
+	"go-common/utils/conv"
+	"go-common/utils/core"
+	text_utils "go-common/utils/text"
 	"strings"
 	"time"
 )
@@ -36,7 +38,7 @@ func (c *RedisCache) Set(key string, val interface{}, expiration time.Duration) 
 		c.Logger.Infof("redis Set %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
-	_, err := c.redisClient.Set(c.Ctx, key, utils.ToString(val, true), expiration).Result()
+	_, err := c.redisClient.Set(c.Ctx, key, text_utils.ToString(val, true), expiration).Result()
 	if err != nil {
 		return err
 	}
@@ -61,8 +63,8 @@ func (c *RedisCache) Get(key string, result interface{}) ([]byte, error) {
 		return nil, nil
 	}
 
-	if !utils.IsInterfaceNil(result) {
-		if err := utils.JsonUnmarshal(val, result); err != nil {
+	if !core_utils.IsInterfaceNil(result) {
+		if err := text_utils.JsonUnmarshal(val, result); err != nil {
 			c.Logger.Errorf("redis json unmarshal: %s of error: %s", val, err.Error())
 			return []byte(val), err
 		}
@@ -94,8 +96,8 @@ func (c *RedisCache) MGet(keys []string, result interface{}) (map[string][]byte,
 		kv[keys[i]] = []byte(_v)
 		vals = append(vals, kv[keys[i]])
 	}
-	if !utils.IsInterfaceNil(result) && len(vals) > 0 {
-		if err := utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
+	if !core_utils.IsInterfaceNil(result) && len(vals) > 0 {
+		if err := text_utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
 			c.Logger.Errorf("redis json unmarshal: %v of error: %s", vals, err.Error())
 			return nil, err
 		}
@@ -228,7 +230,7 @@ func (c *RedisCache) scanRange(keyStart, keyEnd string, keyPrefix string, limit 
 		params = append(params, "MATCH", keyPrefix)
 	}
 	if limit > 0 {
-		params = append(params, "LIMIT", utils.Itoa(limit))
+		params = append(params, "LIMIT", conv.Itoa(limit))
 	}
 
 	_res, err := c.redisClient.Do(c.Ctx, params...).Result()
@@ -282,8 +284,8 @@ func (c *RedisCache) ScanRange(keyStart, keyEnd string, keyPrefix string, limit 
 		vals = append(vals, v)
 	}
 
-	if !utils.IsInterfaceNil(result) && len(vals) > 0 {
-		if err := utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
+	if !core_utils.IsInterfaceNil(result) && len(vals) > 0 {
+		if err := text_utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
 			return "", nil, err
 		}
 	}

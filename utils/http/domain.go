@@ -1,7 +1,9 @@
-package utils
+package http_utils
 
 import (
+	"go-common/utils/core"
 	"go-common/utils/list"
+	"go-common/utils/text"
 	"sort"
 	"strings"
 )
@@ -14,7 +16,7 @@ func DomainIndexOfWildCard(d string) int {
 	}
 	i := strings.Index(d, "*")
 	j := strings.Index(d, "?")
-	return If(i > j, i, j).(int)
+	return core_utils.If(i > j, i, j).(int)
 }
 
 func DomainHasWildCard(d string) bool {
@@ -23,14 +25,14 @@ func DomainHasWildCard(d string) bool {
 
 // SortDomains 对域名进行排序
 func SortDomains(src interface{}, fn func(v interface{}) string) {
-	_src := list.ToInterfaces(src)
+	_src := list_utils.ToInterfaces(src)
 	sort.SliceStable(_src, func(i, j int) bool {
 		d1 := strings.ToLower(fn(_src[i]))
 		d2 := strings.ToLower(fn(_src[j]))
 		l1 := len(d1)
 		l2 := len(d2)
 
-		minLen := If(l1 < l2, l1, l2).(int)
+		minLen := core_utils.If(l1 < l2, l1, l2).(int)
 
 		// 倒着对比，谁先*, 谁拍后面
 		for i := 1; i <= minLen; i++ {
@@ -58,7 +60,7 @@ func SortDomains(src interface{}, fn func(v interface{}) string) {
 		return l1 > l2 // 多余部分没有通配符, 此时看谁更长, 长的排到前面
 	})
 
-	_ = list.InterfacesAs(_src, src)
+	_ = list_utils.InterfacesAs(_src, src)
 }
 
 func (d Domains) IsEmpty() bool {
@@ -88,7 +90,7 @@ func (d Domains) Sort() Domains {
 func (d Domains) Match(domain string) (bool, string) {
 	domain = strings.ToLower(domain)
 	for _, _d := range d {
-		if WildcardMatch(_d, domain) {
+		if text_utils.WildcardMatch(_d, domain) {
 			return true, _d
 		}
 	}

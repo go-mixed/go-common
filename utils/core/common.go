@@ -1,7 +1,8 @@
-package utils
+package core_utils
 
 import (
 	"fmt"
+	"go-common/utils/conv"
 	"reflect"
 	"runtime"
 )
@@ -53,14 +54,13 @@ func IsInterfaceNil(v interface{}) bool {
 		return true
 	}
 	vOf := reflect.ValueOf(v)
-	return (vOf.Kind() == reflect.Ptr && vOf.IsNil())
+	return vOf.Kind() == reflect.Ptr && vOf.IsNil()
 }
-
 
 // NestAccess 递归访问map/struct/slice
 // keys 是递归的key
 // 比如: NestAccess({"a": {"b": [{"c": "string"}]}}, "a", "b", "0", "c")  ==> string
-func NestAccess(from interface{}, keys... string) (interface{}, error) {
+func NestAccess(from interface{}, keys ...string) (interface{}, error) {
 	valueOf := reflect.ValueOf(from)
 	for _i, k := range keys {
 		if valueOf.IsNil() {
@@ -70,7 +70,7 @@ func NestAccess(from interface{}, keys... string) (interface{}, error) {
 		}
 		switch valueOf.Kind() {
 		case reflect.Slice:
-			i := Atoi(k, -1)
+			i := conv.Atoi(k, -1)
 			if i < 0 || i >= valueOf.Len() {
 				return nil, fmt.Errorf("have no key at %v", keys[:_i])
 			} else {

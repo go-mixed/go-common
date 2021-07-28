@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"go-common-cache"
 	"go-common/utils"
+	"go-common/utils/core"
 	http2 "go-common/utils/http"
-	"go-common/utils/list"
+	list_utils "go-common/utils/list"
+	text_utils "go-common/utils/text"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,12 +34,12 @@ type DomainConfig struct {
 }
 
 type HttpServerOptions struct {
-	Host                 string
-	IdleTimeout time.Duration
-	ReadTimeout time.Duration
-	WriteTimeout time.Duration
-	MaxHeaderBytes     int
-	ReadHeaderTimeout  time.Duration
+	Host              string
+	IdleTimeout       time.Duration
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	MaxHeaderBytes    int
+	ReadHeaderTimeout time.Duration
 }
 
 type HttpServer struct {
@@ -53,12 +55,11 @@ type HttpServer struct {
 	mu                 sync.Mutex
 	logger             utils.ILogger
 	domainCache        *cache.MemoryCache
-
 }
 
 func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
 	s := &HttpServer{
-		HttpServerOptions: httpServerOptions,
+		HttpServerOptions:    httpServerOptions,
 		orderedDomainConfigs: make([]*DomainConfig, 0, 1),
 		domainCacheExpired:   60 * time.Second,
 		mu:                   sync.Mutex{},
@@ -81,7 +82,7 @@ func NewCertificate(certFile, keyFile string) *Certificate {
 
 func DefaultServerOptions(host string) *HttpServerOptions {
 	return &HttpServerOptions{
-		Host: host,
+		Host:        host,
 		IdleTimeout: 10 * time.Second,
 	}
 }
@@ -106,19 +107,19 @@ func (c *HttpServer) HasDefaultDomain() bool {
 
 // SetDomainCacheExpired 设置匹配到域名的缓存过期时间
 func (c *HttpServer) SetDomainCacheExpired(domainCacheExpired time.Duration) {
-	c.domainCacheExpired = utils.If(domainCacheExpired < 60*time.Second, 60*time.Second, domainCacheExpired).(time.Duration)
+	c.domainCacheExpired = core_utils.If(domainCacheExpired < 60*time.Second, 60*time.Second, domainCacheExpired).(time.Duration)
 }
 
 // ContainsDomain 是否包含此域名, 此函数是判断完全相等, 如果需要匹配通配符, 使用 MatchDomain
 func (c *HttpServer) ContainsDomain(domain string) bool {
-	return list.Find(c.orderedDomainConfigs, func(value interface{}) bool {
+	return list_utils.Find(c.orderedDomainConfigs, func(value interface{}) bool {
 		return strings.EqualFold(value.(*DomainConfig).domain, domain)
 	}) >= 0
 }
 
 // ContainsCert 是否包含此证书, 需要cert/key都相等
 func (c *HttpServer) ContainsCert(cert *Certificate) bool {
-	return list.Find(c.certs, func(value interface{}) bool {
+	return list_utils.Find(c.certs, func(value interface{}) bool {
 		_v := value.(*Certificate)
 		return os.SameFile(cert.CertFileInfo(), _v.CertFileInfo()) && os.SameFile(cert.KeyFileInfo(), _v.KeyFileInfo())
 	}) >= 0
@@ -127,7 +128,7 @@ func (c *HttpServer) ContainsCert(cert *Certificate) bool {
 // AddServeHandler 添加域名, serveHTTP, 证书
 // 可以使用 AddCertificate 传递证书
 // 注意: 如果有传递证书，证书DNS Name必须包含所传递的domains（此函数并不检查），不然，需要分多次添加
-func (c *HttpServer) AddServeHandler(domains utils.Domains, handler http.Handler, cert *Certificate) error {
+func (c *HttpServer) AddServeHandler(domains http2.Domains, handler http.Handler, cert *Certificate) error {
 	if err := c.AddCertificate(cert); err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func (c *HttpServer) AddServeHandler(domains utils.Domains, handler http.Handler
 	}
 
 	// 按照域名的特有方式进行排序
-	utils.SortDomains(&domainConfigs, func(v interface{}) string {
+	http2.SortDomains(&domainConfigs, func(v interface{}) string {
 		return v.(*DomainConfig).domain
 	})
 
@@ -274,7 +275,7 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 		defer c.mu.Unlock()
 
 		for _, domainConfig := range c.orderedDomainConfigs {
-			if utils.WildcardMatch(domainConfig.domain, domain) {
+			if text_utils.WildcardMatch(domainConfig.domain, domain) {
 				return domainConfig, nil
 			}
 		}
@@ -306,13 +307,13 @@ func (c *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (c *HttpServer) Run(stopChan <-chan bool) (*http.Server, error) {
 
 	server := &http.Server{
-		Addr:    c.GetHost(),
-		IdleTimeout: c.IdleTimeout,
-		ReadTimeout: c.ReadTimeout,
-		WriteTimeout: c.WriteTimeout,
-		MaxHeaderBytes: c.MaxHeaderBytes,
+		Addr:              c.GetHost(),
+		IdleTimeout:       c.IdleTimeout,
+		ReadTimeout:       c.ReadTimeout,
+		WriteTimeout:      c.WriteTimeout,
+		MaxHeaderBytes:    c.MaxHeaderBytes,
 		ReadHeaderTimeout: c.ReadHeaderTimeout,
-		Handler: c,
+		Handler:           c,
 	}
 
 	go func() {

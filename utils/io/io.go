@@ -1,4 +1,4 @@
-package utils
+package io_utils
 
 import (
 	"bytes"
@@ -99,4 +99,53 @@ func FileSize(name string) int64 {
 		return 0
 	}
 	return stat.Size()
+}
+
+// MoveFile will work moving file between folders.
+// GoLang: os.Rename() give error "invalid cross-device link" for Docker container with Volumes.
+func MoveFile(sourcePath, destPath string) error {
+	if err := CopyFile(sourcePath, destPath); err != nil {
+		return err
+	}
+
+	// The copy was successful, so now delete the original file
+	if err := os.Remove(sourcePath); err != nil {
+		return fmt.Errorf("failed removing original file: %s", err)
+	}
+
+	return nil
+}
+
+// CopyFile copy sourcePath to destPath with the same perm as the source file
+func CopyFile(sourcePath, destPath string) error {
+	inputFile, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("couldn't open source file: %s", err)
+	}
+	defer inputFile.Close()
+
+	fi, err := inputFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	//  perm as same as source file
+	flag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	perm := fi.Mode() & os.ModePerm
+	outputFile, err := os.OpenFile(destPath, flag, perm)
+	if err != nil {
+		return fmt.Errorf("couldn't open dest file: %s", err)
+	}
+	defer outputFile.Close()
+
+	_, err = io.Copy(outputFile, inputFile)
+	if err != nil {
+		return fmt.Errorf("writing to output file failed: %s", err)
+	}
+
+	if err := outputFile.Sync(); err != nil {
+		return fmt.Errorf("failed sync dest file: %s", err)
+	}
+
+	return nil
 }

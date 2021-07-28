@@ -1,11 +1,12 @@
-package http
+package http_utils
 
 import (
 	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
-	"go-common/utils"
+	"go-common/utils/core"
+	"go-common/utils/text"
 	"net"
 	"net/http"
 	"net/url"
@@ -85,10 +86,10 @@ var HttpReason = map[int]string{
 func ValuesToJson(values *url.Values) []byte {
 	var _values = map[string]interface{}{}
 	for key, val := range *values {
-		_values[key] = utils.If(len(val) <= 1, val[0], val)
+		_values[key] = core_utils.If(len(val) <= 1, val[0], val)
 	}
 
-	buf, err := utils.JsonMarshalToBytes(_values)
+	buf, err := text_utils.JsonMarshalToBytes(_values)
 
 	if err != nil {
 		return nil
@@ -107,7 +108,7 @@ func MapToUrlValues(data map[string]interface{}, includeFields []string) url.Val
 
 	for _, k := range includeFields {
 		v := data[k]
-		values.Add(k, utils.ToString(v, true))
+		values.Add(k, text_utils.ToString(v, true))
 	}
 	return values
 }

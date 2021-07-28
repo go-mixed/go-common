@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"go-common/utils"
-	"go-common/utils/list"
+	"go-common/utils/core"
+	list_utils "go-common/utils/list"
 	"os"
 	"os/signal"
 	"runtime"
@@ -36,7 +37,7 @@ func (p *Params) validate() error {
 */
 func DefaultExecutorParams() Params {
 	return Params{
-		Name:            utils.GetFrame(1).Function,
+		Name:            core_utils.GetFrame(1).Function,
 		NumWorkers:      runtime.NumCPU(),
 		ShutdownTimeout: 3 * time.Second,
 	}
@@ -44,7 +45,7 @@ func DefaultExecutorParams() Params {
 
 func NewExecutorParams(NumWorkers int, ShutdownTimeout time.Duration, Name string) Params {
 	if Name == "" {
-		Name = utils.GetFrame(1).Function
+		Name = core_utils.GetFrame(1).Function
 	}
 	return Params{
 		Name:            Name,
@@ -61,8 +62,8 @@ type Executor struct {
 	stopChan chan bool // 全局停止通道
 	termChan chan os.Signal
 
-	runningJobs *list.ConcurrencyList
-	queueJobs   *list.ConcurrencyList
+	runningJobs *list_utils.ConcurrencyList
+	queueJobs   *list_utils.ConcurrencyList
 }
 
 /**
@@ -80,8 +81,8 @@ func NewExecutor(params Params) (*Executor, error) {
 		stopped:     false,
 		wg:          &sync.WaitGroup{},
 		stopChan:    make(chan bool),
-		queueJobs:   list.NewConcurrencyList(),
-		runningJobs: list.NewConcurrencyList(),
+		queueJobs:   list_utils.NewConcurrencyList(),
+		runningJobs: list_utils.NewConcurrencyList(),
 	}
 
 	return executor, nil

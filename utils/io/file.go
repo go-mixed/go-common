@@ -1,4 +1,4 @@
-package utils
+package io_utils
 
 import (
 	"crypto/md5"
@@ -20,7 +20,7 @@ type MultipartFileReader struct {
 
 	files []*os.File
 
-	hash     hash.Hash
+	hash      hash.Hash
 	checksums []byte
 }
 
@@ -57,7 +57,7 @@ func NewMultipartFileReader(paths []string) (*MultipartFileReader, error) {
 	}, nil
 }
 
-func (r *MultipartFileReader) openFile(index int) (*os.File,  error) {
+func (r *MultipartFileReader) openFile(index int) (*os.File, error) {
 	if r.files[index] == nil {
 		file, err := os.Open(r.paths[index])
 		if err != nil {
@@ -113,7 +113,6 @@ func (r *MultipartFileReader) Position() int64 {
 	return r.position
 }
 
-
 func (r *MultipartFileReader) Read(buf []byte) (int, error) {
 
 	var currentRead = 0
@@ -140,7 +139,7 @@ func (r *MultipartFileReader) Read(buf []byte) (int, error) {
 		}
 
 		// 查找该读取哪个文件, 并设置好文件seek
-		for ;fileIndex < len(r.sizes); {
+		for fileIndex < len(r.sizes) {
 			// offset在文件范围内
 			if r.position >= fileStart && r.position < fileStart+r.sizes[fileIndex] {
 				file, err = r.openFile(fileIndex)
@@ -173,7 +172,7 @@ func (r *MultipartFileReader) Read(buf []byte) (int, error) {
 		}
 
 		// 更新md5
-		r.hash.Write(buf[currentRead:currentRead+n])
+		r.hash.Write(buf[currentRead : currentRead+n])
 		currentRead += n
 		r.readingLength += int64(n)
 
@@ -197,7 +196,6 @@ func (r *MultipartFileReader) DryRead(readSize int64) (int64, error) {
 	}
 }
 
-
 // Checksums 需要read结束之后才能得到正确的md5
 func (r *MultipartFileReader) Checksums(into []byte) []byte {
 	if r.checksums != nil {
@@ -216,4 +214,3 @@ func (r *MultipartFileReader) Close() error {
 	}
 	return fmt.Errorf(strings.Join(errs, "\n"))
 }
-

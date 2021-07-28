@@ -1,6 +1,8 @@
 package task_pool
 
-import "go-common/utils"
+import (
+	"go-common/utils/core"
+)
 
 type Runnable func(stopChan <-chan bool)
 
@@ -15,7 +17,7 @@ func NewRunnableT(fn interface{}, args ...interface{}) Runnable {
 		// stopChan 插入到第一个参数中
 		_args := append([]interface{}{}, stopChan)
 		_args = append(_args, args...)
-		utils.Invoke(fn, _args...)
+		core_utils.Invoke(fn, _args...)
 	}
 }
 

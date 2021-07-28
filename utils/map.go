@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"go-common/utils/conv"
 	"reflect"
 )
 
@@ -98,10 +99,9 @@ func ToMap(data interface{}, tag string) (map[string]interface{}, error) {
 		}
 	case reflect.Slice:
 		for i := 0; i < vOf.Len(); i++ {
-			result[ Itoa(i) ] = vOf.Index(i).Interface()
+			result[conv.Itoa(i)] = vOf.Index(i).Interface()
 		}
 	}
-
 
 	return result, nil
 }

@@ -3,7 +3,12 @@ package main
 import (
 	"fmt"
 	"go-common/utils"
-	"go-common/utils/list"
+	"go-common/utils/conv"
+	"go-common/utils/core"
+	http_utils "go-common/utils/http"
+	"go-common/utils/io"
+	list_utils "go-common/utils/list"
+	text_utils "go-common/utils/text"
 	"io"
 	"time"
 )
@@ -20,11 +25,11 @@ func main() {
 
 	fmt.Printf("version: %s\n", version())
 
-	fmt.Printf("Atoi %d\n", utils.Atoi("0000123", 0))
+	fmt.Printf("Atoi %d\n", conv.Atoi("0000123", 0))
 
-	fmt.Printf("indexOf interface{}: %d\n", list.IndexOf([]string{"1", "2"}, "2"))
+	fmt.Printf("indexOf interface{}: %d\n", list_utils.IndexOf([]string{"1", "2"}, "2"))
 
-	domains := utils.Domains{
+	domains := http_utils.Domains{
 		"*.b.com",
 		"b.com",
 		"*.com",
@@ -43,22 +48,22 @@ func main() {
 
 	type User struct {
 		Name string
-		Age int
+		Age  int
 	}
 
 	var a map[string]string
-	fmt.Printf("map a is nil: %v\n", utils.IsInterfaceNil(a))
+	fmt.Printf("map a is nil: %v\n", core_utils.IsInterfaceNil(a))
 
 	var users []*User
-	fmt.Printf("struct is nil: %v\n", utils.IsInterfaceNil(users))
+	fmt.Printf("struct is nil: %v\n", core_utils.IsInterfaceNil(users))
 
 	type _b struct {
-		A int `json:"a"`
-		B float32 `json:"b"`
+		A int           `json:"a"`
+		B float32       `json:"b"`
 		C time.Duration `json:"c"`
-		D string `json:"d"`
-		E []string `json:"e"`
-		F time.Time `json:"-"`
+		D string        `json:"d"`
+		E []string      `json:"e"`
+		F time.Time     `json:"-"`
 	}
 	var b = _b{
 		A: 1,
@@ -80,7 +85,6 @@ func main() {
 		return
 	}
 	fmt.Printf("struct to map: %#v\n", m)
-
 
 	b1 := map[interface{}]interface{}{}
 	b1["a"] = "v2"
@@ -120,10 +124,9 @@ func main() {
 	for i := 0; i < 100000; i++ {
 		values = utils.MapStringValues(c)
 	}
-	fmt.Printf("map values: %#v %d\n", values, time.Now().Sub(t) / time.Millisecond)
+	fmt.Printf("map values: %#v %d\n", values, time.Now().Sub(t)/time.Millisecond)
 
-
-	if err := utils.JsonListUnmarshal([]string{
+	if err := text_utils.JsonListUnmarshal([]string{
 		"{\"Name\": \"a\", \"Age\": 20}",
 		"",
 		"{\"Name\": \"b\", \"Age\": 21}"}, &users); err != nil {
@@ -145,14 +148,14 @@ func main() {
 	}`
 
 	var user User
-	if err := utils.JsonExtractIntoPtr([]byte(j), &user, "a.b.0"); err != nil {
+	if err := text_utils.JsonExtractIntoPtr([]byte(j), &user, "a.b.0"); err != nil {
 		fmt.Printf("err: %s\n", err.Error())
 		return
 	}
 
 	fmt.Printf("json with label %#v\n", user)
 
-	f, err := utils.NewMultipartFileReader([]string{"examples/part1.txt", "examples/part2.txt", "examples/part3.txt"})
+	f, err := io_utils.NewMultipartFileReader([]string{"examples/part1.txt", "examples/part2.txt", "examples/part3.txt"})
 	if err != nil {
 		fmt.Printf("err: %s\n", err.Error())
 		return
@@ -165,13 +168,12 @@ func main() {
 	f.Seek(1000, io.SeekStart)
 	f.DryRead(68000)
 	/*
-	s = ''
-	for i in range(1, 1000):
-	    s += "%010dabcdefghijklmnopqrstuvwxyz1234567890" % i
-	import hashlib
-	print(hashlib.md5(s[1000:69000].encode('utf-8')).hexdigest())
-	 */
+		s = ''
+		for i in range(1, 1000):
+		    s += "%010dabcdefghijklmnopqrstuvwxyz1234567890" % i
+		import hashlib
+		print(hashlib.md5(s[1000:69000].encode('utf-8')).hexdigest())
+	*/
 	fmt.Printf("cross 3 multipart file md5: ab0723708785f96b305a828349858d16 == %x", f.Checksums(nil))
 
 }
-
