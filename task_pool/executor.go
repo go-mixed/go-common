@@ -37,7 +37,7 @@ func (p *Params) validate() error {
 */
 func DefaultExecutorParams() Params {
 	return Params{
-		Name:            core_utils.GetFrame(1).Function,
+		Name:            core.GetFrame(1).Function,
 		NumWorkers:      runtime.NumCPU(),
 		ShutdownTimeout: 3 * time.Second,
 	}
@@ -45,7 +45,7 @@ func DefaultExecutorParams() Params {
 
 func NewExecutorParams(NumWorkers int, ShutdownTimeout time.Duration, Name string) Params {
 	if Name == "" {
-		Name = core_utils.GetFrame(1).Function
+		Name = core.GetFrame(1).Function
 	}
 	return Params{
 		Name:            Name,

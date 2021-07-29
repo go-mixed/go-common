@@ -52,10 +52,10 @@ func main() {
 	}
 
 	var a map[string]string
-	fmt.Printf("map a is nil: %v\n", core_utils.IsInterfaceNil(a))
+	fmt.Printf("map a is nil: %v\n", core.IsInterfaceNil(a))
 
 	var users []*User
-	fmt.Printf("struct is nil: %v\n", core_utils.IsInterfaceNil(users))
+	fmt.Printf("struct is nil: %v\n", core.IsInterfaceNil(users))
 
 	type _b struct {
 		A int           `json:"a"`

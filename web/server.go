@@ -107,7 +107,7 @@ func (c *HttpServer) HasDefaultDomain() bool {
 
 // SetDomainCacheExpired 设置匹配到域名的缓存过期时间
 func (c *HttpServer) SetDomainCacheExpired(domainCacheExpired time.Duration) {
-	c.domainCacheExpired = core_utils.If(domainCacheExpired < 60*time.Second, 60*time.Second, domainCacheExpired).(time.Duration)
+	c.domainCacheExpired = core.If(domainCacheExpired < 60*time.Second, 60*time.Second, domainCacheExpired).(time.Duration)
 }
 
 // ContainsDomain 是否包含此域名, 此函数是判断完全相等, 如果需要匹配通配符, 使用 MatchDomain

@@ -49,7 +49,7 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual interface{}) ([]b
 	}
 
 	_val, ok := val.([]byte)
-	if ok && _val != nil && !core_utils.IsInterfaceNil(actual) {
+	if ok && _val != nil && !core.IsInterfaceNil(actual) {
 		if err := text_utils.JsonUnmarshalFromBytes(_val, actual); err != nil {
 			l.logger.Errorf("redis json unmarshal: %s of error: %s", val, err.Error())
 			return _val, err
@@ -67,7 +67,7 @@ func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) 
 		return nil, err
 	}
 	_res, ok := res.(map[string][]byte)
-	if ok && len(_res) > 0 && !core_utils.IsInterfaceNil(actual) {
+	if ok && len(_res) > 0 && !core.IsInterfaceNil(actual) {
 		var _vals [][]byte
 		for _, v := range _res {
 			_vals = append(_vals, v)
@@ -107,7 +107,7 @@ func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual inte
 		return nil, err
 	}
 	_res, ok := res.(map[string][]byte)
-	if ok && !core_utils.IsInterfaceNil(actual) {
+	if ok && !core.IsInterfaceNil(actual) {
 		var _vals [][]byte
 		for _, v := range _res {
 			_vals = append(_vals, v)

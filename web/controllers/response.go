@@ -75,7 +75,7 @@ func ParseResult(j []byte, outData interface{}) (*Result, error) {
 		return nil, err
 	}
 
-	if !core_utils.IsInterfaceNil(outData) && !core_utils.IsInterfaceNil(result.Data) {
+	if !core.IsInterfaceNil(outData) && !core.IsInterfaceNil(result.Data) {
 		d, _ := text_utils.JsonMarshalToBytes(result.Data)
 		if err := text_utils.JsonUnmarshalFromBytes(d, outData); err != nil {
 			return result, err

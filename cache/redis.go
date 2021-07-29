@@ -63,7 +63,7 @@ func (c *RedisCache) Get(key string, result interface{}) ([]byte, error) {
 		return nil, nil
 	}
 
-	if !core_utils.IsInterfaceNil(result) {
+	if !core.IsInterfaceNil(result) {
 		if err := text_utils.JsonUnmarshal(val, result); err != nil {
 			c.Logger.Errorf("redis json unmarshal: %s of error: %s", val, err.Error())
 			return []byte(val), err
@@ -96,7 +96,7 @@ func (c *RedisCache) MGet(keys []string, result interface{}) (map[string][]byte,
 		kv[keys[i]] = []byte(_v)
 		vals = append(vals, kv[keys[i]])
 	}
-	if !core_utils.IsInterfaceNil(result) && len(vals) > 0 {
+	if !core.IsInterfaceNil(result) && len(vals) > 0 {
 		if err := text_utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
 			c.Logger.Errorf("redis json unmarshal: %v of error: %s", vals, err.Error())
 			return nil, err
@@ -284,7 +284,7 @@ func (c *RedisCache) ScanRange(keyStart, keyEnd string, keyPrefix string, limit 
 		vals = append(vals, v)
 	}
 
-	if !core_utils.IsInterfaceNil(result) && len(vals) > 0 {
+	if !core.IsInterfaceNil(result) && len(vals) > 0 {
 		if err := text_utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
 			return "", nil, err
 		}

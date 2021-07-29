@@ -90,7 +90,7 @@ func JsonExtractIntoPtr(_json []byte, to interface{}, label string) error {
 		return err
 	}
 
-	j, err := core_utils.NestAccess(m, strings.Split(label, ".")...)
+	j, err := core.NestAccess(m, strings.Split(label, ".")...)
 	if err != nil {
 		return err
 	}

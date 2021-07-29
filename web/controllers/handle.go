@@ -48,7 +48,7 @@ func ControllerHandlerFunc(controllerName, methodName string, before func(IContr
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusNotFound)
 			_, _ = ctx.Writer.WriteString(err.Error())
-		} else if !core_utils.HasMethod(controller, methodName) {
+		} else if !core.HasMethod(controller, methodName) {
 			controller.ErrorResponse(NewResponseException(http.StatusNotFound, http.StatusNotFound, fmt.Sprintf("controller method [%s@%s] not founud", controllerName, methodName)), nil)
 		} else {
 			if before == nil {
@@ -71,9 +71,9 @@ func ControllerHandlerFunc(controllerName, methodName string, before func(IContr
 }
 
 func callControllerMethod(controller IController, methodName string, args ...interface{}) (interface{}, error) {
-	res, err := core_utils.CallMethod2(controller, methodName, args...)
+	res, err := core.CallMethod2(controller, methodName, args...)
 
-	if !core_utils.IsInterfaceNil(err) {
+	if !core.IsInterfaceNil(err) {
 		switch err.(type) {
 		case error:
 			return res, err.(error)
