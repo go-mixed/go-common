@@ -28,7 +28,6 @@ func (p *Params) validate() error {
 }
 
 /*
-
 默认 Executor 参数
  * NumWorkers: 默认CPU核心数
  * MaxJobQueueCapacity: 1000 最大等待的任务数为1000
@@ -64,12 +63,12 @@ type Executor struct {
 
 	runningJobs *list_utils.ConcurrencyList
 	queueJobs   *list_utils.ConcurrencyList
+
+	logger utils.ILogger
 }
 
-/**
- * 创建一个任务运行池，只能同时运行limit个任务
- */
-func NewExecutor(params Params) (*Executor, error) {
+// NewExecutor 创建一个任务运行池，只能同时运行limit个任务
+func NewExecutor(params Params, logger utils.ILogger) (*Executor, error) {
 
 	if err := params.validate(); err != nil {
 		return nil, err
@@ -83,6 +82,7 @@ func NewExecutor(params Params) (*Executor, error) {
 		stopChan:    make(chan bool),
 		queueJobs:   list_utils.NewConcurrencyList(),
 		runningJobs: list_utils.NewConcurrencyList(),
+		logger:      logger,
 	}
 
 	return executor, nil
@@ -90,6 +90,7 @@ func NewExecutor(params Params) (*Executor, error) {
 
 /**
  * 添加一个或多个任务，添加之后，如果任务池已经满，会排队等待执行，不然会立即执行
+ * 注意: 本函数只会添加任务, 不会运行任务, 所以不会阻塞
  * 对于持久的任务，一定要监听 stopChan 通道后退出任务，不然在Ctrl+C时导致程序无法正确的退出。
  * 请参考下面例子完成持久任务的退出操作：
  * e.Submit(func(stopChan <- chan bool) error {
@@ -120,7 +121,7 @@ func (e *Executor) Submit(runnables ...Runnable) []*Job {
 }
 
 /**
- * 停止所有任务，会等待正在运行的任务运行完毕
+ * 停止所有任务，会阻塞等待正在运行的任务运行完毕
  * 正在运行的任务，会关闭 stopChan 通道通知它停止
  * 对于未运行的任务，不会删除，后续可以通过 QueueJobs 查看
  * 注意：停止后的任务池将结束生命周期，即使再添加任务到 Submit 中也不会启动，除非 Reset
@@ -157,7 +158,7 @@ func (e *Executor) Stop() {
 					e.onJobDone(nil)
 				}
 
-				utils.GetSugaredLogger().Infof("[%s]stop incorrect, %d job(s) still running.", e.params.Name, runningJobCount)
+				e.logger.Infof("[%s]stop incorrect, %d job(s) still running.", e.params.Name, runningJobCount)
 				return
 			case <-time.After(100 * time.Millisecond): // 100ms 再次循环
 			}
@@ -167,13 +168,11 @@ func (e *Executor) Stop() {
 	// 阻塞 直到所有的任务停止
 	e.Wait()
 
-	utils.GetSugaredLogger().Infof("[%s]all running jobs stopped.", e.params.Name)
+	e.logger.Infof("[%s]all running jobs stopped.", e.params.Name)
 }
 
-/**
- * 对于已经停止的任务池，可以再次启动
- * @param keepRemainTasks bool: 是否保留剩余的任务，如果任务池中还有剩余的任务，在执行 Reset 之后会立即启动
- */
+// Reset 对于已经停止的任务池，可以再次启动
+// keepRemainTasks bool: 是否保留剩余的任务，如果任务池中还有剩余的任务，在执行 Reset 之后会立即启动
 func (e *Executor) Reset(keepRemainJobs bool) {
 
 	if !keepRemainJobs {
@@ -243,16 +242,12 @@ func (e *Executor) onJobDone(job *Job) {
 	e.wg.Done() // 必须在新任务已经派发后才能Done，也runNextJob之后，不然会导致Wait过早退出
 }
 
-/**
- * 是否有任务正在运行
- */
+// IsRunning 是否有任务正在运行
 func (e *Executor) IsRunning() bool {
 	return e.runningJobs.Len() > 0
 }
 
-/**
- * 未执行的任务，即待执行的任务
- */
+// QueueJobs 未执行的任务，即待执行的任务
 func (e *Executor) QueueJobs() []Runnable {
 	e.mu.Lock() // 此任务只能被1个协程运行
 	defer e.mu.Unlock()
@@ -270,9 +265,7 @@ func (e *Executor) QueueJobs() []Runnable {
 	return runnables
 }
 
-/**
- * 正在运行的任务
- */
+// RunningJobs 正在运行的任务
 func (e *Executor) RunningJobs() []Runnable {
 	if e.runningJobs.Len() <= 0 {
 		return nil
@@ -287,10 +280,8 @@ func (e *Executor) RunningJobs() []Runnable {
 	return runnables
 }
 
-/**
- * 监听Ctrl+C/kill的退出消息
- * 在主线程使用 Executor 时，最好调用本方法来达到Ctrl+C退出，不然会出现退出异常的情况
- */
+// ListenStopSignal 监听Ctrl+C/kill的退出消息
+// 在主线程使用 Executor 时，最好调用本方法来达到Ctrl+C退出，不然会出现退出异常的情况
 func (e *Executor) ListenStopSignal() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -303,13 +294,13 @@ func (e *Executor) ListenStopSignal() {
 		go func() {
 			select {
 			case s := <-e.termChan:
-				utils.GetSugaredLogger().Infof("[%s]get signal %s, quiting.", e.params.Name, s)
+				e.logger.Infof("[%s]get signal %s, quiting.", e.params.Name, s)
 				e.Stop()
 				return
 			case <-e.stopChan:
 				signal.Stop(e.termChan) // remove signal
 				e.termChan = nil
-				utils.GetSugaredLogger().Infof("[%s]stop signal listen.", e.params.Name)
+				e.logger.Infof("[%s]stop signal listen.", e.params.Name)
 				return
 			}
 		}()
@@ -317,9 +308,7 @@ func (e *Executor) ListenStopSignal() {
 
 }
 
-/**
- * 阻塞等待所有任务运行完毕
- */
+// Wait 阻塞等待所有任务运行完毕
 func (e *Executor) Wait() {
 	e.wg.Wait()
 }

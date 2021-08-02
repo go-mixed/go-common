@@ -10,18 +10,19 @@ import (
 	"time"
 )
 
-func (c *RedisCache) L2() IL2Cache {
-	return c.l2Cache
+type Redis struct {
+	Cache
+	redisClient redis.UniversalClient
 }
 
-func (c *RedisCache) SetNoExpiration(key string, val interface{}) error {
+func (c *Redis) SetNoExpiration(key string, val interface{}) error {
 	return c.Set(key, val, 0)
 }
 
-func (c *RedisCache) Del(key string) error {
+func (c *Redis) Del(key string) error {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis Del %s, %0.6f", key, time.Since(now).Seconds())
+		c.Logger.Debugf("redis Del %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
 	_, err := c.redisClient.Del(c.Ctx, key).Result()
@@ -32,10 +33,10 @@ func (c *RedisCache) Del(key string) error {
 	return nil
 }
 
-func (c *RedisCache) Set(key string, val interface{}, expiration time.Duration) error {
+func (c *Redis) Set(key string, val interface{}, expiration time.Duration) error {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis Set %s, %0.6f", key, time.Since(now).Seconds())
+		c.Logger.Debugf("redis Set %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
 	_, err := c.redisClient.Set(c.Ctx, key, text_utils.ToString(val, true), expiration).Result()
@@ -46,10 +47,10 @@ func (c *RedisCache) Set(key string, val interface{}, expiration time.Duration) 
 	return nil
 }
 
-func (c *RedisCache) Get(key string, result interface{}) ([]byte, error) {
+func (c *Redis) Get(key string, result interface{}) ([]byte, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis Get %s, %0.6f", key, time.Since(now).Seconds())
+		c.Logger.Debugf("redis Get %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 	val, err := c.redisClient.Get(c.Ctx, key).Result()
 	if err == redis.Nil { // 无此数据
@@ -72,10 +73,10 @@ func (c *RedisCache) Get(key string, result interface{}) ([]byte, error) {
 	return []byte(val), nil
 }
 
-func (c *RedisCache) MGet(keys []string, result interface{}) (map[string][]byte, error) {
+func (c *Redis) MGet(keys []string, result interface{}) (KVs, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis MGet %v, %0.6f", keys, time.Since(now).Seconds())
+		c.Logger.Debugf("redis MGet %v, %0.6f", keys, time.Since(now).Seconds())
 	}()
 	val, err := c.redisClient.MGet(c.Ctx, keys...).Result()
 	if err == redis.Nil {
@@ -86,32 +87,30 @@ func (c *RedisCache) MGet(keys []string, result interface{}) (map[string][]byte,
 		return nil, nil
 	}
 
-	kv := map[string][]byte{}
-	var vals [][]byte
+	kvs := KVs{}
 	for i, v := range val {
-		_v, ok := v.(string)
-		if !ok {
-			kv[keys[i]] = nil
+		if _v, ok := v.(string); ok {
+			kvs = kvs.Append(keys[i], []byte(_v))
+		} else {
+			kvs = kvs.Append(keys[i], nil)
 		}
-		kv[keys[i]] = []byte(_v)
-		vals = append(vals, kv[keys[i]])
 	}
-	if !core.IsInterfaceNil(result) && len(vals) > 0 {
-		if err := text_utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
-			c.Logger.Errorf("redis json unmarshal: %v of error: %s", vals, err.Error())
+	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
+		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), result); err != nil {
+			c.Logger.Errorf("redis json unmarshal: %v of error: %s", kvs.Values(), err.Error())
 			return nil, err
 		}
 	}
-	return kv, nil
+	return kvs, nil
 }
 
-func (c *RedisCache) Keys(keyPattern string) ([]string, error) {
+func (c *Redis) Keys(keyPrefix string) ([]string, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis Keys %s, %0.6f", keyPattern, time.Since(now).Seconds())
+		c.Logger.Debugf("redis Keys %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
-	keyPattern = strings.TrimRight(keyPattern, "*") + "*"
-	val, err := c.redisClient.Keys(c.Ctx, keyPattern).Result()
+	keyPrefix = strings.TrimRight(keyPrefix, "*") + "*"
+	val, err := c.redisClient.Keys(c.Ctx, keyPrefix).Result()
 	if err == redis.Nil { // 无此数据
 		return nil, nil
 	} else if err != nil {
@@ -121,10 +120,10 @@ func (c *RedisCache) Keys(keyPattern string) ([]string, error) {
 	return val, nil
 }
 
-func (c *RedisCache) ScanPrefix(keyPattern string, result interface{}) (map[string][]byte, error) {
+func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis ScanPrefix %s, %0.6f", keyPattern, time.Since(now).Seconds())
+		c.Logger.Debugf("redis ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
 	var cursor uint64
 	var err error
@@ -133,7 +132,7 @@ func (c *RedisCache) ScanPrefix(keyPattern string, result interface{}) (map[stri
 
 	for {
 		var _keys []string
-		_keys, cursor, err = c.scan(keyPattern, cursor, 10)
+		_keys, cursor, err = c.scan(keyPrefix, cursor, 10)
 		if err != nil {
 			return nil, err
 		}
@@ -154,14 +153,14 @@ func (c *RedisCache) ScanPrefix(keyPattern string, result interface{}) (map[stri
 	return c.MGet(keys, result)
 }
 
-func (c *RedisCache) ScanPrefixCallback(keyPrefix string, callback func(kv KV) error) (int, error) {
+func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *KV) error) (int64, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
+		c.Logger.Debugf("redis ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
 	var cursor uint64
 	var err error
-	var read int
+	var read int64
 	replicateKeys := map[string]bool{}
 	for {
 		var keys []string
@@ -184,17 +183,14 @@ func (c *RedisCache) ScanPrefixCallback(keyPrefix string, callback func(kv KV) e
 		}
 
 		if len(keys) > 0 {
-			kv, err := c.MGet(keys, nil)
+			kvs, err := c.MGet(keys, nil)
 			if err != nil {
 				return read, err
 			}
-			for k, v := range kv {
+			for _, kv := range kvs {
 				read++
 
-				if err := callback(KV{
-					Key:   k,
-					Value: v,
-				}); err != nil {
+				if err := callback(kv); err != nil {
 					return read, err
 				}
 			}
@@ -203,10 +199,10 @@ func (c *RedisCache) ScanPrefixCallback(keyPrefix string, callback func(kv KV) e
 }
 
 // Scan 按照的key表达式, 以及游标和页码 返回所有匹配的keys
-func (c *RedisCache) scan(keyPattern string, cursor uint64, count int64) ([]string, uint64, error) {
+func (c *Redis) scan(keyPattern string, cursor uint64, count int64) ([]string, uint64, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis scan %s, cursor %d, count %d, %0.6f", keyPattern, cursor, count, time.Since(now).Seconds())
+		c.Logger.Debugf("redis scan %s, cursor %d, count %d, %0.6f", keyPattern, cursor, count, time.Since(now).Seconds())
 	}()
 	keyPattern = strings.TrimRight(keyPattern, "*") + "*"
 	var err error
@@ -220,7 +216,7 @@ func (c *RedisCache) scan(keyPattern string, cursor uint64, count int64) ([]stri
 	return keys, cursor, err
 }
 
-func (c *RedisCache) scanRange(keyStart, keyEnd string, keyPrefix string, limit int) (string, map[string][]byte, error) {
+func (c *Redis) scanRange(keyStart, keyEnd string, keyPrefix string, limit int64) (string, KVs, error) {
 	params := []interface{}{
 		"pkscanrange", "string_with_value", keyStart, keyEnd,
 	}
@@ -230,7 +226,7 @@ func (c *RedisCache) scanRange(keyStart, keyEnd string, keyPrefix string, limit 
 		params = append(params, "MATCH", keyPrefix)
 	}
 	if limit > 0 {
-		params = append(params, "LIMIT", conv.Itoa(limit))
+		params = append(params, "LIMIT", conv.I64toa(limit))
 	}
 
 	_res, err := c.redisClient.Do(c.Ctx, params...).Result()
@@ -255,67 +251,59 @@ func (c *RedisCache) scanRange(keyStart, keyEnd string, keyPrefix string, limit 
 	if len(_kv) <= 0 {
 		return nextKey, nil, nil
 	}
-	// build the map
-	kv := map[string][]byte{}
+	// build the kvs
+	kvs := KVs{}
 	for i := 0; i < len(_kv); i += 2 {
 		k := _kv[i].(string)
 		v := _kv[i+1].(string)
 		if v == "" {
-			kv[k] = nil
+			kvs = kvs.Append(k, nil)
 		} else {
-			kv[k] = []byte(v)
+			kvs = kvs.Append(k, []byte(v))
 		}
 	}
-	return nextKey, kv, nil
+	return nextKey, kvs, nil
 }
 
-func (c *RedisCache) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int, result interface{}) (string, map[string][]byte, error) {
+func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}) (string, KVs, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
+		c.Logger.Debugf("redis ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
-	nextKey, kv, err := c.scanRange(keyStart, keyEnd, keyPrefix, limit)
+	nextKey, kvs, err := c.scanRange(keyStart, keyEnd, keyPrefix, limit)
 	if err != nil {
-		return nextKey, kv, err
+		return nextKey, kvs, err
 	}
 
-	var vals [][]byte
-	for _, v := range kv {
-		vals = append(vals, v)
-	}
-
-	if !core.IsInterfaceNil(result) && len(vals) > 0 {
-		if err := text_utils.JsonListUnmarshalFromBytes(vals, result); err != nil {
+	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
+		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), result); err != nil {
 			return "", nil, err
 		}
 	}
 
-	return nextKey, kv, nil
+	return nextKey, kvs, nil
 }
 
-func (c *RedisCache) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int, callback func(kv KV) error) (string, int, error) {
+func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *KV) error) (string, int64, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Infof("redis ScanRangeCallback: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
+		c.Logger.Debugf("redis ScanRangeCallback: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
-	nextKey, kv, err := c.scanRange(keyStart, keyEnd, keyPrefix, limit)
+	nextKey, kvs, err := c.scanRange(keyStart, keyEnd, keyPrefix, limit)
 	if err != nil {
 		return nextKey, 0, err
 	}
 
-	read := 0
+	var read int64 = 0
 
-	for k, v := range kv {
+	for _, kv := range kvs {
 		if err != nil {
-			return k, read, err
+			return kv.Key, read, err
 		}
 		read++
 
-		if err = callback(KV{
-			Key:   k,
-			Value: v,
-		}); err != nil {
-			//遇到错误时, 继续下一个, 根据err的判断, 方法会直接返回下一个key, 这样符合nextKey
+		if err = callback(kv); err != nil {
+			//遇到错误时, 继续下一个, 根据上面err的判断, 方法会直接返回下一个key, 这样符合nextKey
 			continue
 		}
 	}
