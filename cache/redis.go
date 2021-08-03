@@ -12,7 +12,8 @@ import (
 
 type Redis struct {
 	Cache
-	redisClient redis.UniversalClient
+	IsPika bool
+	RedisClient redis.UniversalClient
 }
 
 func (c *Redis) SetNoExpiration(key string, val interface{}) error {
@@ -22,10 +23,10 @@ func (c *Redis) SetNoExpiration(key string, val interface{}) error {
 func (c *Redis) Del(key string) error {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis Del %s, %0.6f", key, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]Del %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
-	_, err := c.redisClient.Del(c.Ctx, key).Result()
+	_, err := c.RedisClient.Del(c.Ctx, key).Result()
 	if err != nil {
 		return err
 	}
@@ -36,10 +37,10 @@ func (c *Redis) Del(key string) error {
 func (c *Redis) Set(key string, val interface{}, expiration time.Duration) error {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis Set %s, %0.6f", key, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]Set %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
-	_, err := c.redisClient.Set(c.Ctx, key, text_utils.ToString(val, true), expiration).Result()
+	_, err := c.RedisClient.Set(c.Ctx, key, text_utils.ToString(val, true), expiration).Result()
 	if err != nil {
 		return err
 	}
@@ -50,23 +51,23 @@ func (c *Redis) Set(key string, val interface{}, expiration time.Duration) error
 func (c *Redis) Get(key string, result interface{}) ([]byte, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis Get %s, %0.6f", key, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]Get %s, %0.6f", key, time.Since(now).Seconds())
 	}()
-	val, err := c.redisClient.Get(c.Ctx, key).Result()
+	val, err := c.RedisClient.Get(c.Ctx, key).Result()
 	if err == redis.Nil { // 无此数据
-		c.Logger.Debugf("redis key not exists: %s", key)
+		c.Logger.Debugf("[Redis]key not exists: %s", key)
 		return nil, nil
 	} else if err != nil {
-		c.Logger.Debugf("redis error of key %s", key, err.Error())
+		c.Logger.Debugf("[Redis]error of key %s", key, err.Error())
 		return nil, err
 	} else if val == "" { // 返回为空数据也不正确
-		c.Logger.Debugf("redis empty value of key %s", key)
+		c.Logger.Debugf("[Redis]empty value of key %s", key)
 		return nil, nil
 	}
 
 	if !core.IsInterfaceNil(result) {
 		if err := text_utils.JsonUnmarshal(val, result); err != nil {
-			c.Logger.Errorf("redis json unmarshal: %s of error: %s", val, err.Error())
+			c.Logger.Errorf("[Redis]json unmarshal: %s of error: %s", val, err.Error())
 			return []byte(val), err
 		}
 	}
@@ -76,9 +77,9 @@ func (c *Redis) Get(key string, result interface{}) ([]byte, error) {
 func (c *Redis) MGet(keys []string, result interface{}) (KVs, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis MGet %v, %0.6f", keys, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]MGet %v, %0.6f", keys, time.Since(now).Seconds())
 	}()
-	val, err := c.redisClient.MGet(c.Ctx, keys...).Result()
+	val, err := c.RedisClient.MGet(c.Ctx, keys...).Result()
 	if err == redis.Nil {
 		return nil, nil
 	} else if err != nil {
@@ -97,7 +98,7 @@ func (c *Redis) MGet(keys []string, result interface{}) (KVs, error) {
 	}
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
 		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), result); err != nil {
-			c.Logger.Errorf("redis json unmarshal: %v of error: %s", kvs.Values(), err.Error())
+			c.Logger.Errorf("[Redis]json unmarshal: %v of error: %s", kvs.Values(), err.Error())
 			return nil, err
 		}
 	}
@@ -107,10 +108,10 @@ func (c *Redis) MGet(keys []string, result interface{}) (KVs, error) {
 func (c *Redis) Keys(keyPrefix string) ([]string, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis Keys %s, %0.6f", keyPrefix, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]Keys %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
 	keyPrefix = strings.TrimRight(keyPrefix, "*") + "*"
-	val, err := c.redisClient.Keys(c.Ctx, keyPrefix).Result()
+	val, err := c.RedisClient.Keys(c.Ctx, keyPrefix).Result()
 	if err == redis.Nil { // 无此数据
 		return nil, nil
 	} else if err != nil {
@@ -121,10 +122,17 @@ func (c *Redis) Keys(keyPrefix string) ([]string, error) {
 }
 
 func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
+	if c.IsPika {
+		return c.pikaScanPrefix(keyPrefix, result)
+	}
+	// 以下是redis中的实现
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
+
+	keyPrefix = strings.TrimRight(keyPrefix, "*") + "*"
+
 	var cursor uint64
 	var err error
 	replicateKeys := map[string]bool{}
@@ -132,7 +140,7 @@ func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
 
 	for {
 		var _keys []string
-		_keys, cursor, err = c.scan(keyPrefix, cursor, 10)
+		_keys, cursor, err = c.Scan(keyPrefix, cursor, 10)
 		if err != nil {
 			return nil, err
 		}
@@ -154,10 +162,17 @@ func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
 }
 
 func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *KV) error) (int64, error) {
+	if c.IsPika {
+		return c.pikaScanPrefixCallback(keyPrefix, callback)
+	}
+	// 以下是redis中的实现
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
+
+	keyPrefix = strings.TrimRight(keyPrefix, "*") + "*"
+
 	var cursor uint64
 	var err error
 	var read int64
@@ -165,7 +180,7 @@ func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *KV) error
 	for {
 		var keys []string
 		var _keys []string
-		_keys, cursor, err = c.scan(keyPrefix, cursor, 10)
+		_keys, cursor, err = c.Scan(keyPrefix, cursor, 10)
 		if err != nil {
 			return read, err
 		}
@@ -198,16 +213,17 @@ func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *KV) error
 	}
 }
 
-// Scan 按照的key表达式, 以及游标和页码 返回所有匹配的keys
-func (c *Redis) scan(keyPattern string, cursor uint64, count int64) ([]string, uint64, error) {
+// Scan redis原生函数(pika也支持), 根据的keyPattern表达式, 以及游标和页码 返回所有匹配的keys
+// 注意 redis在遍历scan时非常慢
+func (c *Redis) Scan(keyPattern string, cursor uint64, count int64) ([]string, uint64, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis scan %s, cursor %d, count %d, %0.6f", keyPattern, cursor, count, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]scan %s, cursor %d, count %d, %0.6f", keyPattern, cursor, count, time.Since(now).Seconds())
 	}()
-	keyPattern = strings.TrimRight(keyPattern, "*") + "*"
+
 	var err error
 	var keys []string
-	keys, cursor, err = c.redisClient.Scan(c.Ctx, cursor, keyPattern, count).Result()
+	keys, cursor, err = c.RedisClient.Scan(c.Ctx, cursor, keyPattern, count).Result()
 	if err == redis.Nil { // 无此数据
 		return nil, 0, nil
 	} else if err != nil {
@@ -216,7 +232,10 @@ func (c *Redis) scan(keyPattern string, cursor uint64, count int64) ([]string, u
 	return keys, cursor, err
 }
 
-func (c *Redis) scanRange(keyStart, keyEnd string, keyPrefix string, limit int64) (string, KVs, error) {
+func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, KVs, error) {
+	if !c.IsPika {
+		panic("only use this method in pika")
+	}
 	params := []interface{}{
 		"pkscanrange", "string_with_value", keyStart, keyEnd,
 	}
@@ -229,7 +248,7 @@ func (c *Redis) scanRange(keyStart, keyEnd string, keyPrefix string, limit int64
 		params = append(params, "LIMIT", conv.I64toa(limit))
 	}
 
-	_res, err := c.redisClient.Do(c.Ctx, params...).Result()
+	_res, err := c.RedisClient.Do(c.Ctx, params...).Result()
 	if err == redis.Nil {
 		return "", nil, nil
 	} else if err != nil {
@@ -265,48 +284,48 @@ func (c *Redis) scanRange(keyStart, keyEnd string, keyPrefix string, limit int64
 	return nextKey, kvs, nil
 }
 
-func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}) (string, KVs, error) {
+func (c *Redis) pikaScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
-	nextKey, kvs, err := c.scanRange(keyStart, keyEnd, keyPrefix, limit)
-	if err != nil {
-		return nextKey, kvs, err
-	}
 
-	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), result); err != nil {
-			return "", nil, err
-		}
-	}
+	return c.scanPrefix(keyPrefix, result, c.Range)
+}
 
-	return nextKey, kvs, nil
+func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *KV) error) (int64, error) {
+	var now = time.Now()
+	defer func() {
+		c.Logger.Debugf("[Redis]ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
+	}()
+
+	return c.scanPrefixCallback(keyPrefix, callback, c.Range)
+}
+
+func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}) (string, KVs, error) {
+	if !c.IsPika {
+		panic("only use this method in pika")
+	}
+	var now = time.Now()
+	defer func() {
+		c.Logger.Debugf("[Redis]ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
+	}()
+
+	return c.scanRange(keyStart, keyEnd, keyPrefix, limit, result, c.Range)
 }
 
 func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *KV) error) (string, int64, error) {
+	if !c.IsPika {
+		panic("only use this method in pika")
+	}
 	var now = time.Now()
 	defer func() {
-		c.Logger.Debugf("redis ScanRangeCallback: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
+		c.Logger.Debugf("[Redis]ScanRangeCallback: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
-	nextKey, kvs, err := c.scanRange(keyStart, keyEnd, keyPrefix, limit)
-	if err != nil {
-		return nextKey, 0, err
-	}
 
-	var read int64 = 0
+	return c.scanRangeCallback(keyStart, keyEnd, keyPrefix, limit, callback, c.Range)
+}
 
-	for _, kv := range kvs {
-		if err != nil {
-			return kv.Key, read, err
-		}
-		read++
-
-		if err = callback(kv); err != nil {
-			//遇到错误时, 继续下一个, 根据上面err的判断, 方法会直接返回下一个key, 这样符合nextKey
-			continue
-		}
-	}
-
-	return nextKey, read, err
+func (c *Redis) Close() error {
+	return c.RedisClient.Close()
 }
