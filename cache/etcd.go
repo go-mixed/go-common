@@ -207,6 +207,7 @@ func (c *Etcd) Close() error {
 	return c.EtcdClient.Close()
 }
 
+//------ 自有的相关方法 ------
 
 // LastRevision etcd的最后版本号
 func (c *Etcd) LastRevision() int64 {
@@ -217,22 +218,31 @@ func (c *Etcd) LastRevision() int64 {
 	return response.Header.GetRevision()
 }
 
-// PrefixResponse 得到指定版本范围内的 keyPrefix 列表
-// 如果maxRev > 0 则会返回指定版本范围的kv
-func (c *Etcd) PrefixResponse(keyPrefix string, minRev, maxRev int64) (*clientv3.GetResponse, error) {
+func (c *Etcd) GetResponse(key string, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
 	kv := clientv3.NewKV(c.EtcdClient)
+	return kv.Get(c.Ctx, key, ops...)
+}
+
+// PrefixResponse 得到前缀符合 keyPrefix 的所有值
+func (c *Etcd) PrefixResponse(keyPrefix string, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
+	ops = append(ops, clientv3.WithPrefix())
+	return c.GetResponse(keyPrefix, ops...)
+}
+
+// PrefixResponseWithRev 得到指定版本范围内的 keyPrefix 列表 (一个key只会返回1次, value为最新的数据)
+// 如果maxRev 不为0会返回指定minRev ~ maxRev版本范围的kv, 0表示minRev ~ +inf
+// 数据依照ModifyRevision Asc排列, 所以当设置clientv3.WithLimit(N)时, 可以使用minRev参数来翻页 (即: 下一页的minRev = 返回结果的最后一条.ModRevision + 1)
+func (c *Etcd) PrefixResponseWithRev(keyPrefix string, minRev, maxRev int64, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
 	if minRev < 0 {
 		minRev = 0
 	}
 	if maxRev <= 0 {
-		return kv.Get(c.Ctx, keyPrefix, clientv3.WithPrefix(), clientv3.WithMinModRev(minRev))
+		ops = append(ops, clientv3.WithMinModRev(minRev), clientv3.WithSort(clientv3.SortByModRevision, clientv3.SortAscend))
+	} else {
+		ops = append(ops, clientv3.WithMinModRev(minRev), clientv3.WithMaxModRev(maxRev), clientv3.WithSort(clientv3.SortByModRevision, clientv3.SortAscend))
 	}
-	return kv.Get(c.Ctx, keyPrefix, clientv3.WithPrefix(), clientv3.WithMinModRev(minRev), clientv3.WithMaxModRev(maxRev))
-}
 
-type WatchEvent struct {
-
-	Revision int64
+	return c.PrefixResponse(keyPrefix, ops...)
 }
 
 // Watch 监控key的变更, 返回一个可以遍历所有变更的通道. 如果keyPrefix为空, 则表示所有KEY, 如果minRev > 0 则从指定版本开始
@@ -308,16 +318,16 @@ func (c *Etcd) WatchCallback(keyPrefix string, minRev int64, callback func(event
 	return cancel
 }
 
-// RangeResponse 得到keyStart~keyEnd范围内，并且符合keyPrefix的数据, limit <= 0则表示取无限个
-// keyPrefix为空 表示
-func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, limit int64) (*clientv3.GetResponse, error) {
-	kv := clientv3.NewKV(c.EtcdClient)
-
+// RangeResponse 得到keyStart~keyEnd范围内，并且符合keyPrefix的数据, limit <= 0则表示不限制数量
+// keyPrefix为空 表示无前缀要求
+func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, limit int64, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
 	if limit < 0 {
 		limit = 0
 	}
 
-	response, err := kv.Get(c.Ctx, keyStart, clientv3.WithFromKey(), clientv3.WithRange(keyEnd), clientv3.WithLimit(limit))
+	ops = append(ops, clientv3.WithFromKey(), clientv3.WithRange(keyEnd), clientv3.WithLimit(limit))
+
+	response, err := c.GetResponse(keyStart, ops...)
 	if err != nil {
 		return nil, err
 	}
