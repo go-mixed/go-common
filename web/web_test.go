@@ -16,7 +16,7 @@ func (*httpHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestNewHttpServer(t *testing.T) {
-	port := rand.Intn(60_000) + 10_000
+	port := rand.Intn(50_000) + 10_000
 	stopChan := make(chan bool)
 	server := NewHttpServer(DefaultServerOptions("127.0.0.1:" + conv.Itoa(port)))
 
