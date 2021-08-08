@@ -3,7 +3,7 @@ package controllers
 import (
 	"fmt"
 	"go-common/utils/core"
-	text_utils "go-common/utils/text"
+	"go-common/utils/text"
 	"io"
 	"io/ioutil"
 )

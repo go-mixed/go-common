@@ -39,6 +39,10 @@ func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]
 	}
 }
 
+func (c *MemoryCache) SetNoExpiration(key string, value interface{}) {
+	c.SetDefault(key, value)
+}
+
 func (c *MemoryCache) Remember(k string, expire time.Duration, callback func() (interface{}, error)) (interface{}, error) {
 	// 基于Key的锁
 	_mu, _ := c.mu.LoadOrStore(k, &sync.Mutex{})

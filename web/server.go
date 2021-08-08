@@ -3,12 +3,12 @@ package web
 import (
 	"crypto/tls"
 	"fmt"
-	"go-common-cache"
+	lru "github.com/hashicorp/golang-lru"
 	"go-common/utils"
 	"go-common/utils/core"
-	http2 "go-common/utils/http"
-	list_utils "go-common/utils/list"
-	text_utils "go-common/utils/text"
+	"go-common/utils/http"
+	"go-common/utils/list"
+	"go-common/utils/text"
 	"net/http"
 	"os"
 	"os/signal"
@@ -54,17 +54,18 @@ type HttpServer struct {
 	domainCacheExpired time.Duration
 	mu                 sync.Mutex
 	logger             utils.ILogger
-	domainCache        *cache.MemoryCache
+	domainCache        *lru.TwoQueueCache
 }
 
 func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
+	cache, _ := lru.New2Q(128)
 	s := &HttpServer{
 		HttpServerOptions:    httpServerOptions,
 		orderedDomainConfigs: make([]*DomainConfig, 0, 1),
 		domainCacheExpired:   60 * time.Second,
 		mu:                   sync.Mutex{},
 		logger:               utils.NewDefaultLogger(),
-		domainCache:          cache.NewMemoryCache(60*time.Second, 30*time.Second),
+		domainCache:          cache,
 	}
 	s.handlerStack = s.defaultHandlerFunc() // 最后的handler
 	return s
@@ -128,7 +129,7 @@ func (c *HttpServer) ContainsCert(cert *Certificate) bool {
 // AddServeHandler 添加域名, serveHTTP, 证书
 // 可以使用 AddCertificate 传递证书
 // 注意: 如果有传递证书，证书DNS Name必须包含所传递的domains（此函数并不检查），不然，需要分多次添加
-func (c *HttpServer) AddServeHandler(domains http2.Domains, handler http.Handler, cert *Certificate) error {
+func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Handler, cert *Certificate) error {
 	if err := c.AddCertificate(cert); err != nil {
 		return err
 	}
@@ -151,7 +152,7 @@ func (c *HttpServer) AddServeHandler(domains http2.Domains, handler http.Handler
 	}
 
 	// 按照域名的特有方式进行排序
-	http2.SortDomains(&domainConfigs, func(v interface{}) string {
+	http_utils.SortDomains(&domainConfigs, func(v interface{}) string {
 		return v.(*DomainConfig).domain
 	})
 
@@ -236,7 +237,7 @@ func (c *HttpServer) RemoveDomainHandler(domain string) {
 
 // ClearDomainCache 清理域名的匹配结果
 func (c *HttpServer) ClearDomainCache() {
-	c.domainCache.Flush()
+	c.domainCache.Purge()
 }
 
 // SetDefaultServeHandler 设置默认的ServeHandler, 即添加一个通配符*的域名
@@ -262,6 +263,19 @@ func (c *HttpServer) GetCertificates() []*Certificate {
 	return c.certs
 }
 
+func (c *HttpServer) rememberCache(key string, callback func() *DomainConfig) *DomainConfig {
+	if val, ok := c.domainCache.Get(key); ok {
+		if val == nil {
+			return nil
+		}
+		return val.(*DomainConfig)
+	}
+
+	_val := callback()
+	c.domainCache.Add(key, _val)
+	return _val
+}
+
 // MatchDomain 匹配域名, 使用通配符的方式，如果只添加了一个domain，则不论是否匹配都返回该serveHandler
 func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 	// 只有一个的情况快速返回
@@ -270,27 +284,21 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 	}
 
 	// 此处可以用Lru cache做持久保存 但是因为域名可能会解绑, 所以需要过期时间
-	domainConfig, _ := c.domainCache.Remember(fmt.Sprintf("domain-handlerStack-%s", domain), 60*time.Second, func() (interface{}, error) {
+	return c.rememberCache(fmt.Sprintf("domain-handlerStack-%s", domain), func() *DomainConfig {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-
 		for _, domainConfig := range c.orderedDomainConfigs {
 			if text_utils.WildcardMatch(domainConfig.domain, domain) {
-				return domainConfig, nil
+				return domainConfig
 			}
 		}
-		return nil, nil
+		return nil
 	})
-
-	if d, ok := domainConfig.(*DomainConfig); ok {
-		return d
-	}
-	return nil
 }
 
 func (c *HttpServer) defaultHandlerFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		domain := http2.DomainFromRequestHost(r.Host)
+		domain := http_utils.DomainFromRequestHost(r.Host)
 		if domainConfig := c.MatchDomain(domain); domainConfig != nil {
 			domainConfig.handler.ServeHTTP(w, r)
 		}
