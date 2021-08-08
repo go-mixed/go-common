@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go-common/utils/core"
 	"reflect"
+	"strings"
 )
 
 // WildcardMatchSimple - finds whether the text matches/satisfies the pattern string.
@@ -108,4 +109,16 @@ func ToString(v interface{}, otherTypeAsJson bool) string {
 			}
 		}
 	}
+}
+
+// SubUntil 从str截取字符, 直到untilStr结束 (不包含untilStr)
+// 比如: SubUntil("abc/def", "/") -> "abc", 3
+// 如果返回-1, 则表示没有找到 untilStr
+func SubUntil(str string, untilStr string) (string, int) {
+	i := strings.Index(str, untilStr)
+	if i < 0 {
+		return "", -1
+	}
+
+	return str[0:i], i
 }
