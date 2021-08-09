@@ -3,6 +3,7 @@ package cache
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"go-common/utils"
 	"go-common/utils/conv"
 	"go-common/utils/core"
 	text_utils "go-common/utils/text"
@@ -74,7 +75,7 @@ func (c *Redis) Get(key string, result interface{}) ([]byte, error) {
 	return []byte(val), nil
 }
 
-func (c *Redis) MGet(keys []string, result interface{}) (KVs, error) {
+func (c *Redis) MGet(keys []string, result interface{}) (utils.KVs, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]MGet %v, %0.6f", keys, time.Since(now).Seconds())
@@ -88,7 +89,7 @@ func (c *Redis) MGet(keys []string, result interface{}) (KVs, error) {
 		return nil, nil
 	}
 
-	kvs := KVs{}
+	kvs := utils.KVs{}
 	for i, v := range val {
 		if _v, ok := v.(string); ok {
 			kvs = kvs.Append(keys[i], []byte(_v))
@@ -121,7 +122,7 @@ func (c *Redis) Keys(keyPrefix string) ([]string, error) {
 	return val, nil
 }
 
-func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
+func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (utils.KVs, error) {
 	if c.IsPika {
 		return c.pikaScanPrefix(keyPrefix, result)
 	}
@@ -161,7 +162,7 @@ func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
 	return c.MGet(keys, result)
 }
 
-func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *KV) error) (int64, error) {
+func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error) (int64, error) {
 	if c.IsPika {
 		return c.pikaScanPrefixCallback(keyPrefix, callback)
 	}
@@ -232,7 +233,7 @@ func (c *Redis) Scan(keyPattern string, cursor uint64, count int64) ([]string, u
 	return keys, cursor, err
 }
 
-func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, KVs, error) {
+func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error) {
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}
@@ -271,7 +272,7 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 		return nextKey, nil, nil
 	}
 	// build the kvs
-	kvs := KVs{}
+	kvs := utils.KVs{}
 	for i := 0; i < len(_kv); i += 2 {
 		k := _kv[i].(string)
 		v := _kv[i+1].(string)
@@ -284,7 +285,7 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 	return nextKey, kvs, nil
 }
 
-func (c *Redis) pikaScanPrefix(keyPrefix string, result interface{}) (KVs, error) {
+func (c *Redis) pikaScanPrefix(keyPrefix string, result interface{}) (utils.KVs, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
@@ -293,7 +294,7 @@ func (c *Redis) pikaScanPrefix(keyPrefix string, result interface{}) (KVs, error
 	return c.scanPrefix(keyPrefix, result, c.Range)
 }
 
-func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *KV) error) (int64, error) {
+func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error) (int64, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
@@ -302,7 +303,7 @@ func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *KV) e
 	return c.scanPrefixCallback(keyPrefix, callback, c.Range)
 }
 
-func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}) (string, KVs, error) {
+func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}) (string, utils.KVs, error) {
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}
@@ -314,7 +315,7 @@ func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64
 	return c.scanRange(keyStart, keyEnd, keyPrefix, limit, result, c.Range)
 }
 
-func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *KV) error) (string, int64, error) {
+func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error) (string, int64, error) {
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}

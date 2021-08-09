@@ -310,11 +310,8 @@ func (c *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c.handlerStack.ServeHTTP(w, r)
 }
 
-// Run 对外主函数, 用于运行http(s) server，并且可以监听stopChan来停止服务器
-// 如果stopChan为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
-func (c *HttpServer) Run(stopChan <-chan bool) (*http.Server, error) {
-
-	server := &http.Server{
+func (c *HttpServer) BuildServer() *http.Server {
+	return &http.Server{
 		Addr:              c.GetHost(),
 		IdleTimeout:       c.IdleTimeout,
 		ReadTimeout:       c.ReadTimeout,
@@ -323,17 +320,30 @@ func (c *HttpServer) Run(stopChan <-chan bool) (*http.Server, error) {
 		ReadHeaderTimeout: c.ReadHeaderTimeout,
 		Handler:           c,
 	}
+}
+
+// Run 对外主函数, 用于运行http(s) server，并且可以监听stopChan来停止服务器
+// 如果stopChan为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
+func (c *HttpServer) Run(stopChan <-chan bool, configServerFunc func (server *http.Server) error) error {
+
+	server := c.BuildServer()
 
 	go func() {
 		<-c.listenStopChan(stopChan)
 
 		if err := server.Close(); err != nil {
-			c.logger.Fatal("Server Close: ", err)
+			c.logger.Fatalf("Server Close: %s", err.Error())
 		}
 	}()
 
 	// 启动http server
 	if !c.IsTLS() {
+
+		if configServerFunc != nil {
+			if err := configServerFunc(server); err != nil {
+				return err
+			}
+		}
 
 		c.logger.Infof("Start http server on %s", c.GetHost())
 
@@ -341,13 +351,19 @@ func (c *HttpServer) Run(stopChan <-chan bool) (*http.Server, error) {
 			if err == http.ErrServerClosed {
 				c.logger.Info("http server closed")
 			} else {
-				return server, err
+				return err
 			}
 		}
 	} else { // 启动https server
 		//
 		if err := SetServerTLSCerts(server, c.GetCertificates()); err != nil {
-			return server, err
+			return err
+		}
+
+		if configServerFunc != nil {
+			if err := configServerFunc(server); err != nil {
+				return err
+			}
 		}
 
 		c.logger.Infof("Start https server on %s", c.GetHost())
@@ -356,12 +372,12 @@ func (c *HttpServer) Run(stopChan <-chan bool) (*http.Server, error) {
 			if err == http.ErrServerClosed {
 				c.logger.Info("https server closed")
 			} else {
-				return server, err
+				return err
 			}
 		}
 	}
 
-	return server, nil
+	return nil
 }
 
 // 监听停止信号, stopChan为nil 则收听进程退出信号

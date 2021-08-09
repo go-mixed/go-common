@@ -105,3 +105,37 @@ func ToMap(data interface{}, tag string) (map[string]interface{}, error) {
 
 	return result, nil
 }
+
+type KV struct {
+	Key   string
+	Value []byte
+}
+
+type KVs []*KV
+
+func (s KVs) Append(k string, v []byte) KVs {
+	return append(s, &KV{
+		Key:   k,
+		Value: v,
+	})
+}
+
+func (s KVs) Add(_new KVs) KVs {
+	return append(s, _new...)
+}
+
+func (s KVs) Keys() []string {
+	var keys []string
+	for _, kv := range s {
+		keys = append(keys, kv.Key)
+	}
+	return keys
+}
+
+func (s KVs) Values() [][]byte {
+	var values [][]byte
+	for _, kv := range s {
+		values = append(values, kv.Value)
+	}
+	return values
+}

@@ -7,7 +7,6 @@ require (
 	github.com/gin-gonic/gin v1.7.3
 	github.com/go-playground/validator/v10 v10.8.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	go-common v0.0.0

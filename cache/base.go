@@ -20,14 +20,14 @@ type ICache interface {
 	// var result []User
 	// RedisGet(keys, &result)
 	// 注意: result必须要是slice, 并且只要有一个值无法转换, 都返回错误, 所以这些keys一定要拥有相同的结构
-	MGet(keys []string, actual interface{}) (KVs, error)
+	MGet(keys []string, actual interface{}) (utils.KVs, error)
 
 	// Keys keyPrefix为前缀 返回所有符合要求的keys
 	// 注意: 遇到有太多的匹配性, 会阻塞cache的运行
 	Keys(keyPrefix string) ([]string, error)
 	// Range 在 keyStart~keyEnd中查找符合keyPrefix要求的KV, limit 为 0 表示不限数量
 	// 返回nextKey, kv列表, 错误
-	Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, KVs, error)
+	Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error)
 	// ScanPrefix keyPrefix为前缀, 返回所有符合条件的K/V, 并尝试将JSON数据导出到actual 如果无需导出, actual 传入nil
 	// 注意: 不要在keyPrefix中或结尾加入*
 	// 例子:
@@ -35,11 +35,11 @@ type ICache interface {
 	// ScanPrefix("users/id/", &result)
 	// 注意: result必须要是slice, 并且只要有一个值无法转换, 都返回错误, 所以这些keys一定要拥有相同的结构
 	// 注意: 如果有太多的匹配项, 会阻塞cache的运行. 对于大的量级, 尽量使用 ScanPrefixCallback
-	ScanPrefix(keyPrefix string, actual interface{}) (KVs, error)
+	ScanPrefix(keyPrefix string, actual interface{}) (utils.KVs, error)
 	// ScanPrefixCallback 根据keyPrefix为前缀 查询出所有K/V 遍历调用callback
 	// 如果callback返回nil, 会一直搜索直到再无匹配数据; 如果返回错误, 则立即停止搜索
 	// 注意: 即使cache中有大量的匹配项, 也不会被阻塞
-	ScanPrefixCallback(keyPrefix string, callback func(kv *KV) error) (int64, error)
+	ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error) (int64, error)
 
 	// ScanRange 根据keyStart/keyEnd返回所有符合条件的K/V, 并尝试将JSON数据导出到actual 如果无需导出, actual 传入nil
 	// 注意: 返回的结果会包含keyStart/keyEnd
@@ -52,11 +52,11 @@ type ICache interface {
 	// 比如取a~z的所有数据, 会包含 "a", "a1", "a2xxxxxx", "yyyyyy", "z"
 	// ScanRange("a", "z", "", 0, &result)
 	// 注意: result必须要是slice, 并且只要有一个值无法转换, 都返回错误, 所以这些keys一定要拥有相同的结构
-	ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, actual interface{}) (string, KVs, error)
+	ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, actual interface{}) (string, utils.KVs, error)
 	// ScanRangeCallback 根据keyStart/keyEnd返回所有符合条件的K/V, 并遍历调用callback
 	// 参数定义参见 ScanRange
 	// 如果callback返回nil, 会一直搜索直到再无匹配数据; 如果返回错误, 则立即停止搜索
-	ScanRangeCallback(keyStart, keyEnd string, keyPrefix string, limit int64, callback func(kv *KV) error) (string, int64, error)
+	ScanRangeCallback(keyStart, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error) (string, int64, error)
 
 	// Set 写入KV
 	Set(key string, val interface{}, expiration time.Duration) error
@@ -70,39 +70,6 @@ type Cache struct {
 	l2Cache *L2Cache
 }
 
-type KV struct {
-	Key   string
-	Value []byte
-}
-
-type KVs []*KV
-
-func (s KVs) Append(k string, v []byte) KVs {
-	return append(s, &KV{
-		Key:   k,
-		Value: v,
-	})
-}
-
-func (s KVs) Add(_new KVs) KVs {
-	return append(s, _new...)
-}
-
-func (s KVs) Keys() []string {
-	var keys []string
-	for _, kv := range s {
-		keys = append(keys, kv.Key)
-	}
-	return keys
-}
-
-func (s KVs) Values() [][]byte {
-	var values [][]byte
-	for _, kv := range s {
-		values = append(values, kv.Value)
-	}
-	return values
-}
 
 // NewRedisCache
 // 注意, 此类中 Range/ScanRange/ScanRangeCallback 方法只有后端是pika时才能调用, 不然会panic
@@ -137,9 +104,9 @@ func (c *Cache) L2() IL2Cache {
 	return c.l2Cache
 }
 
-type RangeFunc func(keyStart, keyEnd string, keyPrefix string, limit int64) (string, KVs, error)
+type RangeFunc func(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error)
 
-func (c *Cache) scanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}, rangeFunc RangeFunc) (string, KVs, error) {
+func (c *Cache) scanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}, rangeFunc RangeFunc) (string, utils.KVs, error) {
 	nextKey, kvs, err := rangeFunc(keyStart, keyEnd, keyPrefix, limit)
 	if err != nil {
 		return nextKey, kvs, err
@@ -154,7 +121,7 @@ func (c *Cache) scanRange(keyStart, keyEnd string, keyPrefix string, limit int64
 	return nextKey, kvs, nil
 }
 
-func (c *Cache) scanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *KV) error, rangeFunc RangeFunc) (string, int64, error) {
+func (c *Cache) scanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error, rangeFunc RangeFunc) (string, int64, error) {
 	nextKey, kvs, err := rangeFunc(keyStart, keyEnd, keyPrefix, limit)
 	if err != nil {
 		return nextKey, 0, err
@@ -176,14 +143,14 @@ func (c *Cache) scanRangeCallback(keyStart string, keyEnd string, keyPrefix stri
 	return nextKey, read, err
 }
 
-func (c *Cache) scanPrefix(keyPrefix string, result interface{}, rangeFunc RangeFunc) (KVs, error) {
-	kvs := KVs{}
+func (c *Cache) scanPrefix(keyPrefix string, result interface{}, rangeFunc RangeFunc) (utils.KVs, error) {
+	kvs := utils.KVs{}
 
 	var keyStart = keyPrefix
 	var keyEnd = clientv3.GetPrefixRangeEnd(keyPrefix)
 	var nextKey = keyStart
 	var err error
-	var _kvs KVs
+	var _kvs utils.KVs
 	for {
 		nextKey, _kvs, err = rangeFunc(nextKey, keyEnd, keyPrefix, 10)
 		if err != nil {
@@ -204,12 +171,12 @@ func (c *Cache) scanPrefix(keyPrefix string, result interface{}, rangeFunc Range
 	return kvs, nil
 }
 
-func (c *Cache) scanPrefixCallback(keyPrefix string, callback func(kv *KV) error, rangeFunc RangeFunc) (int64, error) {
+func (c *Cache) scanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error, rangeFunc RangeFunc) (int64, error) {
 	var keyStart = keyPrefix
 	var keyEnd = clientv3.GetPrefixRangeEnd(keyPrefix)
 	var nextKey = keyStart
 	var err error
-	var _kvs KVs
+	var _kvs utils.KVs
 	var read int64
 	for {
 		nextKey, _kvs, err = rangeFunc(nextKey, keyEnd, keyPrefix, 10)
