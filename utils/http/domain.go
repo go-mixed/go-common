@@ -19,7 +19,7 @@ type DomainTree map[string]*DomainSegment
 
 func AddDomain(domain string, id uint32, root DomainTree) {
 	segments := strings.Split(domain, ".")
-	var d *DomainSegment
+	var d = &DomainSegment{}
 	var c = root
 	var ok bool
 	for i := len(segments) - 1; i >= 0; i-- {
