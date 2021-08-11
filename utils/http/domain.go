@@ -10,6 +10,93 @@ import (
 
 type Domains []string
 
+type DomainSegment struct {
+	ID    uint32     `json:"id"`
+	Child DomainTree `json:"child"`
+}
+
+type DomainTree map[string]*DomainSegment
+
+func AddDomain(domain string, id uint32, root DomainTree) {
+	segments := strings.Split(domain, ".")
+	var d *DomainSegment
+	var c = root
+	var ok bool
+	for i := len(segments) - 1; i >= 0; i-- {
+		segment := strings.ToLower(segments[i])
+		if d, ok = c[segment]; !ok {
+			d = &DomainSegment{Child: DomainTree{}}
+			c[segment] = d
+		}
+		c = d.Child
+	}
+	d.ID = id
+}
+
+func AddDomainList(domains map[uint32]string, root DomainTree) {
+	for k, v := range domains {
+		AddDomain(v, k, root)
+	}
+}
+
+// 查找域名id
+// fuzzy用于模糊查找匹配*， 如果用于域名查找id，用精确查找，如果用户请求host匹配，用模糊查找
+func GetDomainId(domain string, root DomainTree, fuzzy bool) uint32 {
+	segments := strings.Split(domain, ".")
+	var id uint32
+	var c = root
+	var ok bool
+	var d *DomainSegment
+	for i := len(segments) - 1; i >= 0; i-- {
+		segment := strings.ToLower(segments[i])
+		if fuzzy {
+			if d, ok = c["*"]; ok {
+				if d.ID > 0 {
+					id = d.ID
+				}
+			}
+		}
+		if d, ok = c[segment]; ok {
+			if d.ID > 0 && i == 0 {
+				id = d.ID
+			}
+			c = d.Child
+		} else {
+			break
+		}
+	}
+	return id
+}
+
+// 删除域名
+func DelDomain(domain string, root DomainTree) bool {
+	segments := strings.Split(domain, ".")
+	var c = root
+	var ok bool
+	var d *DomainSegment
+	for i := len(segments) - 1; i >= 0; i-- {
+		segment := strings.ToLower(segments[i])
+		if d, ok = c[segment]; ok {
+			if i == 0 && d.ID > 0 {
+				d.ID = 0
+				return true
+			}
+			c = d.Child
+		} else {
+			break
+		}
+	}
+	return false
+}
+
+// 验证域名
+func VerifyDomain(domain, patten string) bool {
+	pattenTree := DomainTree{}
+	AddDomain(patten, 1, pattenTree)
+	id := GetDomainId(domain, pattenTree, true)
+	return id > 0
+}
+
 func DomainIndexOfWildCard(d string) int {
 	if len(d) <= 0 {
 		return -1
