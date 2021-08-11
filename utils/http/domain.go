@@ -33,6 +33,23 @@ func AddDomain(domain string, id uint32, root DomainTree) {
 	d.ID = id
 }
 
+func FlattenDomainTree(tree DomainTree, res map[uint32]string, segment string) {
+	for k, v := range tree {
+		var s string
+		if len(segment) > 0 {
+			s = k + "." + segment
+		} else {
+			s = k
+		}
+		if v.ID > 0 {
+			res[v.ID] = s
+		}
+		if len(v.Child) > 0 {
+			FlattenDomainTree(v.Child, res, s)
+		}
+	}
+}
+
 func AddDomainList(domains map[uint32]string, root DomainTree) {
 	for k, v := range domains {
 		AddDomain(v, k, root)
