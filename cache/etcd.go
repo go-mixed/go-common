@@ -92,7 +92,7 @@ func (c *Etcd) Get(key string, actual interface{}) ([]byte, error) {
 	if !core.IsInterfaceNil(actual) {
 		if err := text_utils.JsonUnmarshalFromBytes(val, actual); err != nil {
 			c.Logger.Errorf("[ETCD]json unmarshal: %s of error: %s", val, err.Error())
-			return []byte(val), err
+			return val, err
 		}
 	}
 	return val, nil
