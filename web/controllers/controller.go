@@ -23,6 +23,16 @@ func (c *Controller) Render(data render.Render) error {
 	return data.(render.Render).Render(c.Context.Writer)
 }
 
+func (c *Controller) JsonCheck(d interface{}) error {
+	if err := c.Controller.Context.ShouldBindJSON(&d); err != nil {
+		if err == io.EOF {
+			return fmt.Errorf("empty body, must be a json")
+		}
+		return err
+	}
+	return nil
+}
+
 // ErrorResponse default error response
 func (c *Controller) ErrorResponse(err error, data interface{}) {
 	if !core.IsInterfaceNil(data) {
