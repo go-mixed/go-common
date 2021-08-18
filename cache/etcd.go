@@ -80,7 +80,7 @@ func (c *Etcd) Get(key string, actual interface{}) ([]byte, error) {
 	if err != nil {
 		c.Logger.Debugf("[ETCD]error of key %s", key, err.Error())
 		return nil, err
-	} else if response.Count == 0 {
+	} else if len(response.Kvs) == 0 {
 		c.Logger.Debugf("[ETCD]key not exists: %s", key)
 		return nil, nil
 	} else if len(response.Kvs[0].Value) == 0 {
@@ -106,7 +106,7 @@ func (c *Etcd) MGet(keys []string, actual interface{}) (utils.KVs, error) {
 		response, err := kv.Get(c.Ctx, key, clientv3.WithLimit(1))
 		if err != nil {
 			return nil, err
-		} else if response.Count == 0 {
+		} else if len(response.Kvs) == 0 {
 			kvs = kvs.Append(key, nil)
 		} else {
 			kvs = kvs.Append(key, response.Kvs[0].Value)
@@ -149,11 +149,11 @@ func (c *Etcd) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (st
 	response, err := kv.Get(c.Ctx, keyStart, clientv3.WithFromKey(), clientv3.WithRange(keyEnd), clientv3.WithLimit(limit+1)) // 多取1个是为了返回最后一个为nextKey
 	if err != nil {
 		return "", nil, err
-	} else if response.Count == 0 {
+	} else if len(response.Kvs) == 0 {
 		return "", nil, nil
 	}
 	var i int64
-	count := core.If(limit < response.Count, limit, response.Count).(int64)
+	count := core.If(limit < int64(len(response.Kvs)), limit, int64(len(response.Kvs))).(int64)
 	for i = 0; i < count; i++ {
 		key := string(response.Kvs[i].Key)
 		if keyPrefix == "" || strings.HasPrefix(key, keyPrefix) {
@@ -345,8 +345,6 @@ func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, l
 			kvs = append(kvs, response.Kvs[i])
 		}
 	}
-
-	response.Count = int64(len(kvs))
 
 	return response, nil
 }
