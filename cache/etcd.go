@@ -9,6 +9,7 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -219,13 +220,13 @@ func (c *Etcd) LastRevision() int64 {
 	return response.Header.GetRevision()
 }
 
-func (c *Etcd) GetResponse(key string, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
+func (c *Etcd) GetResponse(key string, ops ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	kv := clientv3.NewKV(c.EtcdClient)
 	return kv.Get(c.Ctx, key, ops...)
 }
 
 // PrefixResponse 得到前缀符合 keyPrefix 的所有值
-func (c *Etcd) PrefixResponse(keyPrefix string, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
+func (c *Etcd) PrefixResponse(keyPrefix string, ops ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	ops = append(ops, clientv3.WithPrefix())
 	return c.GetResponse(keyPrefix, ops...)
 }
@@ -233,7 +234,7 @@ func (c *Etcd) PrefixResponse(keyPrefix string, ops... clientv3.OpOption) (*clie
 // PrefixResponseWithRev 得到指定版本范围内的 keyPrefix 列表 (一个key只会返回1次, value为最新的数据)
 // 如果maxRev 不为0会返回指定minRev ~ maxRev版本范围的kv, 0表示minRev ~ +inf
 // 数据依照ModifyRevision Asc排列, 所以当设置clientv3.WithLimit(N)时, 可以使用minRev参数来翻页 (即: 下一页的minRev = 返回结果的最后一条.ModRevision + 1)
-func (c *Etcd) PrefixResponseWithRev(keyPrefix string, minRev, maxRev int64, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
+func (c *Etcd) PrefixResponseWithRev(keyPrefix string, minRev, maxRev int64, ops ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	if minRev < 0 {
 		minRev = 0
 	}
@@ -252,6 +253,8 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64) (<-chan *clientv3.Event, fu
 	ctx, cancel := context.WithCancel(c.Ctx)
 	watcher := clientv3.NewWatcher(c.EtcdClient)
 	outCh := make(chan *clientv3.Event)
+	isCancel := false
+	mu := sync.Mutex{}
 	go func() {
 		defer close(outCh) // 总是会关闭此通道
 		var ch clientv3.WatchChan
@@ -297,11 +300,19 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64) (<-chan *clientv3.Event, fu
 	}()
 
 	return outCh, func() {
-		cancel() // 如果阻塞在 for ch, 关闭context, ch也会被close, 故而无法继续循环
+		mu.Lock()
+		defer mu.Unlock()
+
+		if isCancel {
+			return
+		}
+
+		cancel() // 如果阻塞在 for ch, 关闭context, ch也会被close, 故而会停止循环
 		c.Logger.Infof("[ETCD]cancel watch chan: \"%s\"", keyPrefix)
 		for range outCh { // 如果阻塞在outCh <- 通过空跑解决阻塞
 
 		}
+		isCancel = true
 	}
 }
 
@@ -313,7 +324,7 @@ func (c *Etcd) WatchCallback(keyPrefix string, minRev int64, callback func(event
 			continue // 当callback返回错误时, 需要空跑完通道, 不然会导致通道永远被阻塞而内存不释放
 		}
 		if err = callback(e); err != nil {
-			cancel() // cancel之后 会
+			cancel() // cancel之后 会退出range ch
 		}
 	}
 	return cancel
@@ -321,7 +332,7 @@ func (c *Etcd) WatchCallback(keyPrefix string, minRev int64, callback func(event
 
 // RangeResponse 得到keyStart~keyEnd范围内，并且符合keyPrefix的数据, limit <= 0则表示不限制数量
 // keyPrefix为空 表示无前缀要求
-func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, limit int64, ops... clientv3.OpOption) (*clientv3.GetResponse, error) {
+func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, limit int64, ops ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	if limit < 0 {
 		limit = 0
 	}

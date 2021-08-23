@@ -21,11 +21,11 @@ type L2Result struct {
 
 type IL2Cache interface {
 	Get(key string, expire time.Duration, actual interface{}) ([]byte, error)
-	MGet(keys []string, expire time.Duration, actual interface{}) (map[string][]byte, error)
+	MGet(keys []string, expire time.Duration, actual interface{}) (utils.KVs, error)
 	Keys(keyPrefix string, expire time.Duration) ([]string, error)
 	Delete(keys ...string)
 
-	ScanPrefix(keyPrefix string, expire time.Duration, actual interface{}) (map[string][]byte, error)
+	ScanPrefix(keyPrefix string, expire time.Duration, actual interface{}) (utils.KVs, error)
 }
 
 func NewL2Cache(
@@ -59,21 +59,17 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual interface{}) ([]b
 	return _val, nil
 }
 
-func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) (map[string][]byte, error) {
+func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) (utils.KVs, error) {
 	res, err := l.memCache.Remember("mget:"+text_utils.Md5(strings.Join(keys, "|")), expire, func() (interface{}, error) {
 		return l.cache.MGet(keys, nil)
 	})
 	if err != nil {
 		return nil, err
 	}
-	_res, ok := res.(map[string][]byte)
+	_res, ok := res.(utils.KVs)
 	if ok && len(_res) > 0 && !core.IsInterfaceNil(actual) {
-		var _vals [][]byte
-		for _, v := range _res {
-			_vals = append(_vals, v)
-		}
-		if err := text_utils.JsonListUnmarshalFromBytes(_vals, actual); err != nil {
-			l.logger.Errorf("redis json unmarshal: %v of error: %s", _vals, err.Error())
+		if err := text_utils.JsonListUnmarshalFromBytes(_res.Values(), actual); err != nil {
+			l.logger.Errorf("redis json unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
 		}
 	}
@@ -99,21 +95,17 @@ func (l *L2Cache) Delete(keys ...string) {
 	}
 }
 
-func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual interface{}) (map[string][]byte, error) {
+func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual interface{}) (utils.KVs, error) {
 	res, err := l.memCache.Remember("scan-prefix:"+keyPrefix, expire, func() (interface{}, error) {
 		return l.cache.ScanPrefix(keyPrefix, nil)
 	})
 	if err != nil {
 		return nil, err
 	}
-	_res, ok := res.(map[string][]byte)
-	if ok && !core.IsInterfaceNil(actual) {
-		var _vals [][]byte
-		for _, v := range _res {
-			_vals = append(_vals, v)
-		}
-		if err := text_utils.JsonListUnmarshalFromBytes(_vals, actual); err != nil {
-			l.logger.Errorf("redis json unmarshal: %v of error: %s", _vals, err.Error())
+	_res, ok := res.(utils.KVs)
+	if ok && len(_res) > 0 && !core.IsInterfaceNil(actual) {
+		if err := text_utils.JsonListUnmarshalFromBytes(_res.Values(), actual); err != nil {
+			l.logger.Errorf("redis json unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
 		}
 	}
