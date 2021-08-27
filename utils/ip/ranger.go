@@ -19,7 +19,7 @@ func NewIpRanger() *Ranger {
 	return &Ranger{make(map[int]map[string]bool), []int{}}
 }
 
-func (r *Ranger) ParseIP(ip string) (*net.IPNet, error) {
+func ParseIP(ip string) (*net.IPNet, error) {
 	if strings.Index(ip, "/") < 0 {
 		ip = fmt.Sprintf("%s/32", ip)
 	}
