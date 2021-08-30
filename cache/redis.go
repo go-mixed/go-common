@@ -23,7 +23,10 @@ func (c *Redis) SetNoExpiration(key string, val interface{}) error {
 
 func (c *Redis) Exists(key string) bool {
 	n, err := c.RedisClient.Exists(c.Ctx, key).Result()
-	if err != nil {
+	if err == redis.Nil { // 无此数据
+		c.Logger.Debugf("[Redis]key not exists: %s", key)
+		return false
+	} else if err != nil {
 		c.Logger.Debugf("[Redis]error of key %s", key, err.Error())
 		return false
 	}

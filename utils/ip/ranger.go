@@ -3,6 +3,7 @@ package ip
 import (
 	"errors"
 	"fmt"
+	text_utils "go-common/utils/text"
 	"net"
 	"strings"
 )
@@ -10,13 +11,13 @@ import (
 type Ranger struct {
 	// 采用map查找的方式，map和slice相比，slice在少量的时候速度较快，map采用的hash，在大量数据的时候较快
 	// 原理是一个ip在某一个掩码段转化的只有一个ip值，通过从掩码从小到大查找，并转换唯一的ip值，可以快速索引定位
-	Data map[int]map[string]bool
+	Data map[int]map[string]string
 	// 查找已存在的掩码范围，避免不必要的cidr转换开销，并且排序
 	Bits []int
 }
 
 func NewIpRanger() *Ranger {
-	return &Ranger{make(map[int]map[string]bool), []int{}}
+	return &Ranger{make(map[int]map[string]string), []int{}}
 }
 
 func ParseIP(ip string) (*net.IPNet, error) {
@@ -33,13 +34,14 @@ func (r *Ranger) getIpByMask(ip string, mask int) string {
 	return _net.IP.String()
 }
 
-func (r *Ranger) AddIP(n *net.IPNet) {
+func (r *Ranger) AddIP(n *net.IPNet, value interface{}) {
 	bit, _ := n.Mask.Size()
 	if _, ok := r.Data[bit]; !ok {
-		r.Data[bit] = make(map[string]bool)
+		r.Data[bit] = make(map[string]string)
 		r.addBit(bit)
 	}
-	r.Data[bit][n.IP.String()] = true
+	v, _ := text_utils.JsonMarshal(value)
+	r.Data[bit][n.IP.String()] = v
 }
 
 func (r *Ranger) RemoveIP(n *net.IPNet) error {
@@ -113,17 +115,17 @@ func (r *Ranger) delIndex(bit int) int {
 	return index
 }
 
-func (r *Ranger) Contains(n *net.IPNet) bool {
-	var exist bool
+func (r *Ranger) Contains(n *net.IPNet, v interface{}) bool {
 	_mask, _ := n.Mask.Size()
 	for _, i := range r.Bits {
 		_ip := r.getIpByMask(n.IP.String(), i)
-		if _, ok := r.Data[i][_ip]; ok {
+		if d, ok := r.Data[i][_ip]; ok {
+			_ = text_utils.JsonUnmarshal(d, v)
 			return true
 		}
 		if _mask < i {
 			break
 		}
 	}
-	return exist
+	return false
 }
