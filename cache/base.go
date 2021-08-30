@@ -70,7 +70,6 @@ type Cache struct {
 	l2Cache *L2Cache
 }
 
-
 // NewRedisCache
 // 注意, 此类中 Range/ScanRange/ScanRangeCallback 方法只有后端是pika时才能调用, 不然会panic
 // 当后端是pika时, ScanPrefix/ScanPrefixCallback都将会使用pika原生函数来实现
@@ -82,7 +81,7 @@ func NewRedisCache(client redis.UniversalClient, logger utils.ILogger, isPika bo
 			Logger: logger,
 		},
 		RedisClient: client,
-		IsPika: isPika,
+		IsPika:      isPika,
 	}
 	cache.l2Cache = NewL2Cache(cache, logger)
 	return cache

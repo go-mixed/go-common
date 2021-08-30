@@ -13,12 +13,39 @@ import (
 
 type Redis struct {
 	Cache
-	IsPika bool
+	IsPika      bool
 	RedisClient redis.UniversalClient
 }
 
 func (c *Redis) SetNoExpiration(key string, val interface{}) error {
 	return c.Set(key, val, 0)
+}
+
+func (c *Redis) Exists(key string) bool {
+	n, err := c.RedisClient.Exists(c.Ctx, key).Result()
+	if err != nil {
+		c.Logger.Debugf("[Redis]error of key %s", key, err.Error())
+		return false
+	}
+	return n > 0
+}
+
+func (c *Redis) Incr(key string) int64 {
+	n, err := c.RedisClient.Incr(c.Ctx, key).Result()
+	if err != nil {
+		c.Logger.Debugf("[Redis]error of key %s", key, err.Error())
+		return 0
+	}
+	return n
+}
+
+func (c *Redis) Decr(key string) int64 {
+	n, err := c.RedisClient.Decr(c.Ctx, key).Result()
+	if err != nil {
+		c.Logger.Debugf("[Redis]error of key %s", key, err.Error())
+		return 0
+	}
+	return n
 }
 
 func (c *Redis) Del(key string) error {
