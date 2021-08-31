@@ -3,8 +3,6 @@ package controllers
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/render"
-	"go-common/utils/core"
 	"io"
 	"net/http"
 	"time"
@@ -19,12 +17,6 @@ type IController interface {
 	ErrorResponse(err error, data interface{})
 }
 
-func (c *Controller) Render(data render.Render) error {
-	_render := data.(render.Render)
-	_render.WriteContentType(c.Context.Writer)
-	return data.(render.Render).Render(c.Context.Writer)
-}
-
 func (c *Controller) JsonCheck(d interface{}) error {
 	if err := c.Context.ShouldBindJSON(&d); err != nil {
 		if err == io.EOF {
@@ -37,13 +29,6 @@ func (c *Controller) JsonCheck(d interface{}) error {
 
 // ErrorResponse default error response
 func (c *Controller) ErrorResponse(err error, data interface{}) {
-	if !core.IsInterfaceNil(data) {
-		switch data.(type) {
-		case render.Render:
-			c.Render(data.(render.Render))
-			return
-		}
-	}
 
 	duration := time.Now().Sub(c.Context.GetTime("request_at"))
 
@@ -61,13 +46,6 @@ func (c *Controller) ErrorResponse(err error, data interface{}) {
 
 // SuccessResponse default success response
 func (c *Controller) SuccessResponse(code, data interface{}) {
-	if !core.IsInterfaceNil(data) {
-		switch data.(type) {
-		case render.Render:
-			c.Render(data.(render.Render))
-			return
-		}
-	}
 
 	duration := time.Now().Sub(c.Context.GetTime("request_at"))
 

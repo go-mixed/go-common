@@ -14,6 +14,9 @@ func init() {
 	controllerRegistry = map[string]func(ctx *gin.Context) IController{}
 }
 
+// CustomRender 表示该Controller的方法是自定义渲染, 不需调用ErrorResponse/SuccessResponse
+var CustomRender = errors.New("custom render")
+
 func NewController(controllerName string, ctx *gin.Context) (IController, error) {
 	if callback, ok := controllerRegistry[controllerName]; ok {
 		if controller := callback(ctx); controller != nil {
@@ -60,13 +63,16 @@ func ControllerHandlerFunc(controllerName, methodName string, before func(IContr
 
 			before(controller)
 			r, e := callControllerMethod(controller, methodName)
-			if res, err := after(controller, r, e); err == nil {
+			res, err := after(controller, r, e)
+
+			if err == CustomRender {
+				return
+			} else if err == nil {
 				controller.SuccessResponse(0, res)
 			} else {
 				controller.ErrorResponse(err, res)
 			}
 		}
-
 	}
 }
 
