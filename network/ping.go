@@ -2,9 +2,7 @@ package network
 
 import (
 	"github.com/go-ping/ping"
-	"github.com/j-keck/arping"
 	"go-common/utils"
-	"net"
 	"time"
 )
 
@@ -13,7 +11,9 @@ func MixPing(ip string, timeout time.Duration, arpIface string) (ok bool, hwAddr
 		return
 	}
 
-	return Arping(ip, timeout, arpIface)
+	return false, "", 0
+
+	//return Arping(ip, timeout, arpIface)
 }
 
 /** Ping
@@ -50,27 +50,27 @@ func Ping(ip string, timeout time.Duration) (ok bool, duration time.Duration) {
 
 	return
 }
-
-func Arping(ip string, timeout time.Duration, arpIface string) (ok bool, hwAddr string, duration time.Duration) {
-	arping.SetTimeout(timeout)
-
-	_ip := net.ParseIP(ip)
-
-	var err error
-	var Addr net.HardwareAddr
-	if arpIface != "" {
-		Addr, duration, err = arping.PingOverIfaceByName(_ip, arpIface)
-	} else {
-		Addr, duration, err = arping.Ping(_ip)
-	}
-
-	if err != nil {
-		ok = false
-		utils.GetSugaredLogger().Errorf("arping %s fail: %s", ip, err.Error())
-		return
-	}
-
-	hwAddr = Addr.String()
-	ok = true
-	return
-}
+//
+//func Arping(ip string, timeout time.Duration, arpIface string) (ok bool, hwAddr string, duration time.Duration) {
+//	arping.SetTimeout(timeout)
+//
+//	_ip := net.ParseIP(ip)
+//
+//	var err error
+//	var Addr net.HardwareAddr
+//	if arpIface != "" {
+//		Addr, duration, err = arping.PingOverIfaceByName(_ip, arpIface)
+//	} else {
+//		Addr, duration, err = arping.Ping(_ip)
+//	}
+//
+//	if err != nil {
+//		ok = false
+//		utils.GetSugaredLogger().Errorf("arping %s fail: %s", ip, err.Error())
+//		return
+//	}
+//
+//	hwAddr = Addr.String()
+//	ok = true
+//	return
+//}
