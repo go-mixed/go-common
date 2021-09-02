@@ -258,6 +258,7 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64) (<-chan *clientv3.Event, fu
 	go func() {
 		defer close(outCh) // 总是会关闭此通道
 		var ch clientv3.WatchChan
+	loop1:
 		for {
 			// 如果context已经被cancel, 则退出
 			select {
@@ -268,15 +269,16 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64) (<-chan *clientv3.Event, fu
 			}
 
 			if keyPrefix == "" {
-				ch = watcher.Watch(ctx, keyPrefix, clientv3.WithFromKey(), clientv3.WithRev(minRev))
+				ch = watcher.Watch(ctx, keyPrefix, clientv3.WithFromKey(), clientv3.WithRev(minRev), clientv3.WithPrevKV())
 			} else {
-				ch = watcher.Watch(ctx, keyPrefix, clientv3.WithPrefix(), clientv3.WithRev(minRev))
+				ch = watcher.Watch(ctx, keyPrefix, clientv3.WithPrefix(), clientv3.WithRev(minRev), clientv3.WithPrevKV())
 			}
 
 			for response := range ch {
 				if response.CompactRevision != 0 {
 					c.Logger.Warnf("[ETCD]required revision has been compacted, use the compact revision:%d, required-revision:%d", response.CompactRevision, minRev)
-					break
+					minRev = response.CompactRevision
+					continue loop1
 				}
 				if response.Canceled {
 					c.Logger.Warnf("[ETCD]watcher is canceled with revision: %d error: %v", minRev, response.Err())
