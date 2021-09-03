@@ -3,7 +3,6 @@ package rpc
 import (
 	"errors"
 	"go-common/utils"
-	"log"
 	"net"
 	"net/rpc"
 )
@@ -64,7 +63,7 @@ func (s *Server) Run(stopChan <-chan bool) error {
 
 			}
 
-			log.Print("rpc.Serve: accept:", err.Error())
+			s.logger.Errorf("rpc.Serve: accept:", err.Error())
 			break
 		}
 		go s.ServeConn(conn)
