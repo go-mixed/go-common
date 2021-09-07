@@ -1,4 +1,4 @@
-package network
+package ssh
 
 import (
 	"crypto/x509"

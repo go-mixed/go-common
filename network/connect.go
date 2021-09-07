@@ -13,9 +13,9 @@ func TryUdpConnect(addr string, timeout time.Duration) (ok bool, duration time.D
 	return TryConnect("udp", addr, timeout)
 }
 
-func TryConnect(protocol string, addr string, timeout time.Duration) (ok bool, duration time.Duration, err error) {
+func TryConnect(network string, addr string, timeout time.Duration) (ok bool, duration time.Duration, err error) {
 	n := time.Now()
-	c, err := net.DialTimeout(protocol, addr, timeout)
+	c, err := net.DialTimeout(network, addr, timeout)
 	if err != nil {
 		ok = false
 		return
