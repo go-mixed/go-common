@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/binary"
+	"fmt"
 	"go-common/utils"
 	"net"
 	"time"
@@ -91,7 +92,7 @@ func (s *SimpleUDPServer) SimpleRead() (*SimpleData, net.Addr, error) {
 
 	_s := SimpleData{}
 	if err = _s.UnmarshalBinary(buf[:n]); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("cannot unmarshal binary: [%x], error: %w", buf, err)
 	}
 
 	return &_s, addr, nil
