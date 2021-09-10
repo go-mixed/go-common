@@ -46,7 +46,7 @@ func (s *SimpleUDPServer) Run(stopChan <-chan bool) error {
 		// UDP包最大长度: 65535- IP头(20) - UDP头(8)＝65507字节
 		// 但是因MTU=1500的限制(拨号连接的MTU是1280)，一个包最多1472长度，超过就要分割
 		// 考虑到业务形态, 这里规定一个包长度最大1024
-		buf := make([]byte, 1024)
+		buf := make([]byte, MaxInternetUdpLen)
 		n, remoteAddr, err := s.ReadFrom(buf)
 		if err != nil {
 			select {
@@ -56,7 +56,7 @@ func (s *SimpleUDPServer) Run(stopChan <-chan bool) error {
 				return err
 			}
 		}
-		go s.serve(s.packetConn, remoteAddr, buf[:n])
+		go s.serve(remoteAddr, buf[:n])
 	}
 }
 
@@ -64,7 +64,7 @@ func (s *SimpleUDPServer) RegisterCodec(codec Codec, callback SimpleUDPHandle) {
 	s.codecs[codec] = callback
 }
 
-func (s *SimpleUDPServer) serve(conn net.PacketConn, remoteAddr net.Addr, buf []byte) {
+func (s *SimpleUDPServer) serve(remoteAddr net.Addr, buf []byte) {
 	if len(buf) < 2 {
 		s.logger.Warnf("the length of simple-udp package must >= 2")
 		return
@@ -72,19 +72,19 @@ func (s *SimpleUDPServer) serve(conn net.PacketConn, remoteAddr net.Addr, buf []
 
 	codec := binary.BigEndian.Uint16(buf[:2])
 	if callback, ok := s.codecs[Codec(codec)]; ok {
-		_s := SimpleData{}
-		if err := _s.UnmarshalBinary(buf); err != nil {
+		data := SimpleData{}
+		if err := data.UnmarshalBinary(buf); err != nil {
 			s.logger.Error("invalid package format: %s, raw: %x", err.Error(), buf)
 			return
 		}
-		callback.Serve(s, remoteAddr, _s.Data)
+		callback.Serve(s, remoteAddr, &data)
 	} else {
 		s.logger.Warnf("unknown codec, raw: %x", buf)
 	}
 }
 
 func (s *SimpleUDPServer) SimpleRead() (*SimpleData, net.Addr, error) {
-	buf := make([]byte, 1024)
+	buf := make([]byte, MaxInternetUdpLen)
 	n, addr, err := s.ReadFrom(buf)
 	if err != nil {
 		return nil, nil, err
@@ -98,11 +98,14 @@ func (s *SimpleUDPServer) SimpleRead() (*SimpleData, net.Addr, error) {
 	return &_s, addr, nil
 }
 
-func (s *SimpleUDPServer) SimpleWrite(addr net.Addr, codec Codec, buf []byte) (int, error) {
-	_s := SimpleData{Codec: codec, Data: buf}
+func (s *SimpleUDPServer) SimpleWrite(addr net.Addr, codec Codec, messageID uint32, buf []byte) (int, error) {
+	_s := SimpleData{Codec: codec, MessageID: messageID, Data: buf}
 	b, err := _s.MarshalBinary()
 	if err != nil {
 		return 0, err
+	}
+	if len(b) > MaxInternetUdpLen {
+		return 0, fmt.Errorf("the length of a simple-udp packet cannot > %d", MaxInternetUdpLen)
 	}
 	return s.WriteTo(b, addr)
 }

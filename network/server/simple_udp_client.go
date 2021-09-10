@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"go-common/utils"
 	"net"
@@ -29,23 +28,22 @@ func NewSimpleUDPClient(addr string, logger utils.ILogger) (*SimpleUDPClient, er
 	return client, nil
 }
 
-func (c *SimpleUDPClient) SimpleWrite(codec Codec, data []byte) error {
-	s := SimpleData{Codec: codec, Data: data}
+func (c *SimpleUDPClient) SimpleWrite(codec Codec, messageID uint32, data []byte) (int, error) {
+	s := SimpleData{Codec: codec, MessageID: messageID, Data: data}
 
 	buf, err := s.MarshalBinary()
 	if err != nil {
-		return err
+		return 0, err
 	}
-	if len(buf) > 1024 {
-		return errors.New("the length of a simple-udp packet cannot > 1024")
+	if len(buf) > MaxInternetUdpLen {
+		return 0, fmt.Errorf("the length of a simple-udp packet cannot > %d", MaxInternetUdpLen)
 	}
 
-	_, err = c.Write(buf)
-	return err
+	return c.Write(buf)
 }
 
 func (c *SimpleUDPClient) SimpleRead() (*SimpleData, error) {
-	buf := make([]byte, 1024)
+	buf := make([]byte, MaxInternetUdpLen)
 	n, err := c.Read(buf)
 	if err != nil {
 		return nil, err
