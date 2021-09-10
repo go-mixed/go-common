@@ -3,6 +3,7 @@ package cache
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"go-common/utils"
 	"go-common/utils/core"
 	"go-common/utils/text"
@@ -249,7 +250,7 @@ func (c *Etcd) PrefixResponseWithRev(keyPrefix string, minRev, maxRev int64, ops
 
 // Watch 监控key的变更, 返回一个可以遍历所有变更的通道. 如果keyPrefix为空, 则表示所有KEY, 如果minRev > 0 则从指定版本开始
 // 方法会ch, cancel := Watch(...) 通过cancel可以强制终止watch
-func (c *Etcd) Watch(keyPrefix string, minRev int64) (<-chan *clientv3.Event, func()) {
+func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) (<-chan *clientv3.Event, func()) {
 	ctx, cancel := context.WithCancel(c.Ctx)
 	watcher := clientv3.NewWatcher(c.EtcdClient)
 	outCh := make(chan *clientv3.Event)
@@ -318,8 +319,8 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64) (<-chan *clientv3.Event, fu
 	}
 }
 
-func (c *Etcd) WatchCallback(keyPrefix string, minRev int64, callback func(event *clientv3.Event) error) func() {
-	ch, cancel := c.Watch(keyPrefix, minRev)
+func (c *Etcd) WatchCallback(keyPrefix string, minRev int64, callback func(event *clientv3.Event) error, opts ...clientv3.OpOption) func() {
+	ch, cancel := c.Watch(keyPrefix, minRev, opts...)
 	var err error
 	for e := range ch {
 		if err != nil {
@@ -334,14 +335,14 @@ func (c *Etcd) WatchCallback(keyPrefix string, minRev int64, callback func(event
 
 // RangeResponse 得到keyStart~keyEnd范围内，并且符合keyPrefix的数据, limit <= 0则表示不限制数量
 // keyPrefix为空 表示无前缀要求
-func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, limit int64, ops ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, limit int64, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	if limit < 0 {
 		limit = 0
 	}
 
-	ops = append(ops, clientv3.WithFromKey(), clientv3.WithRange(keyEnd), clientv3.WithLimit(limit))
+	opts = append(opts, clientv3.WithFromKey(), clientv3.WithRange(keyEnd), clientv3.WithLimit(limit))
 
-	response, err := c.GetResponse(keyStart, ops...)
+	response, err := c.GetResponse(keyStart, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -360,4 +361,24 @@ func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, l
 	}
 
 	return response, nil
+}
+
+// Lease 得到Lease的Response
+func (c *Etcd) Lease(leaseID int64) (*clientv3.LeaseTimeToLiveResponse, error) {
+	id := clientv3.LeaseID(leaseID)
+	if id == clientv3.NoLease {
+		return nil, fmt.Errorf("it is not a valid lease id: %d", leaseID)
+	}
+
+	return c.EtcdClient.TimeToLive(c.Ctx, id)
+}
+
+// TimeToLive 得到某leaseID还剩余的TTL, 单位s
+func (c *Etcd) TimeToLive(leaseID int64) (int64, error) {
+	leaseResponse, err := c.Lease(leaseID)
+	if err != nil {
+		return -1, err
+	}
+
+	return leaseResponse.TTL, nil
 }

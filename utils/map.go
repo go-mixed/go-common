@@ -139,3 +139,7 @@ func (s KVs) Values() [][]byte {
 	}
 	return values
 }
+
+func NewKV(key string, value []byte) *KV {
+	return &KV{Key: key, Value: value}
+}
