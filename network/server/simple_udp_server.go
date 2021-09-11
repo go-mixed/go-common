@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"go-common/utils"
+	"go-common/utils/core"
 	"net"
 	"time"
 )
@@ -35,11 +36,9 @@ func (s *SimpleUDPServer) Run(stopChan <-chan bool) error {
 	}
 
 	go func() {
-		select {
-		case <-stopChan:
-			s.packetConn.Close()
-			s.logger.Infof("close udp server on %s", s.host)
-		}
+		core.WaitForStopped(stopChan)
+		s.packetConn.Close()
+		s.logger.Infof("close udp server on %s", s.host)
 	}()
 
 	for {
@@ -49,10 +48,9 @@ func (s *SimpleUDPServer) Run(stopChan <-chan bool) error {
 		buf := make([]byte, MaxInternetUdpLen)
 		n, remoteAddr, err := s.ReadFrom(buf)
 		if err != nil {
-			select {
-			case <-stopChan: // 外部关闭了服务器
+			if core.IsStopped(stopChan) { // 外部关闭了服务器
 				return ErrServerClosed
-			default:
+			} else {
 				return err
 			}
 		}

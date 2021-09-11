@@ -3,6 +3,7 @@ package rpc
 import (
 	"errors"
 	"go-common/utils"
+	"go-common/utils/core"
 	"net"
 	"net/rpc"
 )
@@ -46,21 +47,16 @@ func (s *Server) Run(stopChan <-chan bool) error {
 
 	// 监听并关闭监听
 	go func() {
-		select {
-		case <-stopChan:
-			listener.Close()
-			s.logger.Infof("stop rpc-server on [%s]%s", s.network, s.address)
-		}
+		core.WaitForStopped(stopChan)
+		listener.Close()
+		s.logger.Infof("stop rpc-server on [%s]%s", s.network, s.address)
 	}()
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			select {
-			case <-stopChan:
+			if core.IsStopped(stopChan) {
 				return ErrServerClosed
-			default:
-
 			}
 
 			s.logger.Errorf("rpc.Serve: accept:", err.Error())

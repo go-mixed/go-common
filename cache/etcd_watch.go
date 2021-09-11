@@ -92,11 +92,9 @@ func (w *EtcdWatch) Dump(stopChan <-chan bool, keyPrefix string, fromRevision in
 		}
 
 		for _, kv := range response.Kvs {
-			select {
-			case <-stopChan: // 监控退出
+			if core.IsStopped(stopChan) {
 				w.logger.Infof("stop dump from etcd with key: \"%s\" revision: %d~%d", keyPrefix, fromRevision, revision)
 				return revision, nil
-			default:
 			}
 			revision = kv.ModRevision
 			if err = handler.Handle(EtcdCreate, nil, kv); err != nil {
@@ -117,25 +115,19 @@ func (w *EtcdWatch) Watch(stopChan <-chan bool, keyPrefix string, fromRevision i
 	var mu sync.Mutex
 
 	go func() {
-		select { // block util stopChan close
-		case <-stopChan:
-			mu.Lock()
-			defer mu.Unlock()
-			if cancel != nil {
-				cancel()
-			}
-			return
+		core.WaitForStopped(stopChan) // block util stopChan close
+		mu.Lock()
+		defer mu.Unlock()
+		if cancel != nil {
+			cancel()
 		}
 	}()
 
 	revision := fromRevision
 
-for1:
 	for {
-		select { // 退出循环
-		case <-stopChan:
-			break for1
-		default:
+		if core.IsStopped(stopChan) {
+			break
 		}
 
 		w.logger.Infof("start watch etcd with key: \"%s\", revision >= %d", keyPrefix, revision)
