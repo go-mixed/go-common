@@ -67,7 +67,7 @@ func (w *EtcdWatch) DumpAndWatch(stopChan <-chan bool, keyPrefix string, fromRev
 
 func (w *EtcdWatch) Dump(stopChan <-chan bool, keyPrefix string, fromRevision int64, toRevision int64, handler EtcdHandle) (int64, error) {
 	if toRevision <= 0 {
-		toRevision = w.etcd.LastRevision()
+		toRevision = w.etcd.LastRevisionByPrefix(keyPrefix)
 	}
 	var revision = fromRevision
 

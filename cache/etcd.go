@@ -221,6 +221,15 @@ func (c *Etcd) LastRevision() int64 {
 	return response.Header.GetRevision()
 }
 
+// LastRevisionByPrefix 以prefix开头的最后版本号
+func (c *Etcd) LastRevisionByPrefix(keyPrefix string) int64 {
+	response, err := c.EtcdClient.Get(c.Ctx, keyPrefix, clientv3.WithLastRev()...)
+	if err != nil {
+		return -1
+	}
+	return response.Header.GetRevision()
+}
+
 func (c *Etcd) GetResponse(key string, ops ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	kv := clientv3.NewKV(c.EtcdClient)
 	return kv.Get(c.Ctx, key, ops...)
