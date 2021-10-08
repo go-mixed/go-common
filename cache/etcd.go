@@ -212,19 +212,16 @@ func (c *Etcd) Close() error {
 
 //------ 自有的相关方法 ------
 
-// LastRevision etcd的最后版本号
+// LastRevision etcd的全局的最后版本号
 func (c *Etcd) LastRevision() int64 {
-	response, err := c.EtcdClient.Get(c.Ctx, "\x00", clientv3.WithLastRev()...)
-	if err != nil {
-		return -1
-	}
-	return response.Header.GetRevision()
+	return c.LastRevisionByPrefix("\x00")
 }
 
 // LastRevisionByPrefix 以prefix开头的最后版本号
 func (c *Etcd) LastRevisionByPrefix(keyPrefix string) int64 {
 	response, err := c.EtcdClient.Get(c.Ctx, keyPrefix, clientv3.WithLastRev()...)
 	if err != nil {
+		c.Logger.Warnf("get last revision with prefix \"%s\" error: %s", keyPrefix, err.Error())
 		return -1
 	}
 	return response.Header.GetRevision()
