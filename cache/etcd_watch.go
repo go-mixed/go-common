@@ -51,7 +51,7 @@ func NewEtcdWatch(etcd *Etcd, logger utils.ILogger) *EtcdWatch {
 	}
 }
 
-func (w *EtcdWatch) DumpAndWatch(stopChan <-chan bool, keyPrefix string, fromRevision int64, handle EtcdHandle) (int64, error) {
+func (w *EtcdWatch) DumpAndWatch(stopChan <-chan struct{}, keyPrefix string, fromRevision int64, handle EtcdHandle) (int64, error) {
 	var revision int64
 	var err error
 	if revision, err = w.Dump(stopChan, keyPrefix, fromRevision, -1, handle); err != nil {
@@ -65,7 +65,7 @@ func (w *EtcdWatch) DumpAndWatch(stopChan <-chan bool, keyPrefix string, fromRev
 	return revision, nil
 }
 
-func (w *EtcdWatch) Dump(stopChan <-chan bool, keyPrefix string, fromRevision int64, toRevision int64, handler EtcdHandle) (int64, error) {
+func (w *EtcdWatch) Dump(stopChan <-chan struct{}, keyPrefix string, fromRevision int64, toRevision int64, handler EtcdHandle) (int64, error) {
 	if toRevision <= 0 {
 		toRevision = w.etcd.LastRevisionByPrefix(keyPrefix)
 	}
@@ -109,13 +109,18 @@ func (w *EtcdWatch) Dump(stopChan <-chan bool, keyPrefix string, fromRevision in
 	return revision, nil
 }
 
-func (w *EtcdWatch) Watch(stopChan <-chan bool, keyPrefix string, fromRevision int64, handler EtcdHandle) (int64, error) {
+func (w *EtcdWatch) Watch(stopChan <-chan struct{}, keyPrefix string, fromRevision int64, handler EtcdHandle) (int64, error) {
 	var cancel func() = nil
 	var ch <-chan *clientv3.Event
 	var mu sync.Mutex
 
+	// 一定要加这个退出信号, 不然在退出函数时, 下面的协程会泄露
+	_quitChan := make(chan struct{})
+	defer close(_quitChan)
+
 	go func() {
-		core.WaitForStopped(stopChan) // block util stopChan close
+		// 同时监听, 这样函数退出时, 协程也会退出
+		core.WaitForStopped2(_quitChan, stopChan) // block util stopChan close
 		mu.Lock()
 		defer mu.Unlock()
 		if cancel != nil {
@@ -126,7 +131,7 @@ func (w *EtcdWatch) Watch(stopChan <-chan bool, keyPrefix string, fromRevision i
 	revision := fromRevision
 
 	for {
-		if core.IsStopped(stopChan) {
+		if core.IsStopped(_quitChan, stopChan) {
 			break
 		}
 

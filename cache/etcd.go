@@ -254,8 +254,10 @@ func (c *Etcd) PrefixResponseWithRev(keyPrefix string, minRev, maxRev int64, ops
 	return c.PrefixResponse(keyPrefix, ops...)
 }
 
-// Watch 监控key的变更, 返回一个可以遍历所有变更的通道. 如果keyPrefix为空, 则表示所有KEY, 如果minRev > 0 则从指定版本开始
+// Watch 监控key的变更, 返回一个可以遍历所有变更的kv的通道. 如果keyPrefix为空, 则表示所有KEY, 如果minRev > 0 则从指定版本开始
 // 方法会ch, cancel := Watch(...) 通过cancel可以强制终止watch
+// 不能close返回的outCh，会panic。
+// 除非outCh迭代结束（即for _ = range outCh{}自己退出），必须使用cancel来结束watch，不然本函数内的协程会一直阻塞导致内存泄露。
 func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) (<-chan *clientv3.Event, func()) {
 	ctx, cancel := context.WithCancel(c.Ctx)
 	watcher := clientv3.NewWatcher(c.EtcdClient)
@@ -268,11 +270,9 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) 
 	loop1:
 		for {
 			// 如果context已经被cancel, 则退出
-			select {
-			case <-ctx.Done():
-				c.Logger.Infof("[ETCD]watcher stop: \"%s\"", keyPrefix)
+			if core.IsContextDone(ctx) {
+				c.Logger.Infof("[ETCD]watcher stop, prefix-key: \"%s\"", keyPrefix)
 				return
-			default:
 			}
 
 			if keyPrefix == "" {
@@ -283,28 +283,26 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) 
 
 			for response := range ch {
 				if response.CompactRevision != 0 {
-					c.Logger.Warnf("[ETCD]required revision has been compacted, use the compact revision:%d, required-revision:%d", response.CompactRevision, minRev)
+					c.Logger.Warnf("[ETCD]required revision has been compacted, key: \"%s\", compact revision: %d, required-revision: %d", keyPrefix, response.CompactRevision, minRev)
 					minRev = response.CompactRevision
 					continue loop1
 				}
 				if response.Canceled {
-					c.Logger.Warnf("[ETCD]watcher is canceled with revision: %d error: %v", minRev, response.Err())
+					c.Logger.Warnf("[ETCD]watcher is canceled, key: \"%s\", revision: %d, error: %v", keyPrefix, minRev, response.Err())
 					return
 				}
 
 				for _, event := range response.Events {
 					select {
-					case <-ctx.Done():
-						c.Logger.Infof("[ETCD]watcher stop on event loop: \"%s\"", keyPrefix)
+					case outCh <- event: // 当通道未读取会一直阻塞, 被close了
+						minRev = event.Kv.ModRevision
+					case <-ctx.Done(): // 强制取消会退出协程
+						c.Logger.Infof("[ETCD]watcher stop in event loop, key: \"%s\"", keyPrefix)
 						return
-					default:
-						//rev := response.Header.GetRevision() - int64(len(response.Events) - i) + 1
-						outCh <- event
 					}
 				}
-				minRev = response.Header.GetRevision()
 			}
-			c.Logger.Infof("[ETCD]watch chan \"%s\" is close", keyPrefix)
+			c.Logger.Infof("[ETCD]watcher close, key: \"%s\"", keyPrefix)
 		}
 	}()
 
@@ -316,11 +314,8 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) 
 			return
 		}
 
-		cancel() // 如果阻塞在 for ch, 关闭context, ch也会被close, 故而会停止循环
+		cancel() // 如果阻塞在 for response := range ch, 关闭context, ch也会被close, 故而会停止循环并退出协程
 		c.Logger.Infof("[ETCD]cancel watch chan: \"%s\"", keyPrefix)
-		for range outCh { // 如果阻塞在outCh <- 通过空跑解决阻塞
-
-		}
 		isCancel = true
 	}
 }

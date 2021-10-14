@@ -26,7 +26,7 @@ func NewSimpleUDPServer(host string, logger utils.ILogger) *SimpleUDPServer {
 	}
 }
 
-func (s *SimpleUDPServer) Run(stopChan <-chan bool) error {
+func (s *SimpleUDPServer) Run(stopChan <-chan struct{}) error {
 	s.logger.Infof("run udp server on %s", s.host)
 
 	var err error

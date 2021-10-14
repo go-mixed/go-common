@@ -56,9 +56,9 @@ func NewExecutorParams(NumWorkers int, ShutdownTimeout time.Duration, Name strin
 type Executor struct {
 	wg       *sync.WaitGroup
 	mu       *sync.Mutex
-	params   *Params   // 参数
-	stopped  bool      // 任务池是否已经停止了
-	stopChan chan bool // 全局停止通道
+	params   *Params       // 参数
+	stopped  bool          // 任务池是否已经停止了
+	stopChan chan struct{} // 全局停止通道
 	termChan chan os.Signal
 
 	runningJobs *list_utils.ConcurrencyList
@@ -79,7 +79,7 @@ func NewExecutor(params Params, logger utils.ILogger) (*Executor, error) {
 		params:      &params,
 		stopped:     false,
 		wg:          &sync.WaitGroup{},
-		stopChan:    make(chan bool),
+		stopChan:    make(chan struct{}),
 		queueJobs:   list_utils.NewConcurrencyList(),
 		runningJobs: list_utils.NewConcurrencyList(),
 		logger:      logger,
@@ -183,7 +183,7 @@ func (e *Executor) Reset(keepRemainJobs bool) {
 
 	if e.stopped {
 		e.stopped = true
-		e.stopChan = make(chan bool)
+		e.stopChan = make(chan struct{})
 		e.runningJobs.Clear()
 	}
 

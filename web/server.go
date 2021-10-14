@@ -5,7 +5,6 @@ import (
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
 	"go-common/utils"
-	"go-common/utils/core"
 	"go-common/utils/http"
 	"go-common/utils/list"
 	"go-common/utils/text"
@@ -50,11 +49,10 @@ type HttpServer struct {
 	// 真正执行的handler入口
 	handlerStack http.Handler
 	certs        []*Certificate
-	// 为了加快命中, 会将域名所指向的handler进行缓存,此处是该缓存过期市场, 小于60s会修改为60s, 无法设为永久
-	domainCacheExpired time.Duration
-	mu                 sync.Mutex
-	logger             utils.ILogger
-	domainCache        *lru.TwoQueueCache
+	mu           sync.Mutex
+	logger       utils.ILogger
+	// 为了加快命中, 当有访问时，会将请求域名所指向的handler缓存到lru中
+	domainCache *lru.TwoQueueCache
 }
 
 func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
@@ -62,7 +60,6 @@ func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
 	s := &HttpServer{
 		HttpServerOptions:    httpServerOptions,
 		orderedDomainConfigs: make([]*DomainConfig, 0, 1),
-		domainCacheExpired:   60 * time.Second,
 		mu:                   sync.Mutex{},
 		logger:               utils.NewDefaultLogger(),
 		domainCache:          cache,
@@ -104,11 +101,6 @@ func (c *Certificate) KeyFileInfo() os.FileInfo {
 
 func (c *HttpServer) HasDefaultDomain() bool {
 	return c.ContainsDomain("*")
-}
-
-// SetDomainCacheExpired 设置匹配到域名的缓存过期时间
-func (c *HttpServer) SetDomainCacheExpired(domainCacheExpired time.Duration) {
-	c.domainCacheExpired = core.If(domainCacheExpired < 60*time.Second, 60*time.Second, domainCacheExpired).(time.Duration)
 }
 
 // ContainsDomain 是否包含此域名, 此函数是判断完全相等, 如果需要匹配通配符, 使用 MatchDomain
@@ -263,7 +255,7 @@ func (c *HttpServer) GetCertificates() []*Certificate {
 	return c.certs
 }
 
-func (c *HttpServer) rememberCache(key string, callback func() *DomainConfig) *DomainConfig {
+func (c *HttpServer) rememberDomainCache(key string, callback func() *DomainConfig) *DomainConfig {
 	if val, ok := c.domainCache.Get(key); ok {
 		if val == nil {
 			return nil
@@ -283,8 +275,8 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 		return c.orderedDomainConfigs[0]
 	}
 
-	// 此处可以用Lru cache做持久保存 但是因为域名可能会解绑, 所以需要过期时间
-	return c.rememberCache(fmt.Sprintf("domain-handlerStack-%s", domain), func() *DomainConfig {
+	// 用Lru cache做持久保存，如果域名解绑，需要自行清理cache
+	return c.rememberDomainCache(fmt.Sprintf("domain-handlerStack-%s", domain), func() *DomainConfig {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		for _, domainConfig := range c.orderedDomainConfigs {
@@ -324,7 +316,7 @@ func (c *HttpServer) BuildServer() *http.Server {
 
 // Run 对外主函数, 用于运行http(s) server，并且可以监听stopChan来停止服务器
 // 如果stopChan为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
-func (c *HttpServer) Run(stopChan <-chan bool, configServerFunc func (server *http.Server) error) error {
+func (c *HttpServer) Run(stopChan <-chan struct{}, configServerFunc func(server *http.Server) error) error {
 
 	server := c.BuildServer()
 
@@ -381,9 +373,9 @@ func (c *HttpServer) Run(stopChan <-chan bool, configServerFunc func (server *ht
 }
 
 // 监听停止信号, stopChan为nil 则收听进程退出信号
-func (c *HttpServer) listenStopChan(stopChan <-chan bool) <-chan bool {
+func (c *HttpServer) listenStopChan(stopChan <-chan struct{}) <-chan struct{} {
 	if stopChan == nil {
-		var _stopChan = make(chan bool)
+		var _stopChan = make(chan struct{})
 		termChan := make(chan os.Signal)
 		//监听指定信号: 终端断开, ctrl+c, kill, ctrl+/
 		signal.Notify(termChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

@@ -4,16 +4,16 @@ import (
 	"go-common/utils/core"
 )
 
-type Runnable func(stopChan <-chan bool)
+type Runnable func(stopChan <-chan struct{})
 
-func NewRunnable(task func(stopChan <-chan bool, args ...interface{}), args ...interface{}) Runnable {
-	return func(stopChan <-chan bool) {
+func NewRunnable(task func(stopChan <-chan struct{}, args ...interface{}), args ...interface{}) Runnable {
+	return func(stopChan <-chan struct{}) {
 		task(stopChan, args...)
 	}
 }
 
 func NewRunnableT(fn interface{}, args ...interface{}) Runnable {
-	return func(stopChan <-chan bool) {
+	return func(stopChan <-chan struct{}) {
 		// stopChan 插入到第一个参数中
 		_args := append([]interface{}{}, stopChan)
 		_args = append(_args, args...)
@@ -40,7 +40,7 @@ func newJob(runnable Runnable, onDone func(job *Job)) *Job {
 /**
  * 阻塞运行
  */
-func (j *Job) Invoke(stopChan <-chan bool) {
+func (j *Job) Invoke(stopChan <-chan struct{}) {
 
 	j.running = true
 

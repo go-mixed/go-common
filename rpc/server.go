@@ -37,7 +37,7 @@ func (s *Server) Registers(methods ...interface{}) error {
 	return nil
 }
 
-func (s *Server) Run(stopChan <-chan bool) error {
+func (s *Server) Run(stopChan <-chan struct{}) error {
 	listener, err := net.Listen(s.network, s.address)
 	if err != nil {
 		return err

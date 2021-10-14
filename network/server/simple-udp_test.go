@@ -9,19 +9,19 @@ import (
 
 func TestSimpleUDP(t *testing.T) {
 	server := NewSimpleUDPServer("0.0.0.0:99", utils.NewDefaultLogger())
-	a := SimpleUDPHandleFunc(func(conn SimplePacketConn, addr net.Addr, buf []byte) {
+	a := SimpleUDPHandleFunc(func(conn SimplePacketConn, addr net.Addr, data *SimpleData) {
 		time.Sleep(1 * time.Second)
-		conn.SimpleWrite(addr, 0xc2c2, append([]byte("pong: "), buf...))
+		conn.SimpleWrite(addr, data.Codec, data.MessageID, append([]byte("pong: ")))
 	})
 	server.RegisterCodec(0xc1c2, a)
 
-	stopChan := make(chan bool)
+	stopChan := make(chan struct{})
 	go func() {
 		server.Run(stopChan)
 	}()
 	time.Sleep(time.Second)
 	defer func() {
-		stopChan <- true
+		stopChan <- struct{}{}
 	}()
 
 	client, err := NewSimpleUDPClient("127.0.0.1:99", utils.NewDefaultLogger())
@@ -29,11 +29,11 @@ func TestSimpleUDP(t *testing.T) {
 		t.Errorf("client connect error: %s", err.Error())
 	}
 
-	if err = client.SimpleWrite(0xc1c2, []byte("ping1")); err != nil {
+	if _, err = client.SimpleWrite(0xc1c2, 0x1, []byte("ping1")); err != nil {
 		t.Errorf("client send error: %s", err.Error())
 	}
 
-	if err = client.SimpleWrite(0xc1c2, []byte("ping2")); err != nil {
+	if _, err = client.SimpleWrite(0xc1c2, 0x2, []byte("ping2")); err != nil {
 		t.Errorf("client send error: %s", err.Error())
 	}
 	client.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
