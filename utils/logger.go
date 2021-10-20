@@ -7,10 +7,20 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var logger *zap.Logger
 var sugarLogger *zap.SugaredLogger
+
+const (
+	DEBUG = iota
+	INFO
+	WARN
+	PANIC
+	ERROR
+	FATAL
+)
 
 type ILogger interface {
 	Fatal(v ...interface{})
@@ -31,15 +41,15 @@ type ILogger interface {
 type DefaultLogger struct {
 	stdOutLog *log.Logger
 	stdErrLog *log.Logger
+	Level     int
 }
 
 func NewDefaultLogger() ILogger {
 	return &DefaultLogger{
-		stdOutLog: log.New(os.Stdout, "", log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile | log.Lmsgprefix),
-		stdErrLog: log.New(os.Stderr, "", log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile | log.Lmsgprefix),
+		stdOutLog: log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile|log.Lmsgprefix),
+		stdErrLog: log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile|log.Lmsgprefix),
 	}
 }
-
 
 /**
  * 初始化Logger
@@ -58,34 +68,38 @@ func InitLogger(filename string, errorFilename string) {
 	errorLevel := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
 		return level >= zapcore.ErrorLevel
 	})
-
+	// 默认最低显示debug
+	min_level := zapcore.DebugLevel
+	log_env_level := strings.ToLower(os.Getenv("ZAP_LOG_LEVEL"))
+	if log_env_level == "info" {
+		min_level = zapcore.InfoLevel
+	} else if log_env_level == "warn" {
+		min_level = zapcore.WarnLevel
+	}
 	// 错误log和运行log存储在一起
 	if errorFilename == "" {
 		normalLevel := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-			return true
+			return level >= min_level
 		})
-
 		core := zapcore.NewTee(
 			zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(writeSyncer, writeStdout), normalLevel),
 		)
-
 		logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(errorLevel))
-	} else { // 分开存储
-		errorWriteSyncer := getLogWriter(errorFilename)
-
+	} else {
 		normalLevel := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-			return level >= zapcore.DebugLevel && level < zapcore.ErrorLevel
+			return level >= min_level && level < zapcore.ErrorLevel
 		})
-
+		// 分开存储
+		errorWriteSyncer := getLogWriter(errorFilename)
 		core := zapcore.NewTee(
 			zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(writeSyncer, writeStdout), normalLevel),
 			zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(errorWriteSyncer, writeStdout), errorLevel),
 		)
-
 		logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(errorLevel))
 	}
 
 	sugarLogger = logger.Sugar()
+
 }
 
 func GetLogger() *zap.Logger {
@@ -115,61 +129,85 @@ func getLogWriter(filename string) zapcore.WriteSyncer {
 }
 
 func (d DefaultLogger) Fatal(v ...interface{}) {
-	d.stdErrLog.SetPrefix("FATAL\t")
-	d.stdErrLog.Fatal(v...)
+	if d.Level <= FATAL {
+		d.stdErrLog.SetPrefix("FATAL\t")
+		d.stdErrLog.Fatal(v...)
+	}
 }
 
 func (d DefaultLogger) Fatalf(format string, v ...interface{}) {
-	d.stdErrLog.SetPrefix("FATAL\t")
-	d.stdErrLog.Fatalf(format, v...)
+	if d.Level <= FATAL {
+		d.stdErrLog.SetPrefix("FATAL\t")
+		d.stdErrLog.Fatalf(format, v...)
+	}
 }
 
 func (d DefaultLogger) Error(v ...interface{}) {
-	d.stdErrLog.SetPrefix("ERROR\t")
-	d.stdErrLog.Print(v...)
+	if d.Level <= ERROR {
+		d.stdErrLog.SetPrefix("ERROR\t")
+		d.stdErrLog.Print(v...)
+	}
 }
 
 func (d DefaultLogger) Errorf(format string, v ...interface{}) {
-	d.stdErrLog.SetPrefix("ERROR\t")
-	d.stdErrLog.Printf(format, v...)
+	if d.Level <= ERROR {
+		d.stdErrLog.SetPrefix("ERROR\t")
+		d.stdErrLog.Printf(format, v...)
+	}
 }
 
 func (d DefaultLogger) Panic(v ...interface{}) {
-	d.stdErrLog.SetPrefix("PANIC\t")
-	d.stdErrLog.Panic(v...)
+	if d.Level <= PANIC {
+		d.stdErrLog.SetPrefix("PANIC\t")
+		d.stdErrLog.Panic(v...)
+	}
 }
 
 func (d DefaultLogger) Panicf(format string, v ...interface{}) {
-	d.stdErrLog.SetPrefix("PANIC\t")
-	d.stdErrLog.Panicf(format, v...)
+	if d.Level <= PANIC {
+		d.stdErrLog.SetPrefix("PANIC\t")
+		d.stdErrLog.Panicf(format, v...)
+	}
 }
 
 func (d DefaultLogger) Debug(v ...interface{}) {
-	d.stdOutLog.SetPrefix("DEBUG\t")
-	d.stdOutLog.Print(v...)
+	if d.Level <= DEBUG {
+		d.stdOutLog.SetPrefix("DEBUG\t")
+		d.stdOutLog.Print(v...)
+	}
 }
 
 func (d DefaultLogger) Debugf(format string, v ...interface{}) {
-	d.stdOutLog.SetPrefix("DEBUG\t")
-	d.stdOutLog.Printf(format, v...)
+	if d.Level <= DEBUG {
+		d.stdOutLog.SetPrefix("DEBUG\t")
+		d.stdOutLog.Printf(format, v...)
+	}
 }
 
 func (d DefaultLogger) Info(v ...interface{}) {
-	d.stdOutLog.SetPrefix("INFO\t")
-	d.stdOutLog.Print(v...)
+	if d.Level <= INFO {
+		d.stdOutLog.SetPrefix("INFO\t")
+		d.stdOutLog.Print(v...)
+	}
 }
 
 func (d DefaultLogger) Infof(format string, v ...interface{}) {
-	d.stdOutLog.SetPrefix("INFO\t")
-	d.stdOutLog.Printf(format, v...)
+	if d.Level <= INFO {
+		d.stdOutLog.SetPrefix("INFO\t")
+		d.stdOutLog.Printf(format, v...)
+	}
 }
 
 func (d DefaultLogger) Warn(v ...interface{}) {
-	d.stdOutLog.SetPrefix("WARN\t")
-	d.stdOutLog.Print(v...)
+	if d.Level <= WARN {
+		d.stdOutLog.SetPrefix("WARN\t")
+		d.stdOutLog.Print(v...)
+	}
 }
 
 func (d DefaultLogger) Warnf(format string, v ...interface{}) {
-	d.stdOutLog.SetPrefix("WARN\t")
-	d.stdOutLog.Printf(format, v...)
+	if d.Level <= WARN {
+		d.stdOutLog.SetPrefix("WARN\t")
+		d.stdOutLog.Printf(format, v...)
+	}
 }
