@@ -93,7 +93,7 @@ func NewExecutor(params Params, logger utils.ILogger) (*Executor, error) {
  * 注意: 本函数只会添加任务, 不会运行任务, 所以不会阻塞
  * 对于持久的任务，一定要监听 stopChan 通道后退出任务，不然在Ctrl+C时导致程序无法正确的退出。
  * 请参考下面例子完成持久任务的退出操作：
- * e.Submit(func(stopChan <- chan bool) error {
+ * e.Submit(func(stopChan <- chan struct{}) error {
  *	// 死循环，说明这是一个持久的任务
  *	for {
  *		select {

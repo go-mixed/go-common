@@ -20,9 +20,7 @@ func TestSimpleUDP(t *testing.T) {
 		server.Run(stopChan)
 	}()
 	time.Sleep(time.Second)
-	defer func() {
-		stopChan <- struct{}{}
-	}()
+	defer close(stopChan)
 
 	client, err := NewSimpleUDPClient("127.0.0.1:99", utils.NewDefaultLogger())
 	if err != nil {
