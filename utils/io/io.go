@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -95,6 +96,27 @@ func IsDir(name string) bool {
 	return stat.Mode().IsDir()
 }
 
+func isExecutable(path string) bool {
+	if IsDir(path) {
+		return false
+	}
+
+	fileInfo, err := os.Stat(path)
+	if err != nil || os.IsNotExist(err) {
+		return false
+	}
+
+	if runtime.GOOS == "windows" {
+		return true
+	}
+
+	if fileInfo.Mode()&0111 != 0 {
+		return true
+	}
+
+	return false
+}
+
 func FileSize(name string) int64 {
 	stat, err := os.Stat(name)
 	if err != nil {
@@ -165,4 +187,35 @@ func Md5(path string) (string, error) {
 	}
 	hashInBytes := hash.Sum(nil)[:16]
 	return hex.EncodeToString(hashInBytes), nil
+}
+
+func EnvPaths() []string {
+	path := os.Getenv("PATH")
+	return strings.Split(path, string(os.PathListSeparator))
+}
+
+// Which 类似windows/linux中的witch、where、whereis指令
+func Which(filename string) []string {
+	var list []string
+	for _, p := range EnvPaths() {
+		if !IsDir(p) {
+			continue
+		}
+		fileList, err := ioutil.ReadDir(p)
+		if err != nil {
+			continue
+		}
+
+		for _, f := range fileList {
+			path := filepath.Join(p, f.Name())
+			if runtime.GOOS == "windows" {
+				if strings.EqualFold(f.Name(), filename) {
+					list = append(list, path)
+				}
+			} else if f.Name() == filename {
+				list = append(list, path)
+			}
+		}
+	}
+	return list
 }

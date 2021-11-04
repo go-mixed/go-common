@@ -85,11 +85,11 @@ func DefaultRedisOptions() *RedisOptions {
 		ReadOnly:   false,
 
 		PoolSize:    10,
-		PoolTimeout: 30000,
+		PoolTimeout: 30_000,
 
-		ConnectTimeout: 10000,
-		ReadTimeout:    30000,
-		WriteTimeout:   30000,
+		ConnectTimeout: 10_000,
+		ReadTimeout:    30_000,
+		WriteTimeout:   30_000,
 		MaxConnAge:     0,
 	}
 }
