@@ -6,9 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"go-common/utils/core"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -218,4 +220,19 @@ func Which(filename string) []string {
 		}
 	}
 	return list
+}
+
+// Unmount (强制)umount一个目录
+func Unmount(path string, force bool) error {
+	cmd := exec.Command("umount", core.If(force, "-f", "").(string), path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if len(output) > 0 {
+			output = bytes.TrimRight(output, "\n")
+			msg := err.Error() + ": " + string(output)
+			err = errors.New(msg)
+		}
+		return err
+	}
+	return nil
 }
