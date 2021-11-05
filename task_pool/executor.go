@@ -183,6 +183,7 @@ func (e *Executor) Reset(keepRemainJobs bool) {
 
 	if e.stopped {
 		e.stopped = true
+		e.termChan = nil
 		e.stopChan = make(chan struct{})
 		e.runningJobs.Clear()
 	}
@@ -282,6 +283,7 @@ func (e *Executor) RunningJobs() []Runnable {
 
 // ListenStopSignal 监听Ctrl+C/kill的退出消息
 // 在主线程使用 Executor 时，最好调用本方法来达到Ctrl+C退出，不然会出现退出异常的情况
+// 如果需要监听一个父级的 stopChan, 使用 ListenParentStopChan
 func (e *Executor) ListenStopSignal() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -294,18 +296,36 @@ func (e *Executor) ListenStopSignal() {
 		go func() {
 			select {
 			case s := <-e.termChan:
+				signal.Stop(e.termChan) // remove signal
 				e.logger.Infof("[%s]get signal %s, quiting.", e.params.Name, s)
 				e.Stop()
 				return
-			case <-e.stopChan:
+			case <-e.stopChan: // 为了避免本协程一直阻塞，当e.stopChan关闭时，会退出本协程
 				signal.Stop(e.termChan) // remove signal
-				e.termChan = nil
-				e.logger.Infof("[%s]stop signal listen.", e.params.Name)
 				return
 			}
 		}()
 	}
+}
 
+// ListenParentStopChan 监听一个父级的 parentStopChan
+// 当父级chan退出时，会触发 Stop。
+// 本函数类似于 ListenStopSignal，只是前者监听的是Ctrl+C，而本函数监听的是 parentStopChan
+func (e *Executor) ListenParentStopChan(parentStopChan <-chan struct{}) {
+	go func() {
+		select {
+		case <-parentStopChan:
+			e.logger.Infof("[%s]quit by parent stop chan.", e.params.Name)
+			e.Stop()
+		case <-e.stopChan: // 为了避免本协程一直被阻塞，当 e.stopChan 关闭时，会退出本协程
+
+		}
+		e.mu.Lock()
+		defer e.mu.Unlock()
+		if e.termChan != nil {
+			signal.Stop(e.termChan) // remove signal
+		}
+	}()
 }
 
 // Wait 阻塞等待所有任务运行完毕
