@@ -37,6 +37,9 @@ var ImageExtensions = []string{
 	"bmp",
 	"tif", "tiff",
 	"webp",
+	"svg",
+	"ico", "icon",
+	"avif",
 }
 
 func IsImage(file string) bool {

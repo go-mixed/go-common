@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"go-common/utils/core"
+	"io"
 	"net/http"
 )
 
@@ -47,6 +48,7 @@ func emptyAfter(c IController, v interface{}, e error) (interface{}, error) {
 
 func ControllerHandlerFunc(controllerName, methodName string, before func(IController), after func(IController, interface{}, error) (interface{}, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+
 		controller, err := NewController(controllerName, ctx)
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusNotFound)
@@ -93,4 +95,17 @@ func callControllerMethod(controller IController, methodName string, args ...int
 	}
 
 	return res, nil
+}
+
+// DiscardBody 丢弃Body内容, golang的http server必须要读取，不然会断开连接
+func DiscardBody(ctx *gin.Context) error {
+	if ctx.Request.Body != nil {
+		// 必须要读取完毕, 不然会断开连接 https://github.com/golang/go/issues/23262
+		_, err := io.Copy(io.Discard, ctx.Request.Body)
+		if err != nil {
+			return err
+		}
+		return ctx.Request.Body.Close()
+	}
+	return nil
 }

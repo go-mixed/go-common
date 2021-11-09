@@ -3,8 +3,7 @@ package cache
 import (
 	"go-common/utils"
 	"go-common/utils/core"
-	text_utils "go-common/utils/text"
-	"strings"
+	"go-common/utils/text"
 	"time"
 )
 
@@ -59,15 +58,30 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual interface{}) ([]b
 	return _val, nil
 }
 
+// MGet 由多个Get构成, 需要维护时, 只需要清理单个Get的缓存即可
+// 没有使用 l.Get 是因为避免 IsInterfaceNil 的反射运算浪费时间
 func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) (utils.KVs, error) {
-	res, err := l.memCache.Remember("mget:"+text_utils.Md5(strings.Join(keys, "|")), expire, func() (interface{}, error) {
-		return l.cache.MGet(keys, nil)
-	})
-	if err != nil {
-		return nil, err
+	var _res utils.KVs
+	for _, key := range keys {
+		if val, err := l.memCache.Remember("get:"+key, expire, func() (interface{}, error) {
+			return l.cache.Get(key, nil)
+		}); err != nil {
+			return nil, err
+		} else {
+			if _val, ok := val.([]byte); ok {
+				_res = _res.Append(key, _val)
+			}
+		}
 	}
-	_res, ok := res.(utils.KVs)
-	if ok && len(_res) > 0 && !core.IsInterfaceNil(actual) {
+
+	//res, err := l.memCache.Remember("mget:"+text_utils.Md5(strings.Join(keys, "|")), expire, func() (interface{}, error) {
+	//	return l.cache.MGet(keys, nil)
+	//})
+	//if err != nil {
+	//	return nil, err
+	//}
+	//_res, ok := res.(utils.KVs)
+	if /*ok &&*/ len(_res) > 0 && !core.IsInterfaceNil(actual) {
 		if err := text_utils.JsonListUnmarshalFromBytes(_res.Values(), actual); err != nil {
 			l.logger.Errorf("redis json unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
@@ -89,12 +103,6 @@ func (l *L2Cache) Keys(keyPrefix string, expire time.Duration) ([]string, error)
 	return _res, nil
 }
 
-func (l *L2Cache) Delete(keys ...string) {
-	for _, key := range keys {
-		l.memCache.Delete("key:" + key)
-	}
-}
-
 func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual interface{}) (utils.KVs, error) {
 	res, err := l.memCache.Remember("scan-prefix:"+keyPrefix, expire, func() (interface{}, error) {
 		return l.cache.ScanPrefix(keyPrefix, nil)
@@ -111,4 +119,12 @@ func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual inte
 	}
 
 	return _res, nil
+}
+
+func (l *L2Cache) Delete(keys ...string) {
+	for _, key := range keys {
+		l.memCache.Delete("get:" + key)
+		l.memCache.Delete("keys:" + key)
+		l.memCache.Delete("scan-prefix:" + key)
+	}
 }

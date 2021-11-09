@@ -69,3 +69,7 @@ func (c *Controller) EnsureErrorResponse(err error) IResponseException {
 	}
 	return _err
 }
+
+func (c *Controller) DiscardBody() error {
+	return DiscardBody(c.Context)
+}

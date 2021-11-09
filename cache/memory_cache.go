@@ -2,6 +2,7 @@ package cache
 
 import (
 	ocache "github.com/patrickmn/go-cache"
+	"go-common/utils/core"
 	"sync"
 	"time"
 )
@@ -56,10 +57,11 @@ func (c *MemoryCache) Remember(k string, expire time.Duration, callback func() (
 	} else {
 		if v, err := callback(); err != nil {
 			return v, err
-		} else {
+		} else if v != nil && !core.IsInterfaceNil(v) { // 只有非nil时才能存储
 			c.Set(k, v, expire)
 			return v, nil
 		}
+		return nil, nil
 	}
 }
 

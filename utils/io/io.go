@@ -193,10 +193,11 @@ func Md5(path string) (string, error) {
 
 func EnvPaths() []string {
 	path := os.Getenv("PATH")
-	return strings.Split(path, string(os.PathListSeparator))
+	return filepath.SplitList(path)
 }
 
 // Which 类似windows/linux中的witch、where、whereis指令
+// 如果只需要返回一个的话 使用系统的exec.LookPath()
 func Which(filename string) []string {
 	var list []string
 	for _, p := range EnvPaths() {
