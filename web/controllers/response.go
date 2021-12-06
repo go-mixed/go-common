@@ -32,7 +32,7 @@ type ResponseException struct {
 	Message    string
 }
 
-func NewResponseException(code interface{}, statusCode int, message string) *ResponseException {
+func NewResponseException(code interface{}, statusCode int, message string) IResponseException {
 	return &ResponseException{
 		Code:       code,
 		StatusCode: statusCode,

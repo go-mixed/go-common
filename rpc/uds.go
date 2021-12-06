@@ -3,13 +3,14 @@ package rpc
 import (
 	"go-common/utils"
 	"go-common/utils/core"
-	text_utils "go-common/utils/text"
+	"go-common/utils/io"
+	"go-common/utils/text"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// Unix domain socket supported
+// NewUdsServer Unix domain socket supported
 //- Unix, Unix-like, Linux
 //- Windows 10 Insider Build 17063+(Windows 10 version 1809 (aka the October 2018 Update))
 //- Windows Server 1809/2019+
@@ -39,4 +40,8 @@ func cleanSockFile(unixSockFile string) string {
 	}
 
 	return unixSockFile
+}
+
+func GetUdsFile(file string) string {
+	return filepath.Join(io_utils.GetCurrentDir(), "run", file+".sock")
 }

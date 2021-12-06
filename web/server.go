@@ -324,7 +324,7 @@ func (c *HttpServer) Run(stopChan <-chan struct{}, configServerFunc func(server 
 		<-c.listenStopChan(stopChan)
 
 		if err := server.Close(); err != nil {
-			c.logger.Fatalf("Server Close: %s", err.Error())
+			c.logger.Fatalf("Server closed: %s", err.Error())
 		}
 	}()
 

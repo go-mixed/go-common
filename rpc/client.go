@@ -1,10 +1,14 @@
 package rpc
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
 	"github.com/silenceper/pool"
 	"go-common/utils"
 	"io"
+	"net"
+	"net/http"
 	"net/rpc"
 	"runtime"
 	"time"
@@ -15,7 +19,10 @@ type Client struct {
 	address     string
 	logger      utils.ILogger
 	channelPool pool.Pool
+	timeout     time.Duration
 }
+
+var connected = "200 Connected to Go RPC"
 
 func NewClient(network, address string, logger utils.ILogger) (*Client, error) {
 
@@ -24,6 +31,7 @@ func NewClient(network, address string, logger utils.ILogger) (*Client, error) {
 		address,
 		logger,
 		nil,
+		5 * time.Second,
 	}
 
 	channelPool, err := pool.NewChannelPool(&pool.Config{
@@ -44,6 +52,10 @@ func NewClient(network, address string, logger utils.ILogger) (*Client, error) {
 	return client, nil
 }
 
+func NewHttpClient(address string, logger utils.ILogger) (*Client, error) {
+	return NewClient("http", address, logger)
+}
+
 type Request []interface{}
 type Response []interface{}
 
@@ -61,12 +73,31 @@ func (c *Client) Call(serviceMethod string, args interface{}, reply interface{})
 	if err != nil {
 		return err
 	}
-	err = client.Call(serviceMethod, args, reply)
-	if !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, rpc.ErrShutdown) {
+
+	if c.timeout > 0 {
+		// 使用NewTimer并Stop避免time.After内存泄露问题
+		after := time.NewTimer(c.timeout)
+		defer after.Stop()
+
+		select {
+		case <-after.C: // 无需经过下面的错误判断, 直接退出
+			return fmt.Errorf("rpc client call timeout > %.4fs", c.timeout.Seconds())
+		case call := <-client.Go(serviceMethod, args, reply, make(chan *rpc.Call, 1)).Done:
+			err = call.Error
+		}
+	} else {
+		err = c.Call(serviceMethod, args, reply)
+	}
+
+	if err == nil || (!errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, rpc.ErrShutdown)) {
 		c.channelPool.Put(client)
 	}
 
 	return err
+}
+
+func (c *Client) SetTimeout(timeout time.Duration) {
+	c.timeout = timeout
 }
 
 func (c *Client) GetClient() (*rpc.Client, error) {
@@ -78,7 +109,47 @@ func (c *Client) GetClient() (*rpc.Client, error) {
 }
 
 func (c *Client) Factory() (interface{}, error) {
-	return rpc.Dial(c.network, c.address)
+	if c.network == "http" {
+		return c.dialHTTPPath("tcp", c.address, c.timeout, rpc.DefaultRPCPath)
+	}
+
+	return c.dial(c.network, c.address, c.timeout)
+}
+
+// Dial connects to an RPC server at the specified network address.
+func (c *Client) dial(network, address string, timeout time.Duration) (*rpc.Client, error) {
+	conn, err := net.DialTimeout(network, address, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return rpc.NewClient(conn), nil
+}
+
+// DialHTTPPath connects to an HTTP RPC server
+// at the specified network address and path.
+func (c *Client) dialHTTPPath(network, address string, timeout time.Duration, path string) (*rpc.Client, error) {
+	conn, err := net.DialTimeout(network, address, timeout)
+	if err != nil {
+		return nil, err
+	}
+	io.WriteString(conn, "CONNECT "+path+" HTTP/1.0\n\n")
+
+	// Require successful HTTP response
+	// before switching to RPC protocol.
+	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "CONNECT"})
+	if err == nil && resp.Status == connected {
+		return rpc.NewClient(conn), nil
+	}
+	if err == nil {
+		err = errors.New("unexpected HTTP response: " + resp.Status)
+	}
+	conn.Close()
+	return nil, &net.OpError{
+		Op:   "dial-http",
+		Net:  network + " " + address,
+		Addr: nil,
+		Err:  err,
+	}
 }
 
 func (c *Client) PingClient(i interface{}) error {

@@ -69,17 +69,17 @@ func InitLogger(filename string, errorFilename string) {
 		return level >= zapcore.ErrorLevel
 	})
 	// 默认最低显示debug
-	min_level := zapcore.DebugLevel
-	log_env_level := strings.ToLower(os.Getenv("ZAP_LOG_LEVEL"))
-	if log_env_level == "info" {
-		min_level = zapcore.InfoLevel
-	} else if log_env_level == "warn" {
-		min_level = zapcore.WarnLevel
+	minLevel := zapcore.DebugLevel
+	logEnvLevel := strings.ToLower(os.Getenv("ZAP_LOG_LEVEL"))
+	if logEnvLevel == "info" {
+		minLevel = zapcore.InfoLevel
+	} else if logEnvLevel == "warn" {
+		minLevel = zapcore.WarnLevel
 	}
 	// 错误log和运行log存储在一起
 	if errorFilename == "" {
 		normalLevel := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-			return level >= min_level
+			return level >= minLevel
 		})
 		core := zapcore.NewTee(
 			zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(writeSyncer, writeStdout), normalLevel),
@@ -87,7 +87,7 @@ func InitLogger(filename string, errorFilename string) {
 		logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(errorLevel))
 	} else {
 		normalLevel := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-			return level >= min_level && level < zapcore.ErrorLevel
+			return level >= minLevel && level < zapcore.ErrorLevel
 		})
 		// 分开存储
 		errorWriteSyncer := getLogWriter(errorFilename)

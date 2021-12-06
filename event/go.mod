@@ -8,4 +8,3 @@ require (
 )
 
 replace go-common => ../
-

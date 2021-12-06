@@ -9,7 +9,7 @@ import (
 )
 
 type EtcdConfig struct {
-	Endpoints            []string                       `json:"endpoints"`
+	Endpoints            []string                       `json:"endpoints" validate:"required"`
 	AutoSyncInterval     time_utils.MillisecondDuration `json:"auto_sync_interval"`
 	DialTimeout          time_utils.MillisecondDuration `json:"dial_timeout"`
 	DialKeepAliveTime    time_utils.MillisecondDuration `json:"dial_keep_alive_time"`
@@ -21,7 +21,7 @@ type EtcdConfig struct {
 type RedisOptions struct {
 	// 1 host for single client/sentinel client
 	// multi hosts for cluster client/fail-over client
-	Addresses []string `json:"addrs"`
+	Addresses []string `json:"addrs" validate:"required,dive,hostname_port"`
 
 	Username         string `json:"username"`
 	Password         string `json:"password"`
@@ -31,7 +31,7 @@ type RedisOptions struct {
 	MasterName string `json:"master_name"`
 
 	// for single/fail-over client
-	DB         int  `json:"db"`
+	DB         int  `json:"db" validate:"lte=16"`
 	MaxRetries int  `json:"max_retries"`
 	ReadOnly   bool `json:"read_only"`
 
@@ -79,7 +79,7 @@ func (c EtcdConfig) ToEtcdConfig() *clientv3.Config {
 
 func DefaultRedisOptions() *RedisOptions {
 	return &RedisOptions{
-		Addresses:  []string{"127.0.0.1:6379"},
+		//Addresses:  []string{"127.0.0.1:6379"},
 		DB:         0,
 		MaxRetries: -1,
 		ReadOnly:   false,
@@ -96,7 +96,7 @@ func DefaultRedisOptions() *RedisOptions {
 
 func DefaultEtcdConfig() *EtcdConfig {
 	return &EtcdConfig{
-		Endpoints:            []string{"127.0.0.1:2379"},
+		//Endpoints:            []string{"127.0.0.1:2379"},
 		AutoSyncInterval:     10_000,
 		DialTimeout:          5_000,
 		DialKeepAliveTime:    100_000,
