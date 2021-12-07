@@ -51,7 +51,7 @@ func NewDefaultLogger() ILogger {
 	}
 }
 
-/**
+/** InitLogger
  * 初始化Logger
  * errorFilename 传递非空字符串，表示将错误分开写入到此文件中
  */

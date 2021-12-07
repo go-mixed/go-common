@@ -1,9 +1,6 @@
 package http_utils
 
 import (
-	"database/sql/driver"
-	"errors"
-	"fmt"
 	"go-common/utils/core"
 	"go-common/utils/list"
 	"go-common/utils/text"
@@ -107,35 +104,6 @@ func (d Domains) Match(domain string) (bool, string) {
 		}
 	}
 	return false, ""
-}
-
-// Scan for sql decode
-func (d *Domains) Scan(value interface{}) error {
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New(fmt.Sprint("Failed to unmarshal JSON value:", value))
-	}
-
-	var domains Domains
-	if err := text_utils.JsonUnmarshalFromBytes(bytes, &domains); err != nil {
-		return err
-	}
-
-	*d = domains
-	return nil
-}
-
-// Value for sql encode
-func (d Domains) Value() (driver.Value, error) {
-	if len(d) == 0 {
-		return nil, nil
-	}
-	return text_utils.JsonMarshalToBytes(d)
-}
-
-// GormDataType gorm common data type
-func (d Domains) GormDataType() string {
-	return "text[]"
 }
 
 // IsValidDomain validates if input string is a valid domain name.
