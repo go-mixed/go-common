@@ -70,8 +70,8 @@ func GetCurrentDir() string {
 }
 
 // PathExists 检测路径是否存在, 不区分文件/文件夹
-func PathExists(name string) bool {
-	_, err := os.Stat(name)
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return false
 	}
@@ -79,8 +79,8 @@ func PathExists(name string) bool {
 }
 
 // IsFile 是否是文件
-func IsFile(name string) bool {
-	stat, err := os.Stat(name)
+func IsFile(path string) bool {
+	stat, err := os.Stat(path)
 	if err != nil {
 		return false
 	}
@@ -89,8 +89,8 @@ func IsFile(name string) bool {
 }
 
 // IsDir 是否是目录
-func IsDir(name string) bool {
-	stat, err := os.Stat(name)
+func IsDir(dir string) bool {
+	stat, err := os.Stat(dir)
 	if err != nil {
 		return false
 	}
@@ -119,12 +119,20 @@ func isExecutable(path string) bool {
 	return false
 }
 
-func FileSize(name string) int64 {
-	stat, err := os.Stat(name)
+func FileSize(path string) int64 {
+	stat, err := os.Stat(path)
 	if err != nil {
 		return 0
 	}
 	return stat.Size()
+}
+
+func FileMode(path string) os.FileMode {
+	if stat, err := os.Stat(path); err != nil {
+		return 0
+	} else {
+		return stat.Mode()
+	}
 }
 
 // MoveFile will work moving file between folders.
@@ -176,6 +184,24 @@ func CopyFile(sourcePath, destPath string) error {
 	return nil
 }
 
+func MustMkdirAll(path string, perm os.FileMode) error {
+	// 目录存在
+	if PathExists(path) {
+		if IsDir(path) {
+			if perm > 0 {
+				return os.Chmod(path, perm)
+			} else {
+				return nil
+			}
+		} else {
+			return fmt.Errorf("can not make directory, because the path of \"%s\" is a file", path)
+		}
+	}
+
+	return os.MkdirAll(path, perm)
+}
+
+// Md5 文件的MD5值
 func Md5(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
