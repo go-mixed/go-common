@@ -136,7 +136,7 @@ func (set StringSet) MarshalJSON() ([]byte, error) {
 // If 'data' contains JSON string, the set contains the string as one element.
 // If 'data' contains Other JSON types, JSON parse error is returned.
 func (set *StringSet) UnmarshalJSON(data []byte) error {
-	sl := []string{}
+	var sl []string
 	var err error
 	if err = json.Unmarshal(data, &sl); err == nil {
 		*set = make(StringSet)

@@ -2,17 +2,38 @@ package list_utils
 
 import (
 	"fmt"
+	"go-common/utils/core"
 	"reflect"
 	"strings"
 )
 
 // Find 类似slice.IndexOf, 需要传递fn来判断是否相等
 // 注意 这是反射实现的函数, 会降低运行性能
+// 找不到返回-1
 func Find(slice interface{}, fn func(value interface{}) bool) int {
 	s := reflect.ValueOf(slice)
 	if s.Kind() == reflect.Slice {
 		for index := 0; index < s.Len(); index++ {
 			if fn(s.Index(index).Interface()) {
+				return index
+			}
+		}
+	}
+	return -1
+}
+
+// FindT 类似于Find, 第二个参数是一个func, 但是可以使用合法的类型, 避免函数内参数转换
+// arr := []string{"a", "b"}
+// FindT(arr, func(v string) bool {return v == "a"}) ==> 0
+// 注意 这是反射实现的函数, 以及反射实现的Invoke, 会更降低运行性能
+// 找不到返回-1
+func FindT(slice interface{}, fn interface{}) int {
+	s := reflect.ValueOf(slice)
+	if s.Kind() == reflect.Slice {
+		for index := 0; index < s.Len(); index++ {
+			val := core.Invoke(fn, s.Index(index).Interface())
+			v, ok := val.(bool)
+			if ok && v {
 				return index
 			}
 		}

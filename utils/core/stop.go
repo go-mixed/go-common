@@ -95,3 +95,15 @@ func WaitForStopped4(stopChan1 <-chan struct{}, stopChan2 <-chan struct{}, stopC
 		return
 	}
 }
+
+// StopChanToContext 将StopChan转成Cancel Context
+// 注意 cancel需要被调取, 不然内存泄露
+func StopChanToContext(stopChan <-chan struct{}) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		WaitForStopped2(stopChan, ctx.Done())
+		cancel()
+	}()
+
+	return ctx, cancel
+}

@@ -9,39 +9,39 @@ import (
 )
 
 type EtcdConfig struct {
-	Endpoints            []string                       `json:"endpoints" validate:"required"`
-	AutoSyncInterval     time_utils.MillisecondDuration `json:"auto_sync_interval"`
-	DialTimeout          time_utils.MillisecondDuration `json:"dial_timeout"`
-	DialKeepAliveTime    time_utils.MillisecondDuration `json:"dial_keep_alive_time"`
-	DialKeepAliveTimeout time_utils.MillisecondDuration `json:"dial_keep_alive_timeout"`
-	Username             string                         `json:"username"`
-	Password             string                         `json:"password"`
+	Endpoints            []string                       `json:"endpoints" yaml:"endpoints" validate:"required"`
+	AutoSyncInterval     time_utils.MillisecondDuration `json:"auto_sync_interval" yaml:"auto_sync_interval"`
+	DialTimeout          time_utils.MillisecondDuration `json:"dial_timeout" yaml:"dial_timeout"`
+	DialKeepAliveTime    time_utils.MillisecondDuration `json:"dial_keep_alive_time" yaml:"dial_keep_alive_time"`
+	DialKeepAliveTimeout time_utils.MillisecondDuration `json:"dial_keep_alive_timeout" yaml:"dial_keep_alive_timeout"`
+	Username             string                         `json:"username" yaml:"username"`
+	Password             string                         `json:"password" yaml:"password"`
 }
 
 type RedisOptions struct {
 	// 1 host for single client/sentinel client
 	// multi hosts for cluster client/fail-over client
-	Addresses []string `json:"addrs" validate:"required,dive,hostname_port"`
+	Addresses []string `json:"addrs" yaml:"addrs" validate:"required,dive,hostname_port"`
 
-	Username         string `json:"username"`
-	Password         string `json:"password"`
-	SentinelPassword string `json:"sentinel_password"`
+	Username         string `json:"username" yaml:"username"`
+	Password         string `json:"password" yaml:"password"`
+	SentinelPassword string `json:"sentinel_password" yaml:"sentinel_password"`
 
 	// for fail-over client only
-	MasterName string `json:"master_name"`
+	MasterName string `json:"master_name" yaml:"master_name"`
 
 	// for single/fail-over client
-	DB         int  `json:"db" validate:"lte=16"`
-	MaxRetries int  `json:"max_retries"`
-	ReadOnly   bool `json:"read_only"`
+	DB         int  `json:"db" yaml:"db" validate:"lte=16"`
+	MaxRetries int  `json:"max_retries" yaml:"max_retries"`
+	ReadOnly   bool `json:"read_only" yaml:"read_only"`
 
-	PoolSize    int                            `json:"pool_size"`
-	PoolTimeout time_utils.MillisecondDuration `json:"pool_timeout"`
+	PoolSize    int                            `json:"pool_size" yaml:"pool_size"`
+	PoolTimeout time_utils.MillisecondDuration `json:"pool_timeout" yaml:"pool_timeout"`
 
-	ConnectTimeout time_utils.MillisecondDuration `json:"connect_timeout"`
-	ReadTimeout    time_utils.MillisecondDuration `json:"read_timeout"`
-	WriteTimeout   time_utils.MillisecondDuration `json:"write_timeout"`
-	MaxConnAge     time_utils.MillisecondDuration `json:"max_connection_age"`
+	ConnectTimeout time_utils.MillisecondDuration `json:"connect_timeout" yaml:"connect_timeout"`
+	ReadTimeout    time_utils.MillisecondDuration `json:"read_timeout" yaml:"read_timeout"`
+	WriteTimeout   time_utils.MillisecondDuration `json:"write_timeout" yaml:"write_timeout"`
+	MaxConnAge     time_utils.MillisecondDuration `json:"max_connection_age" yaml:"max_connection_age"`
 }
 
 func (o *RedisOptions) ToRedisUniversalOptions() *redis.UniversalOptions {

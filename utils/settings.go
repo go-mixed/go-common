@@ -8,20 +8,33 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"go-common/utils/text"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"strings"
 )
 
-// LoadSettings 读取JSON格式的配置, v必须为struct的指针
-// 可以传入多个文件，后面文件的配置会覆盖前面的配置
-// 支持github.com/go-playground/validator的校验格式，比如：struct {Url string `json:"url" validate:"required,url,min=5,max=256"`}
+// LoadSettings 读取JSON/YAML格式的配置, v必须为struct的指针
+// 可以传入多个文件，json、yaml可以混用，后面文件的配置会覆盖前面的配置
+// 支持(https://github.com/go-playground/validator)的校验格式，比如：struct {Url string `json:"url" validate:"required,url,min=5,max=256"`}
+// json支持hjson(https://hjson.github.io/)
 func LoadSettings(v interface{}, filenames ...string) error {
 	for _, filename := range filenames {
+		ext := filepath.Ext(filename)
 		if content, err := ioutil.ReadFile(filename); err != nil {
 			return fmt.Errorf("read settings file error: %w", err)
-		} else if err = text_utils.JsonUnmarshalFromBytes(content, v); err != nil {
-			return fmt.Errorf("unmarshal settings file \"%s\" error: %w", filename, err)
+		} else if strings.EqualFold(ext, ".json") {
+			content = text_utils.HjsonToJson(content)
+			if err = text_utils.JsonUnmarshalFromBytes(content, v); err != nil {
+				return fmt.Errorf("unmarshal settings file \"%s\" error: %w", filename, err)
+			}
+		} else if strings.EqualFold(ext, ".yaml") || strings.EqualFold(ext, ".yml") {
+			if err = yaml.Unmarshal(content, v); err != nil {
+				return fmt.Errorf("unmarshal settings file \"%s\" error: %w", filename, err)
+			}
+		} else {
+			return fmt.Errorf("unsupported settings format of \"%s\"", filename)
 		}
 	}
 

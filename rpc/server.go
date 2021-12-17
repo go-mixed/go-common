@@ -57,13 +57,13 @@ func (s *Server) runNormal(stopChan <-chan struct{}) error {
 		return err
 	}
 
-	s.logger.Infof("start rpc-server on [%s]%s", s.network, s.address)
+	s.logger.Infof("start rpc-server(via tcp) on [%s]%s", s.network, s.address)
 
 	// 监听并关闭监听
 	go func() {
 		core.WaitForStopped(stopChan)
 		listener.Close()
-		s.logger.Infof("stop rpc-server on [%s]%s", s.network, s.address)
+		s.logger.Infof("stop rpc-server(via tcp) on [%s]%s", s.network, s.address)
 	}()
 
 	for {
@@ -73,13 +73,13 @@ func (s *Server) runNormal(stopChan <-chan struct{}) error {
 				return ErrServerClosed
 			}
 
-			s.logger.Errorf("rpc.Serve: accept:", err.Error())
+			s.logger.Errorf("rpc.Serve(via tcp): accept:", err.Error())
 			break
 		}
 		go s.ServeConn(conn)
 	}
 
-	s.logger.Infof("rpc server quit on [%s]%s", s.network, s.address)
+	s.logger.Infof("rpc server(via tcp) quit on [%s]%s", s.network, s.address)
 
 	return nil
 }
@@ -87,6 +87,8 @@ func (s *Server) runNormal(stopChan <-chan struct{}) error {
 func (s *Server) runHttp(stopChan <-chan struct{}) error {
 
 	server := http_utils.NewHttpServer(s.address, s.logger)
+
+	s.logger.Infof("start rpc-server(via http) on [%s]%s", s.network, s.address)
 
 	oldDefaultServeMux := http.DefaultServeMux             // 存储旧的全局DefaultServeMux
 	http.DefaultServeMux = http.NewServeMux()              // 新建一个空白serveMux到全局的DefaultServeMux
@@ -98,5 +100,11 @@ func (s *Server) runHttp(stopChan <-chan struct{}) error {
 	//server.Handle(rpc.DefaultRPCPath, s)
 	//server.Handle(rpc.DefaultDebugPath, rpc.debugHTTP{s})
 
-	return server.Run(stopChan)
+	if err := server.Run(stopChan); err != nil {
+		return err
+	}
+
+	s.logger.Infof("stop rpc-server(via http) on [%s]%s", s.network, s.address)
+
+	return nil
 }

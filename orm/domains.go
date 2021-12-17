@@ -57,7 +57,7 @@ func (d Domains) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON to deserialize []byte
 func (d *Domains) UnmarshalJSON(b []byte) error {
-	t := Domains{}
+	var t []string
 	err := text_utils.JsonUnmarshalFromBytes(b, &t)
 	*d = t
 	return err

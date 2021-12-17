@@ -15,7 +15,7 @@ func NewMySqlORM(dbOptions *DBOptions, zapLogger *zap.Logger) (*gorm.DB, error) 
 	logger = logger.LogMode(gormlogger.Info).(zapgorm2.Logger)
 	logger.SetAsDefault()
 
-	return gorm.Open(mysql.New(mysql.Config{
+	db, err := gorm.Open(mysql.New(mysql.Config{
 		DSN:                       BuildMySqlDSN(dbOptions),
 		DefaultStringSize:         dbOptions.DefaultStringSize,
 		DisableDatetimePrecision:  dbOptions.DisableDatetimePrecision,
@@ -36,6 +36,22 @@ func NewMySqlORM(dbOptions *DBOptions, zapLogger *zap.Logger) (*gorm.DB, error) 
 		QueryFields:                              dbOptions.QueryFields,
 		CreateBatchSize:                          dbOptions.CreateBatchSize,
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	_db, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	_db.SetMaxIdleConns(dbOptions.MaxIdleConns)
+	_db.SetMaxOpenConns(dbOptions.MaxOpenConns)
+	_db.SetConnMaxIdleTime(dbOptions.MaxIdleTime.ToDuration())
+	_db.SetConnMaxLifetime(dbOptions.MaxLifeTime.ToDuration())
+
+	return db, err
 }
 
 // BuildMySqlDSN https://github.com/go-sql-driver/mysql#dsn-data-source-name
@@ -65,4 +81,13 @@ func BuildMySqlDSN(dbOptions *DBOptions) string {
 	}
 
 	return buffer.String()
+}
+
+func AutoMigrate(dbOptions *DBOptions, zapLogger *zap.Logger, tables ...interface{}) error {
+	db, err := NewMySqlORM(dbOptions, zapLogger)
+	if err != nil {
+		return err
+	}
+
+	return db.AutoMigrate(tables...)
 }

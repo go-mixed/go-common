@@ -18,6 +18,7 @@ import (
 )
 
 // RemoveCommentReader remove comment from the io.Reader
+// start with // to end of line
 func RemoveCommentReader(reader io.Reader) (newReader io.Reader) {
 
 	bs, err := ioutil.ReadAll(reader)
@@ -262,4 +263,17 @@ func Unmount(path string, force bool) error {
 		return err
 	}
 	return nil
+}
+
+// MakePathFromRelative 当path是相对路径是, 添加prefix在path之前, 如果path是绝对路径, 直接返回path
+// prefix默认为程序当前目录
+func MakePathFromRelative(prefix, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	} else {
+		if prefix == "" {
+			prefix = GetCurrentDir()
+		}
+		return filepath.Join(prefix, path)
+	}
 }
