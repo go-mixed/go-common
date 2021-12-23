@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"go-common/utils/conv"
 	"math/rand"
 	"net/http"
@@ -17,16 +18,16 @@ func (*httpHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func TestNewHttpServer(t *testing.T) {
 	port := rand.Intn(50_000) + 10_000
-	stopChan := make(chan bool)
+	ctx, cancel := context.WithCancel(context.Background())
 	server := NewHttpServer(DefaultServerOptions("127.0.0.1:" + conv.Itoa(port)))
 
 	server.SetDefaultServeHandler(&httpHandle{}, nil)
 	go func() {
 		time.AfterFunc(2*time.Second, func() {
-			close(stopChan)
+			cancel()
 		})
 	}()
-	_, err := server.Run(stopChan)
+	err := server.Run(ctx, nil)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

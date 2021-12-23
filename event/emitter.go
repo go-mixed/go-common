@@ -1,36 +1,42 @@
 package event
 
 import (
+	"context"
 	"github.com/olebedev/emitter"
 	"go-common/utils/core"
 )
 
 type Emitter struct {
 	*emitter.Emitter
-	stopChan chan struct{}
+	ctxCancel context.CancelFunc
 	listeners map[string]interface{}
 }
 
 func NewEmitter(cap uint) *Emitter {
 	return &Emitter{
-		Emitter: emitter.New(cap),
-		stopChan: make(chan struct{}),
+		Emitter:   emitter.New(cap),
 		listeners: map[string]interface{}{},
 	}
 }
 
-func (e *Emitter) Subscribe(topic string, handler interface{})  {
+func (e *Emitter) Subscribe(topic string, handler interface{}) {
 	e.listeners[topic] = handler
 }
 
 func (e *Emitter) Stop() {
-	close(e.stopChan)
+	if e.ctxCancel != nil {
+		e.ctxCancel()
+	}
+	e.ctxCancel = nil
 }
 
-func (e *Emitter) RunConsumer(stopChan <- chan struct{})  {
+func (e *Emitter) RunConsumer(ctx context.Context) {
+	ctx1, cancel := context.WithCancel(ctx)
+	defer e.Stop()
 
+	e.ctxCancel = cancel
 	go func() {
-		core.WaitForStopped2(stopChan, e.stopChan)
+		core.WaitForStopped(ctx1.Done())
 		e.Off("*")
 	}()
 

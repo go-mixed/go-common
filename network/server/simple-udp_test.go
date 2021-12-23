@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"go-common/utils"
 	"net"
 	"testing"
@@ -15,12 +16,12 @@ func TestSimpleUDP(t *testing.T) {
 	})
 	server.RegisterCodec(0xc1c2, a)
 
-	stopChan := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		server.Run(stopChan)
+		server.Run(ctx)
 	}()
 	time.Sleep(time.Second)
-	defer close(stopChan)
+	defer cancel()
 
 	client, err := NewSimpleUDPClient("127.0.0.1:99", utils.NewDefaultLogger())
 	if err != nil {

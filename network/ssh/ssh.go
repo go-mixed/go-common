@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -101,7 +102,7 @@ func (s *SSHClient) GetClientWithTimeout(timeout time.Duration) (*ssh.Client, er
 	}
 }
 
-func (s *SSHClient) Heartbeat(client *ssh.Client, stopChan <-chan bool) {
+func (s *SSHClient) Heartbeat(client *ssh.Client, ctx context.Context) {
 
 	go func() {
 		t := time.NewTicker(2 * time.Second)
@@ -109,7 +110,7 @@ func (s *SSHClient) Heartbeat(client *ssh.Client, stopChan <-chan bool) {
 
 		for {
 			select {
-			case <-stopChan:
+			case <-ctx.Done():
 				return
 			case <-t.C:
 				_, _, err := client.Conn.SendRequest("keepalive@golang.org", true, nil)

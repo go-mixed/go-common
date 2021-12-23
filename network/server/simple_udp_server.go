@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"go-common/utils"
@@ -26,7 +27,7 @@ func NewSimpleUDPServer(host string, logger utils.ILogger) *SimpleUDPServer {
 	}
 }
 
-func (s *SimpleUDPServer) Run(stopChan <-chan struct{}) error {
+func (s *SimpleUDPServer) Run(ctx context.Context) error {
 	s.logger.Infof("run udp server on %s", s.host)
 
 	var err error
@@ -36,7 +37,7 @@ func (s *SimpleUDPServer) Run(stopChan <-chan struct{}) error {
 	}
 
 	go func() {
-		core.WaitForStopped(stopChan)
+		core.WaitForStopped(ctx.Done())
 		s.packetConn.Close()
 		s.logger.Infof("close udp server on %s", s.host)
 	}()
@@ -48,7 +49,7 @@ func (s *SimpleUDPServer) Run(stopChan <-chan struct{}) error {
 		buf := make([]byte, MaxInternetUdpLen)
 		n, remoteAddr, err := s.ReadFrom(buf)
 		if err != nil {
-			if core.IsStopped(stopChan) { // 外部关闭了服务器
+			if core.IsContextDone(ctx) { // 外部关闭了服务器
 				return ErrServerClosed
 			} else {
 				return err

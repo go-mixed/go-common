@@ -1,6 +1,7 @@
 package http_utils
 
 import (
+	"context"
 	"go-common/utils"
 	"net/http"
 	"os"
@@ -54,10 +55,10 @@ func (s *HttpServer) GetNativeServer() *http.Server {
 	return s.server
 }
 
-// 监听停止信号, stopChan为nil 则收听进程退出信号
-func (s *HttpServer) listenStopChan(stopChan <-chan struct{}) <-chan struct{} {
-	if stopChan == nil {
-		var _stopChan = make(chan struct{})
+// 监听停止信号, ctx为nil时只收听进程退出信号
+func (s *HttpServer) listenContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx1, cancel := context.WithCancel(ctx)
 		termChan := make(chan os.Signal)
 		//监听指定信号: 终端断开, ctrl+c, kill, ctrl+/
 		signal.Notify(termChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -65,18 +66,20 @@ func (s *HttpServer) listenStopChan(stopChan <-chan struct{}) <-chan struct{} {
 			select {
 			case <-termChan:
 				s.logger.Info("exit signal of process received.")
-				close(_stopChan)
+				cancel()
 			}
 		}()
-		return _stopChan
+		return ctx1
 	} else {
-		return stopChan
+		return ctx
 	}
 }
 
-func (s *HttpServer) Run(stopChan <-chan struct{}) error {
+func (s *HttpServer) Run(ctx context.Context) error {
 	go func() {
-		<-s.listenStopChan(stopChan)
+		select {
+		case <-s.listenContext(ctx).Done():
+		}
 
 		if err := s.server.Close(); err != nil {
 			s.logger.Fatalf("Server closed: %s", err.Error())

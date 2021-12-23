@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
@@ -314,14 +315,16 @@ func (c *HttpServer) BuildServer() *http.Server {
 	}
 }
 
-// Run 对外主函数, 用于运行http(s) server，并且可以监听stopChan来停止服务器
-// 如果stopChan为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
-func (c *HttpServer) Run(stopChan <-chan struct{}, configServerFunc func(server *http.Server) error) error {
+// Run 对外主函数, 用于运行http(s) server，函数监听ctx.Done()来停止服务器
+// 如果ctx为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
+func (c *HttpServer) Run(ctx context.Context, configServerFunc func(server *http.Server) error) error {
 
 	server := c.BuildServer()
 
 	go func() {
-		<-c.listenStopChan(stopChan)
+		select {
+		case <-c.listenContext(ctx).Done():
+		}
 
 		if err := server.Close(); err != nil {
 			c.logger.Fatalf("Server closed: %s", err.Error())
@@ -372,10 +375,10 @@ func (c *HttpServer) Run(stopChan <-chan struct{}, configServerFunc func(server 
 	return nil
 }
 
-// 监听停止信号, stopChan为nil 则收听进程退出信号
-func (c *HttpServer) listenStopChan(stopChan <-chan struct{}) <-chan struct{} {
-	if stopChan == nil {
-		var _stopChan = make(chan struct{})
+// 监听停止信号, ctx为nil时只收听进程退出信号
+func (c *HttpServer) listenContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx1, cancel := context.WithCancel(context.Background())
 		termChan := make(chan os.Signal)
 		//监听指定信号: 终端断开, ctrl+c, kill, ctrl+/
 		signal.Notify(termChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -383,12 +386,12 @@ func (c *HttpServer) listenStopChan(stopChan <-chan struct{}) <-chan struct{} {
 			select {
 			case <-termChan:
 				c.logger.Info("exit signal of process received.")
-				close(_stopChan)
+				cancel()
 			}
 		}()
-		return _stopChan
+		return ctx1
 	} else {
-		return stopChan
+		return ctx
 	}
 }
 

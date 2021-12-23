@@ -1,10 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"go-common/utils"
 	"go-common/utils/core"
-	http_utils "go-common/utils/http"
+	"go-common/utils/http"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -43,15 +44,15 @@ func (s *Server) Registers(methods ...interface{}) error {
 	return nil
 }
 
-func (s *Server) Run(stopChan <-chan struct{}) error {
+func (s *Server) Run(ctx context.Context) error {
 	if s.network == "http" {
-		return s.runHttp(stopChan)
+		return s.runHttp(ctx)
 	} else {
-		return s.runNormal(stopChan)
+		return s.runNormal(ctx)
 	}
 }
 
-func (s *Server) runNormal(stopChan <-chan struct{}) error {
+func (s *Server) runNormal(ctx context.Context) error {
 	listener, err := net.Listen(s.network, s.address)
 	if err != nil {
 		return err
@@ -61,7 +62,7 @@ func (s *Server) runNormal(stopChan <-chan struct{}) error {
 
 	// 监听并关闭监听
 	go func() {
-		core.WaitForStopped(stopChan)
+		core.WaitForStopped(ctx.Done())
 		listener.Close()
 		s.logger.Infof("stop rpc-server(via tcp) on [%s]%s", s.network, s.address)
 	}()
@@ -69,7 +70,7 @@ func (s *Server) runNormal(stopChan <-chan struct{}) error {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			if core.IsStopped(stopChan) {
+			if core.IsContextDone(ctx) {
 				return ErrServerClosed
 			}
 
@@ -84,7 +85,7 @@ func (s *Server) runNormal(stopChan <-chan struct{}) error {
 	return nil
 }
 
-func (s *Server) runHttp(stopChan <-chan struct{}) error {
+func (s *Server) runHttp(ctx context.Context) error {
 
 	server := http_utils.NewHttpServer(s.address, s.logger)
 
@@ -100,7 +101,7 @@ func (s *Server) runHttp(stopChan <-chan struct{}) error {
 	//server.Handle(rpc.DefaultRPCPath, s)
 	//server.Handle(rpc.DefaultDebugPath, rpc.debugHTTP{s})
 
-	if err := server.Run(stopChan); err != nil {
+	if err := server.Run(ctx); err != nil {
 		return err
 	}
 

@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"go-common/utils"
 	"go-common/utils/core"
@@ -51,21 +52,21 @@ func NewEtcdWatch(etcd *Etcd, logger utils.ILogger) *EtcdWatch {
 	}
 }
 
-func (w *EtcdWatch) DumpAndWatch(stopChan <-chan struct{}, keyPrefix string, fromRevision int64, handle EtcdHandle) (int64, error) {
+func (w *EtcdWatch) DumpAndWatch(ctx context.Context, keyPrefix string, fromRevision int64, handle EtcdHandle) (int64, error) {
 	var revision int64
 	var err error
-	if revision, err = w.Dump(stopChan, keyPrefix, fromRevision, -1, handle); err != nil {
+	if revision, err = w.Dump(ctx, keyPrefix, fromRevision, -1, handle); err != nil {
 		return revision, fmt.Errorf("dump cc from etcd error: %w", err)
 	}
 
-	if revision, err = w.Watch(stopChan, keyPrefix, revision+1, handle); err != nil {
+	if revision, err = w.Watch(ctx, keyPrefix, revision+1, handle); err != nil {
 		return revision, fmt.Errorf("watch cc from etcd error: %w", err)
 	}
 
 	return revision, nil
 }
 
-func (w *EtcdWatch) Dump(stopChan <-chan struct{}, keyPrefix string, fromRevision int64, toRevision int64, handler EtcdHandle) (int64, error) {
+func (w *EtcdWatch) Dump(ctx context.Context, keyPrefix string, fromRevision int64, toRevision int64, handler EtcdHandle) (int64, error) {
 	if toRevision <= 0 {
 		toRevision = w.etcd.LastRevisionByPrefix(keyPrefix)
 	}
@@ -92,7 +93,7 @@ func (w *EtcdWatch) Dump(stopChan <-chan struct{}, keyPrefix string, fromRevisio
 		}
 
 		for _, kv := range response.Kvs {
-			if core.IsStopped(stopChan) {
+			if core.IsContextDone(ctx) {
 				w.logger.Infof("stop dump from etcd with key: \"%s\" revision: %d~%d", keyPrefix, fromRevision, revision)
 				return revision, nil
 			}
@@ -109,18 +110,18 @@ func (w *EtcdWatch) Dump(stopChan <-chan struct{}, keyPrefix string, fromRevisio
 	return revision, nil
 }
 
-func (w *EtcdWatch) Watch(stopChan <-chan struct{}, keyPrefix string, fromRevision int64, handler EtcdHandle) (int64, error) {
+func (w *EtcdWatch) Watch(ctx context.Context, keyPrefix string, fromRevision int64, handler EtcdHandle) (int64, error) {
 	var cancel func() = nil
 	var ch <-chan *clientv3.Event
 	var mu sync.Mutex
 
 	// 一定要加这个退出信号, 不然在退出函数时, 下面的协程会泄露
-	_quitChan := make(chan struct{})
-	defer close(_quitChan)
+	quitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	go func() {
 		// 同时监听, 这样函数退出时, 协程也会退出
-		core.WaitForStopped2(_quitChan, stopChan) // block util stopChan close
+		core.WaitForStopped(quitCtx.Done()) // block util stopChan close
 		mu.Lock()
 		defer mu.Unlock()
 		if cancel != nil {
@@ -131,7 +132,7 @@ func (w *EtcdWatch) Watch(stopChan <-chan struct{}, keyPrefix string, fromRevisi
 	revision := fromRevision
 
 	for {
-		if core.IsStopped(_quitChan, stopChan) {
+		if core.IsContextDone(quitCtx) {
 			break
 		}
 
