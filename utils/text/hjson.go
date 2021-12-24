@@ -3,6 +3,7 @@ package text_utils
 import (
 	"bytes"
 	"strconv"
+	"strings"
 )
 
 // from https://github.com/client9/xson/blob/master/hjson/hjson.go
@@ -61,14 +62,14 @@ func HjsonToJson(raw []byte) []byte {
 			i++
 		case '/':
 			if i+1 < len(s) && s[i+1] == '/' {
-				idx := bytes.IndexByte(s[2:], '\n')
+				idx := bytes.IndexByte(s[i+2:], '\n')
 				if idx == -1 {
 					i = len(s)
 				} else {
 					i += idx + 2
 				}
 			} else if i+1 < len(s) && s[i+1] == '*' {
-				idx := bytes.Index(s[2:], []byte("*/"))
+				idx := bytes.Index(s[i+2:], []byte("*/"))
 				if idx == -1 {
 					i = len(s)
 				} else {
@@ -101,13 +102,18 @@ func HjsonToJson(raw []byte) []byte {
 			out.Write(content)
 			out.WriteByte('"')
 			i += offset
-		case '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		case '+', '-', '_', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			needComma = writeComma(out, needComma)
 			word := getWord(s[i:])
 			// captured numeric input... does it parse as a number?
 			// if not, then quote it
-			_, err := strconv.ParseFloat(string(word), 64)
-			writeWord(out, word, err != nil)
+			// underline supported, like: 1_000_000
+			validWord := string(word)
+			if word[0] != '_' && word[len(word)-1] != '_' {
+				validWord = strings.ReplaceAll(validWord, "_", "")
+			}
+			_, err := strconv.ParseFloat(validWord, 64)
+			writeWord(out, []byte(validWord), err != nil)
 			i += len(word)
 		default:
 			// bare word
@@ -122,7 +128,6 @@ func HjsonToJson(raw []byte) []byte {
 	if needEnding {
 		out.WriteByte('}')
 	}
-
 	return out.Bytes()
 }
 

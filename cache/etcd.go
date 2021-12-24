@@ -212,7 +212,7 @@ func (c *Etcd) Close() error {
 
 //------ 自有的相关方法 ------
 
-// LastRevision etcd的全局的最后版本号
+// LastRevision etcd的全局的最后版本号, 需要管理员权限
 func (c *Etcd) LastRevision() int64 {
 	return c.LastRevisionByPrefix("\x00")
 }
@@ -225,6 +225,25 @@ func (c *Etcd) LastRevisionByPrefix(keyPrefix string) int64 {
 		return -1
 	}
 	return response.Header.GetRevision()
+}
+
+// CompactRevision 获取压缩修订版, 需要管理员权限
+func (c *Etcd) CompactRevision() int64 {
+	firstResponse, err := c.GetResponse("\x00", clientv3.WithPrefix(), clientv3.WithLimit(1), clientv3.WithMinCreateRev(1))
+	if err != nil {
+		return 0
+	} else if len(firstResponse.Kvs) <= 0 { // etcd 中没有数据
+		return 0
+	}
+	var compactRevision int64
+	for ch := range c.EtcdClient.Watch(c.Ctx, "\x00", clientv3.WithPrefix(), clientv3.WithRev(1)) {
+		if ch.CompactRevision != 0 {
+			compactRevision = ch.CompactRevision
+		}
+		break
+	}
+
+	return compactRevision
 }
 
 func (c *Etcd) GetResponse(key string, ops ...clientv3.OpOption) (*clientv3.GetResponse, error) {
