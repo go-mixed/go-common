@@ -7,7 +7,6 @@ import (
 	"go-common/utils/core"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"sync"
 )
 
 type EtcdEventType int8
@@ -77,7 +76,7 @@ func (w *EtcdWatch) Dump(ctx context.Context, keyPrefix string, fromRevision int
 	for {
 		w.logger.Infof("dump revision %d~%d from etcd with key: \"%s\"", revision, core.If(toRevision > revision+20, revision+20, toRevision), keyPrefix)
 		// 取出minRevision ~ maxRevision的kv(一个k只会出现1次), 按照revision 正序排序
-		response, err := w.etcd.PrefixResponseWithRev(
+		response, err := w.etcd.WithContext(ctx).PrefixResponseWithRev(
 			keyPrefix,
 			revision,
 			toRevision,
@@ -111,38 +110,19 @@ func (w *EtcdWatch) Dump(ctx context.Context, keyPrefix string, fromRevision int
 }
 
 func (w *EtcdWatch) Watch(ctx context.Context, keyPrefix string, fromRevision int64, handler EtcdHandle) (int64, error) {
-	var cancel func() = nil
-	var ch <-chan *clientv3.Event
-	var mu sync.Mutex
-
-	// 一定要加这个退出信号, 不然在退出函数时, 下面的协程会泄露
-	quitCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go func() {
-		// 同时监听, 这样函数退出时, 协程也会退出
-		core.WaitForStopped(quitCtx.Done()) // block util stopChan close
-		mu.Lock()
-		defer mu.Unlock()
-		if cancel != nil {
-			cancel()
-		}
-	}()
-
 	revision := fromRevision
 
+	scopeCtx, cancel := context.WithCancel(ctx)
+	defer cancel() // 在退出时必须被调用, 防止Watch的ch泄露
+
 	for {
-		if core.IsContextDone(quitCtx) {
+		if core.IsContextDone(scopeCtx) {
 			break
 		}
 
 		w.logger.Infof("start watch etcd with key: \"%s\", revision >= %d", keyPrefix, revision)
 
-		mu.Lock()
-		ch, cancel = w.etcd.Watch(keyPrefix, revision)
-		mu.Unlock()
-
-		for event := range ch {
+		for event := range w.etcd.WatchWithContext(scopeCtx, keyPrefix, revision) {
 			revision = event.Kv.ModRevision
 
 			if err := handler.Handle(parseEtcdEventType(event), event.PrevKv, event.Kv); err != nil {
@@ -151,9 +131,6 @@ func (w *EtcdWatch) Watch(ctx context.Context, keyPrefix string, fromRevision in
 		}
 
 		revision++ // 累加1, 为下一轮watch准备
-		mu.Lock()
-		cancel = nil
-		mu.Unlock()
 	}
 
 	w.logger.Infof("complete to watch etcd with key: \"%s\", revision: %d~%d", keyPrefix, fromRevision, revision)

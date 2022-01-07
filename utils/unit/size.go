@@ -123,3 +123,7 @@ func (fs *FileSize) UnmarshalJSON(bytes []byte) error {
 	}
 	return err
 }
+
+func (fs FileSize) Format() string {
+	return BytesSize(float64(fs))
+}

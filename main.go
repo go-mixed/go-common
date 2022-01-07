@@ -1,17 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"go-common/cmd"
 	"go-common/task_pool"
 	"go-common/utils"
 	"go-common/utils/conv"
 	"go-common/utils/core"
-	http_utils "go-common/utils/http"
+	"go-common/utils/http"
 	"go-common/utils/io"
-	list_utils "go-common/utils/list"
-	text_utils "go-common/utils/text"
+	"go-common/utils/list"
+	"go-common/utils/text"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 	"io"
+	"io/ioutil"
 	"runtime"
 	"time"
 )
@@ -186,12 +191,12 @@ func main() {
 	now := time.Now()
 	executor.Submit(func(ctx context.Context) {
 		time.Sleep(1 * time.Second)
-		fmt.Printf("task 1 , 应该1s 实际: %.4f\n", time.Since(now).Seconds())
+		fmt.Printf("task 1 , 应该1s 实际: %.4fs\n", time.Since(now).Seconds())
 		fmt.Printf("task 1, 协程数: %d\n", runtime.NumGoroutine())
 	}, func(ctx context.Context) {
 		time.Sleep(1 * time.Second)
-		fmt.Printf("task 2, 应该1s, 实际: %.4f\n", time.Since(now).Seconds())
-		fmt.Printf("task 2, 协程数: %d", runtime.NumGoroutine())
+		fmt.Printf("task 2, 应该1s, 实际: %.4fs\n", time.Since(now).Seconds())
+		fmt.Printf("task 2, 协程数: %d\n", runtime.NumGoroutine())
 	}, func(ctx context.Context) {
 		time.Sleep(2 * time.Second)
 		fmt.Printf("task 3 应该3s, 实际: %.4fs\n", time.Since(now).Seconds())
@@ -214,4 +219,26 @@ func main() {
 
 	fmt.Printf("程序结束时协程数: %d, 此时应该有task 4的消息打印\n", runtime.NumGoroutine())
 
+	now = time.Now()
+	command := cmd.NewCommand("ping", []string{"127.0.0.1", "-n", "4"}, cmd.WithTimeout(500*time.Millisecond), cmd.WithShellPrefix)
+	fmt.Printf("command: %s\n", command.String())
+	if err := command.Execute(); err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+	}
+
+	fmt.Printf("durations: %0.3f\n", time.Since(now).Seconds())
+
+	s, _ := gbkToUtf8([]byte(command.Stdout()))
+	fmt.Printf("stdout: %s\n", s)
+	fmt.Printf("stderr: %s\n", command.Stderr())
+	fmt.Printf("exit code: %d\n", command.ExitCode())
+}
+
+func gbkToUtf8(s []byte) ([]byte, error) {
+	reader := transform.NewReader(bytes.NewReader(s), simplifiedchinese.GBK.NewDecoder())
+	d, e := ioutil.ReadAll(reader)
+	if e != nil {
+		return nil, e
+	}
+	return d, nil
 }

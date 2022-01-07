@@ -29,13 +29,12 @@ func (p *Params) validate() error {
 	return nil
 }
 
-/*
-默认 Executor 参数
- * NumWorkers: 默认CPU核心数
- * MaxJobQueueCapacity: 1000 最大等待的任务数为1000
- * MaxJobQueueWaitTime: 30s 设置0表示不过期
- * ShutdownTimeout: 3 seconds 发送Stop指令后最多等待多少秒退出
-*/
+// DefaultExecutorParams 默认 Executor 参数
+//
+// 	NumWorkers: 默认CPU核心数
+// 	MaxJobQueueCapacity: 1000 最大等待的任务数为1000
+// 	MaxJobQueueWaitTime: 30s 设置0表示不过期
+// 	ShutdownTimeout: 3 seconds 发送Stop指令后最多等待多少秒退出
 func DefaultExecutorParams() Params {
 	return Params{
 		Name:            core.GetFrame(1).Function,
@@ -101,24 +100,24 @@ func NewExecutorContext(ctx context.Context, params Params, logger utils.ILogger
 	return executor, nil
 }
 
-/**
- * 添加一个或多个任务，添加之后，如果任务池已经满，会排队等待执行，不然会立即执行
- * 注意: 本函数只会添加任务, 不会运行任务, 所以不会阻塞
- * 对于持久的任务，一定要监听 ctx.Done 通道后退出任务，不然在Ctrl+C时导致程序无法正确的退出。
- * 请参考下面例子完成持久任务的退出操作：
- * e.Submit(func(ctx context.Context) error {
- *	// 死循环，说明这是一个持久的任务
- *	for {
- *		select {
- *		case <-ctx.Done(): // 监听通道, 做好随时退出的准备
- *			print("exit task")
- *			return
- *		default: // 没有收到信息时，会正常往下执行
- *		}
- *		... do something
- *	}
- * }
- */
+// Submit 添加一个或多个任务，添加之后，如果任务池已经满，会排队等待执行，不然会立即执行
+//
+// 注意: 本函数只会添加任务, 不会运行任务, 所以不会阻塞。
+// 对于持久的任务，一定要监听 ctx.Done 通道后退出任务，不然在Ctrl+C时导致程序无法正确的退出。
+//
+// 请参考下面例子完成持久任务的退出操作：
+// 	e.Submit(func(ctx context.Context) error {
+// 		// 死循环，说明这是一个持久的任务
+//		for {
+//			select {
+//			case <-ctx.Done(): // 监听通道, 做好随时退出的准备
+// 				print("exit task")
+// 				return
+//			default: // 没有收到信息时，会正常往下执行
+//			}
+//			... do something
+//		}
+//	}
 func (e *Executor) Submit(runnables ...Runnable) []*Job {
 	res := make([]*Job, 0, len(runnables))
 
@@ -134,6 +133,7 @@ func (e *Executor) Submit(runnables ...Runnable) []*Job {
 }
 
 // SubmitWithTimeout 提交一个带超时时间的任务
+//
 // 任务最长运行时间为timeout，超过这个时间时，会执行cancel并触发ctx.Done()
 // 如果任务不响应ctx.Done()，那会在正在运行任务剔除，并造成泄露
 func (e *Executor) SubmitWithTimeout(runnable Runnable, timeout time.Duration) *Job {
@@ -144,6 +144,7 @@ func (e *Executor) SubmitWithTimeout(runnable Runnable, timeout time.Duration) *
 }
 
 // Stop 停止所有任务，会阻塞等待正在运行的任务运行完毕，或者在ShutdownTimeout超时后强制退出本函数
+//
 // 正在运行的任务，会关闭 rootContext 通道通知它停止。
 // 如果某任务在ShutdownTimeout之后仍未停止，Executor 会清理正在运行的任务[列表]，然后退出Stop。注意：如果该任务仍然无法自行结束，会导致泄露
 // 对于未运行的任务，不会删除，后续可以通过 QueueJobs 查看
@@ -239,10 +240,8 @@ func (e *Executor) ResetContext(ctx context.Context, keepRemainJobs bool) {
 	e.runNextJob()
 }
 
-/**
- * 往任务池中塞任务并执行，如果任务池已满，则不会做任何操作。
- * 此方法会被 Submit onJobDone 触发
- */
+// 往任务池中塞任务并执行，如果任务池已满，则不会做任何操作。
+// 此方法会被 Submit onJobDone 触发
 func (e *Executor) runNextJob() {
 	e.mu.Lock() // 此任务只能被1个协程运行
 	defer e.mu.Unlock()
@@ -264,9 +263,7 @@ func (e *Executor) runNextJob() {
 
 }
 
-/**
- * 异步执行task
- */
+// 异步执行task
 func (e *Executor) invokeJob(job *Job) {
 	e.wg.Add(1)
 	e.runningJobs.Push(job)
@@ -274,10 +271,8 @@ func (e *Executor) invokeJob(job *Job) {
 	go job.Invoke(e.rootContext, e.params.ShutdownTimeout)
 }
 
-/**
- * 任务结束时候的回调
- * 会触发runNext，以便让空闲任务池获得任务
- */
+// 任务结束时候的回调
+// 会触发runNext，以便让空闲任务池获得任务
 func (e *Executor) onJobDone(job *Job) {
 	// 在正在运行的任务中删除此job
 	if job != nil {

@@ -10,7 +10,6 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -227,16 +226,18 @@ func (c *Etcd) LastRevisionByPrefix(keyPrefix string) int64 {
 	return response.Header.GetRevision()
 }
 
-// CompactRevision 获取压缩修订版, 需要管理员权限
-func (c *Etcd) CompactRevision() int64 {
-	firstResponse, err := c.GetResponse("\x00", clientv3.WithPrefix(), clientv3.WithLimit(1), clientv3.WithMinCreateRev(1))
-	if err != nil {
-		return 0
-	} else if len(firstResponse.Kvs) <= 0 { // etcd 中没有数据
-		return 0
+// CompactRevisionByPrefix 获取压缩修订版, 请传递一个有权限的key前缀, 如果为空, 确保有管理员权限
+// 如果有compact会立即返回数据, 如果没有compact, 则会在500ms之后返回0。
+// 所以函数尽量用在有compact的情况下
+func (c *Etcd) CompactRevisionByPrefix(keyPrefix string) int64 {
+	if keyPrefix == "" {
+		keyPrefix = "\x00"
 	}
+
+	ctx, cancel := context.WithTimeout(c.Ctx, 500*time.Millisecond)
+	defer cancel()
 	var compactRevision int64
-	for ch := range c.EtcdClient.Watch(c.Ctx, "\x00", clientv3.WithPrefix(), clientv3.WithRev(1)) {
+	for ch := range c.EtcdClient.Watch(ctx, keyPrefix, clientv3.WithPrefix(), clientv3.WithRev(1)) {
 		if ch.CompactRevision != 0 {
 			compactRevision = ch.CompactRevision
 		}
@@ -273,19 +274,13 @@ func (c *Etcd) PrefixResponseWithRev(keyPrefix string, minRev, maxRev int64, ops
 	return c.PrefixResponse(keyPrefix, ops...)
 }
 
-// Watch 监控key的变更, 返回一个可以遍历所有变更的kv的通道. 如果keyPrefix为空, 则表示所有KEY, 如果minRev > 0 则从指定版本开始
-// 方法会ch, cancel := Watch(...) 通过cancel可以强制终止watch
-// 不能close返回的outCh，会panic。
-// 除非outCh迭代结束（即for _ = range outCh{}自己退出），必须使用cancel来结束watch，不然本函数内的协程会一直阻塞导致内存泄露。
-func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) (<-chan *clientv3.Event, func()) {
-	ctx, cancel := context.WithCancel(c.Ctx)
+// WatchWithContext 监控key的变更, 并传入一个可以cancel的Context来控制watch是否停止，其它解释看 Watch
+func (c *Etcd) WatchWithContext(ctx context.Context, keyPrefix string, minRev int64, opts ...clientv3.OpOption) <-chan *clientv3.Event {
 	watcher := clientv3.NewWatcher(c.EtcdClient)
 	outCh := make(chan *clientv3.Event)
-	isCancel := false
-	mu := sync.Mutex{}
+
 	go func() {
 		defer close(outCh) // 总是会关闭此通道
-		var ch clientv3.WatchChan
 	loop1:
 		for {
 			// 如果context已经被cancel, 则退出
@@ -294,13 +289,16 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) 
 				return
 			}
 
+			var _opts []clientv3.OpOption
 			if keyPrefix == "" {
-				ch = watcher.Watch(ctx, keyPrefix, clientv3.WithFromKey(), clientv3.WithRev(minRev), clientv3.WithPrevKV())
+				_opts = append(_opts, clientv3.WithFromKey())
 			} else {
-				ch = watcher.Watch(ctx, keyPrefix, clientv3.WithPrefix(), clientv3.WithRev(minRev), clientv3.WithPrevKV())
+				_opts = append(_opts, clientv3.WithPrefix())
 			}
+			_opts = append(_opts, clientv3.WithRev(minRev), clientv3.WithPrevKV())
+			_opts = append(_opts, opts...)
 
-			for response := range ch {
+			for response := range watcher.Watch(ctx, keyPrefix, _opts...) {
 				if response.CompactRevision != 0 {
 					c.Logger.Warnf("[ETCD]required revision has been compacted, key: \"%s\", compact revision: %d, required-revision: %d", keyPrefix, response.CompactRevision, minRev)
 					minRev = response.CompactRevision
@@ -313,9 +311,9 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) 
 
 				for _, event := range response.Events {
 					select {
-					case outCh <- event: // 当通道未读取会一直阻塞, 被close了
+					case outCh <- event: // 当通道未读取会一直阻塞
 						minRev = event.Kv.ModRevision
-					case <-ctx.Done(): // 强制取消会退出协程
+					case <-ctx.Done(): // 监控ctx退出
 						c.Logger.Infof("[ETCD]watcher stop in event loop, key: \"%s\"", keyPrefix)
 						return
 					}
@@ -325,32 +323,24 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) 
 		}
 	}()
 
-	return outCh, func() {
-		mu.Lock()
-		defer mu.Unlock()
-
-		if isCancel {
-			return
-		}
-
-		cancel() // 如果阻塞在 for response := range ch, 关闭context, ch也会被close, 故而会停止循环并退出协程
-		c.Logger.Infof("[ETCD]cancel watch chan: \"%s\"", keyPrefix)
-		isCancel = true
-	}
+	return outCh
 }
 
-func (c *Etcd) WatchCallback(keyPrefix string, minRev int64, callback func(event *clientv3.Event) error, opts ...clientv3.OpOption) func() {
-	ch, cancel := c.Watch(keyPrefix, minRev, opts...)
-	var err error
-	for e := range ch {
-		if err != nil {
-			continue // 当callback返回错误时, 需要空跑完通道, 不然会导致通道永远被阻塞而内存不释放
-		}
-		if err = callback(e); err != nil {
-			cancel() // cancel之后 会退出range ch
-		}
+// Watch 监视key的变更, 返回一个可以遍历所有变更的kv的通道. 如果keyPrefix为空, 则表示监视所有KEY, 如果minRev > 0 则从指定版本开始
+// 方法返回ch, cancel := Watch(...) 使用cancel()可以强制终止watch
+// cancel必须要被调用, 不然会内存泄露
+func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) (<-chan *clientv3.Event, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(c.Ctx)
+
+	if minRev <= 0 {
+		minRev = 1
 	}
-	return cancel
+
+	ch := c.WatchWithContext(ctx, keyPrefix, minRev, opts...)
+	return ch, func() {
+		c.Logger.Infof("[ETCD]cancel watch: \"%s\" after revision: %d", keyPrefix, minRev)
+		cancel()
+	}
 }
 
 // RangeResponse 得到keyStart~keyEnd范围内，并且符合keyPrefix的数据, limit <= 0则表示不限制数量
@@ -381,6 +371,12 @@ func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, l
 	}
 
 	return response, nil
+}
+
+func (c *Etcd) WithContext(ctx context.Context) *Etcd {
+	newEtcd := *c
+	newEtcd.Ctx = ctx
+	return &newEtcd
 }
 
 // Lease 得到Lease的Response
