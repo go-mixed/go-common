@@ -6,6 +6,7 @@ import (
 	text_utils "go-common/utils/text"
 	"net"
 	"strings"
+	"sync"
 )
 
 type Ranger struct {
@@ -14,10 +15,11 @@ type Ranger struct {
 	Data map[int]map[string]string
 	// 查找已存在的掩码范围，避免不必要的cidr转换开销，并且排序
 	Bits []int
+	Lock *sync.RWMutex
 }
 
 func NewIpRanger() *Ranger {
-	return &Ranger{make(map[int]map[string]string), []int{}}
+	return &Ranger{make(map[int]map[string]string), []int{}, &sync.RWMutex{}}
 }
 
 func ParseIP(ip string) (*net.IPNet, error) {
@@ -35,6 +37,8 @@ func (r *Ranger) getIpByMask(ip string, mask int) string {
 }
 
 func (r *Ranger) AddIP(n *net.IPNet, value interface{}) {
+	r.Lock.Lock()
+	defer r.Lock.Unlock()
 	bit, _ := n.Mask.Size()
 	if _, ok := r.Data[bit]; !ok {
 		r.Data[bit] = make(map[string]string)
@@ -45,6 +49,8 @@ func (r *Ranger) AddIP(n *net.IPNet, value interface{}) {
 }
 
 func (r *Ranger) RemoveIP(n *net.IPNet) error {
+	r.Lock.Lock()
+	defer r.Lock.Unlock()
 	bit, _ := n.Mask.Size()
 	if d, ok := r.Data[bit]; ok {
 		if _, ok := d[n.IP.String()]; ok {
@@ -63,6 +69,8 @@ func (r *Ranger) RemoveIP(n *net.IPNet) error {
 }
 
 func (r *Ranger) getIndex(bit int) int {
+	r.Lock.RLock()
+	defer r.Lock.RUnlock()
 	var index = -1
 	var arr = r.Bits
 	for len(arr) > 0 {
@@ -116,6 +124,8 @@ func (r *Ranger) delIndex(bit int) int {
 }
 
 func (r *Ranger) Contains(n *net.IPNet, v interface{}) bool {
+	r.Lock.RLock()
+	defer r.Lock.RUnlock()
 	_mask, _ := n.Mask.Size()
 	for _, i := range r.Bits {
 		_ip := r.getIpByMask(n.IP.String(), i)
