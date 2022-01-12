@@ -30,13 +30,13 @@ func (e EtcdEventType) String() string {
 }
 
 type EtcdHandle interface {
-	Handle(eventType EtcdEventType, preKv *mvccpb.KeyValue, kv *mvccpb.KeyValue) error
+	Handle(ctx context.Context, eventType EtcdEventType, preKv *mvccpb.KeyValue, kv *mvccpb.KeyValue) error
 }
 
-type EtcdHandleFn func(eventType EtcdEventType, preKv *mvccpb.KeyValue, kv *mvccpb.KeyValue) error
+type EtcdHandleFn func(ctx context.Context, eventType EtcdEventType, preKv *mvccpb.KeyValue, kv *mvccpb.KeyValue) error
 
-func (fn EtcdHandleFn) Handle(eventType EtcdEventType, preKv *mvccpb.KeyValue, kv *mvccpb.KeyValue) error {
-	return fn(eventType, preKv, kv)
+func (fn EtcdHandleFn) Handle(ctx context.Context, eventType EtcdEventType, preKv *mvccpb.KeyValue, kv *mvccpb.KeyValue) error {
+	return fn(ctx, eventType, preKv, kv)
 }
 
 type EtcdWatch struct {
@@ -97,7 +97,7 @@ func (w *EtcdWatch) Dump(ctx context.Context, keyPrefix string, fromRevision int
 				return revision, nil
 			}
 			revision = kv.ModRevision
-			if err = handler.Handle(EtcdCreate, nil, kv); err != nil {
+			if err = handler.Handle(ctx, EtcdCreate, nil, kv); err != nil {
 				return revision, err
 			}
 		}
@@ -125,12 +125,15 @@ func (w *EtcdWatch) Watch(ctx context.Context, keyPrefix string, fromRevision in
 		for event := range w.etcd.WatchWithContext(scopeCtx, keyPrefix, revision) {
 			revision = event.Kv.ModRevision
 
-			if err := handler.Handle(parseEtcdEventType(event), event.PrevKv, event.Kv); err != nil {
+			if err := handler.Handle(ctx, parseEtcdEventType(event), event.PrevKv, event.Kv); err != nil {
 				return revision, err
 			}
 		}
 
-		revision++ // 累加1, 为下一轮watch准备
+		// 只有当revision有增加时, 才累加1, 也就是至少有一次for循环
+		if revision != fromRevision {
+			revision++ // 累加1, 为下一轮watch准备
+		}
 	}
 
 	w.logger.Infof("complete to watch etcd with key: \"%s\", revision: %d~%d", keyPrefix, fromRevision, revision)

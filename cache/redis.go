@@ -1,12 +1,13 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"go-common/utils"
 	"go-common/utils/conv"
 	"go-common/utils/core"
-	text_utils "go-common/utils/text"
+	"go-common/utils/text"
 	"strings"
 	"time"
 )
@@ -15,6 +16,12 @@ type Redis struct {
 	Cache
 	IsPika      bool
 	RedisClient redis.UniversalClient
+}
+
+func (c *Redis) WithContext(ctx context.Context) *Redis {
+	newRedis := *c
+	newRedis.Ctx = ctx
+	return &newRedis
 }
 
 func (c *Redis) SetNoExpiration(key string, val interface{}) error {

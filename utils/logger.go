@@ -2,6 +2,7 @@ package utils
 
 import (
 	"github.com/utahta/go-cronowriter"
+	"go-common/utils/io"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"log"
@@ -51,14 +52,14 @@ func NewDefaultLogger() ILogger {
 	}
 }
 
-/** InitLogger
- * 初始化Logger
- * errorFilename 传递非空字符串，表示将错误分开写入到此文件中
- */
+// InitLogger 初始化Logger
+// errorFilename 传递非空字符串，表示将错误分开写入到此文件中
 func InitLogger(filename string, errorFilename string) {
 	// 创建文件夹
-	_ = os.MkdirAll(filepath.Dir(filename), os.ModePerm)
-	_ = os.MkdirAll(filepath.Dir(errorFilename), os.ModePerm)
+	_ = io_utils.MustMkdirAll(filepath.Dir(filename), os.ModePerm)
+	if errorFilename != "" {
+		_ = io_utils.MustMkdirAll(filepath.Dir(errorFilename), os.ModePerm)
+	}
 
 	// 获取log writer
 	writeSyncer := getLogWriter(filename)
@@ -99,7 +100,6 @@ func InitLogger(filename string, errorFilename string) {
 	}
 
 	sugarLogger = logger.Sugar()
-
 }
 
 func GetLogger() *zap.Logger {

@@ -1,11 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"os/exec"
 )
 
 func createBaseCommand(c *Command, ctx context.Context) *exec.Cmd {
-	if useShellPrefix {
+	if c.useShellPrefix {
 		var args []string
 		args = append(args, "-c", c.Path)
 		args = append(args, c.Args...)

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func GbkToUtf8(s []byte) ([]byte, error) {
+func gbkToUtf8(s []byte) ([]byte, error) {
 	reader := transform.NewReader(bytes.NewReader(s), simplifiedchinese.GBK.NewDecoder())
 	d, e := ioutil.ReadAll(reader)
 	if e != nil {
@@ -42,7 +42,7 @@ func TestCommandTimeout(t *testing.T) {
 
 	t.Logf("durations: %0.3f", time.Since(now).Seconds())
 
-	s, _ := GbkToUtf8([]byte(command.Stdout()))
+	s, _ := gbkToUtf8([]byte(command.Stdout()))
 
 	t.Logf("stdout: %s", s)
 	t.Logf("stderr: %s", command.Stderr())
