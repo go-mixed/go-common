@@ -65,6 +65,10 @@ func (w *EtcdWatch) DumpAndWatch(ctx context.Context, keyPrefix string, fromRevi
 	return revision, nil
 }
 
+// Dump 按fromRevision~toRevision 导出所有符合keyPrefix的kv
+//
+// 注意：会无视compactRevision，会从fromRevision开始，只要key没被删除，使用此方法也能读出到小于compactRevision的key， 这点和watch有区别，
+// 如果有必要，可以先尝试读取出compactRevision了，再传入本函数
 func (w *EtcdWatch) Dump(ctx context.Context, keyPrefix string, fromRevision int64, toRevision int64, handler EtcdHandle) (int64, error) {
 	if toRevision <= 0 {
 		toRevision = w.etcd.LastRevisionByPrefix(keyPrefix)
@@ -73,14 +77,15 @@ func (w *EtcdWatch) Dump(ctx context.Context, keyPrefix string, fromRevision int
 
 	w.logger.Infof("start dump from etcd with key: \"%s\", revision: %d~%d", keyPrefix, fromRevision, toRevision)
 
+	const c = 20
 	for {
-		w.logger.Infof("dump revision %d~%d from etcd with key: \"%s\"", revision, core.If(toRevision > revision+20, revision+20, toRevision), keyPrefix)
+		w.logger.Infof("dump revision %d~%d from etcd with key: \"%s\"", revision, core.If(toRevision > revision+c, revision+c, toRevision), keyPrefix)
 		// 取出minRevision ~ maxRevision的kv(一个k只会出现1次), 按照revision 正序排序
 		response, err := w.etcd.WithContext(ctx).PrefixResponseWithRev(
 			keyPrefix,
 			revision,
 			toRevision,
-			clientv3.WithLimit(20), // 每次取20个 避免阻塞太久
+			clientv3.WithLimit(c), // 每次取20个 避免阻塞太久
 		)
 
 		if err != nil {
@@ -109,6 +114,9 @@ func (w *EtcdWatch) Dump(ctx context.Context, keyPrefix string, fromRevision int
 	return revision, nil
 }
 
+// Watch 从fromRevision开始监听符合keyPrefix要求的kv
+//
+// 注意：当fromRevision < compactRevision时，会从compactRevision开始读取
 func (w *EtcdWatch) Watch(ctx context.Context, keyPrefix string, fromRevision int64, handler EtcdHandle) (int64, error) {
 	revision := fromRevision
 

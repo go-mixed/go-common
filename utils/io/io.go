@@ -99,13 +99,10 @@ func IsDir(dir string) bool {
 	return stat.Mode().IsDir()
 }
 
-func isExecutable(path string) bool {
-	if IsDir(path) {
-		return false
-	}
-
+// IsExecutable 是否是可执行程序，windows下，只要文件存在，就返回true
+func IsExecutable(path string) bool {
 	fileInfo, err := os.Stat(path)
-	if err != nil || os.IsNotExist(err) {
+	if err != nil || fileInfo.Mode().IsDir() {
 		return false
 	}
 

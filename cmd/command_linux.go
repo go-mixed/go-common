@@ -6,7 +6,7 @@ import (
 )
 
 func createBaseCommand(c *Command, ctx context.Context) *exec.Cmd {
-	if c.useShellPrefix {
+	if !c.IsExecutable() {
 		var args []string
 		args = append(args, "-c", c.Path)
 		args = append(args, c.Args...)

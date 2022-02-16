@@ -12,7 +12,6 @@ import (
 )
 
 var logger *zap.Logger
-var sugarLogger *zap.SugaredLogger
 
 const (
 	DEBUG = iota
@@ -98,8 +97,6 @@ func InitLogger(filename string, errorFilename string) {
 		)
 		logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(errorLevel))
 	}
-
-	sugarLogger = logger.Sugar()
 }
 
 func GetLogger() *zap.Logger {
@@ -107,7 +104,7 @@ func GetLogger() *zap.Logger {
 }
 
 func GetSugaredLogger() ILogger {
-	return sugarLogger
+	return logger.Sugar()
 }
 
 func getLogEncoder() zapcore.Encoder {

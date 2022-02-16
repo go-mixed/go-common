@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 )
@@ -19,7 +20,6 @@ type Command struct {
 	Args []string
 
 	Env          []string
-	Dir          string
 	Timeout      time.Duration
 	StderrWriter io.Writer
 	StdoutWriter io.Writer
@@ -30,8 +30,6 @@ type Command struct {
 	stderr   bytes.Buffer
 	stdout   bytes.Buffer
 	combined bytes.Buffer
-
-	useShellPrefix bool
 }
 
 // EnvVars represents a map where the key is the name of the env variable
@@ -112,12 +110,6 @@ func WithCustomStderr(writers ...io.Writer) func(c *Command) {
 	}
 }
 
-// WithShellPrefix prepend the command line with "sh -c _SHELL_" or "c:\windows\system32\cmd.exe /C _SHELL_"
-// Enable the shell prefix may cause timeout to fail on Windows
-func WithShellPrefix(c *Command) {
-	c.useShellPrefix = true
-}
-
 // WithTimeout sets the timeout of the command
 //
 // Example:
@@ -160,6 +152,23 @@ func WithEnvironmentVariables(env EnvVars) func(c *Command) {
 			c.AddEnv(key, value)
 		}
 	}
+}
+
+func (c *Command) IsExecutable() bool {
+	fileInfo, err := os.Stat(c.Path)
+	if err != nil || fileInfo.IsDir() {
+		return false
+	}
+
+	if runtime.GOOS == "windows" {
+		return true
+	}
+
+	if fileInfo.Mode()&0111 != 0 {
+		return true
+	}
+
+	return false
 }
 
 // AddEnv adds an environment variable to the command
@@ -225,7 +234,6 @@ func (c *Command) ExecuteContext(ctx context.Context) error {
 
 	cmd := createBaseCommand(c, ctx)
 	cmd.Env = c.Env
-	cmd.Dir = c.Dir
 	cmd.Stdout = c.StdoutWriter
 	cmd.Stderr = c.StderrWriter
 	cmd.Dir = c.WorkingDir
