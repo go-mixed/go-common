@@ -68,7 +68,7 @@ func (d Domains) IsEmpty() bool {
 }
 
 func (d Domains) ToLower() Domains {
-	// copy
+	// copy to a new slice
 	_d := append(Domains(nil), d...)
 	return _d.AsLower()
 }
@@ -82,9 +82,9 @@ func (d Domains) AsLower() Domains {
 }
 
 func (d Domains) Sort() Domains {
-	// copy
+	// copy to a new slice
 	_d := make(Domains, len(d))
-	copy(d, _d)
+	copy(_d, d)
 
 	if d.IsEmpty() {
 		return _d

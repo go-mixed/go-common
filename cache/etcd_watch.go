@@ -51,6 +51,9 @@ func NewEtcdWatch(etcd *Etcd, logger utils.ILogger) *EtcdWatch {
 	}
 }
 
+// DumpAndWatch 会导出fromRevision~到当前revision中符合keyPrefix要求的kv，然后持续watch
+//
+// 如果Ctx被cancel，或者遇到报错，返回函数内最后获取到的revision，和错误
 func (w *EtcdWatch) DumpAndWatch(ctx context.Context, keyPrefix string, fromRevision int64, handle EtcdHandle) (int64, error) {
 	var revision int64
 	var err error
