@@ -6,68 +6,34 @@ import (
 	"reflect"
 )
 
-// MapKeys 获取map的所有keys MapKeys({1: 'a', 2: 'c'}).([]int)
-// 相比直接foreach来取 要慢接近8倍
-func MapKeys(data interface{}) interface{} {
-	vOf := reflect.ValueOf(data)
-	if vOf.Kind() == reflect.Ptr {
-		vOf = vOf.Elem()
+// MapKeys 获取map的所有keys MapKeys({1: 'a', 2: 'c'})
+func MapKeys[K comparable, V any](data map[K]V) []K {
+	keys := make([]K, 0, len(data))
+	for k, _ := range data {
+		keys = append(keys, k)
 	}
-	if vOf.IsNil() || vOf.Kind() != reflect.Map {
-		return nil
-	}
-
-	list := reflect.MakeSlice(reflect.SliceOf(vOf.Type().Key()), 0, 0)
-	list = reflect.Append(list, vOf.MapKeys()...)
-
-	return list.Interface()
+	return keys
 }
 
-func MapStringKeys(data map[string]string) []string {
-	var list = make([]string, len(data))
-	i := 0
-	for k := range data {
-		list[i] = k
-		i++
-	}
-	return list
+func MapStringKeys[V any](data map[string]V) []string {
+	return MapKeys(data)
 }
 
-// MapValues 获取map的所有values MapValues({1: 'a', 2: 'c'}).([]string)
-// 相比直接foreach来取 要慢接近8倍
-func MapValues(data interface{}) interface{} {
-	vOf := reflect.ValueOf(data)
-	if vOf.Kind() == reflect.Ptr {
-		vOf = vOf.Elem()
-	}
-	if vOf.IsNil() || vOf.Kind() != reflect.Map {
-		return nil
-	}
-
-	list := reflect.MakeSlice(reflect.SliceOf(vOf.Type().Elem()), 0, 0)
-	it := vOf.MapRange()
-	for {
-		if !it.Next() {
-			break
-		}
-		list = reflect.Append(list, it.Value())
-	}
-
-	return list.Interface()
-}
-
-func MapStringValues(data map[string]string) []string {
-	var list = make([]string, len(data))
-	i := 0
+// MapValues 获取map的所有values MapValues({1: 'a', 2: 'c'})
+func MapValues[K comparable, V any](data map[K]V) []V {
+	values := make([]V, 0, len(data))
 	for _, v := range data {
-		list[i] = v
-		i++
+		values = append(values, v)
 	}
-	return list
+	return values
 }
 
-func ToMap(data interface{}, tag string) (map[string]interface{}, error) {
-	var result = map[string]interface{}{}
+func MapStringValues[K comparable](data map[K]string) []string {
+	return MapValues(data)
+}
+
+func ToMap(data any, tag string) (map[string]any, error) {
+	var result = map[string]any{}
 
 	vOf := reflect.ValueOf(data)
 	if data == nil || (vOf.Kind() == reflect.Ptr && vOf.IsNil()) {

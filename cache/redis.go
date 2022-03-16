@@ -24,7 +24,7 @@ func (c *Redis) WithContext(ctx context.Context) *Redis {
 	return &newRedis
 }
 
-func (c *Redis) SetNoExpiration(key string, val interface{}) error {
+func (c *Redis) SetNoExpiration(key string, val any) error {
 	return c.Set(key, val, 0)
 }
 
@@ -72,7 +72,7 @@ func (c *Redis) Del(key string) error {
 	return nil
 }
 
-func (c *Redis) Set(key string, val interface{}, expiration time.Duration) error {
+func (c *Redis) Set(key string, val any, expiration time.Duration) error {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]Set %s, %0.6f", key, time.Since(now).Seconds())
@@ -86,7 +86,7 @@ func (c *Redis) Set(key string, val interface{}, expiration time.Duration) error
 	return nil
 }
 
-func (c *Redis) Get(key string, result interface{}) ([]byte, error) {
+func (c *Redis) Get(key string, result any) ([]byte, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]Get %s, %0.6f", key, time.Since(now).Seconds())
@@ -112,7 +112,7 @@ func (c *Redis) Get(key string, result interface{}) ([]byte, error) {
 	return []byte(val), nil
 }
 
-func (c *Redis) MGet(keys []string, result interface{}) (utils.KVs, error) {
+func (c *Redis) MGet(keys []string, result any) (utils.KVs, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]MGet %v, %0.6f", keys, time.Since(now).Seconds())
@@ -159,7 +159,7 @@ func (c *Redis) Keys(keyPrefix string) ([]string, error) {
 	return val, nil
 }
 
-func (c *Redis) ScanPrefix(keyPrefix string, result interface{}) (utils.KVs, error) {
+func (c *Redis) ScanPrefix(keyPrefix string, result any) (utils.KVs, error) {
 	if c.IsPika {
 		return c.pikaScanPrefix(keyPrefix, result)
 	}
@@ -274,7 +274,7 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}
-	params := []interface{}{
+	params := []any{
 		"pkscanrange", "string_with_value", keyStart, keyEnd,
 	}
 
@@ -293,7 +293,7 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 		return "", nil, err
 	}
 
-	res, ok := _res.([]interface{})
+	res, ok := _res.([]any)
 	if !ok || len(res) <= 1 {
 		return "", nil, nil
 	}
@@ -301,7 +301,7 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 	if !ok {
 		return "", nil, fmt.Errorf("scan range returns an invalid next-key")
 	}
-	_kv, ok := res[1].([]interface{})
+	_kv, ok := res[1].([]any)
 	if !ok {
 		return "", nil, fmt.Errorf("scan range returns an invalid k/v")
 	}
@@ -322,7 +322,7 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 	return nextKey, kvs, nil
 }
 
-func (c *Redis) pikaScanPrefix(keyPrefix string, result interface{}) (utils.KVs, error) {
+func (c *Redis) pikaScanPrefix(keyPrefix string, result any) (utils.KVs, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
@@ -340,7 +340,7 @@ func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *utils
 	return c.scanPrefixCallback(keyPrefix, callback, c.Range)
 }
 
-func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}) (string, utils.KVs, error) {
+func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result any) (string, utils.KVs, error) {
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}

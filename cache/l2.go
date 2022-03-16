@@ -19,12 +19,12 @@ type L2Result struct {
 }
 
 type IL2Cache interface {
-	Get(key string, expire time.Duration, actual interface{}) ([]byte, error)
-	MGet(keys []string, expire time.Duration, actual interface{}) (utils.KVs, error)
+	Get(key string, expire time.Duration, actual any) ([]byte, error)
+	MGet(keys []string, expire time.Duration, actual any) (utils.KVs, error)
 	Keys(keyPrefix string, expire time.Duration) ([]string, error)
 	Delete(keys ...string)
 
-	ScanPrefix(keyPrefix string, expire time.Duration, actual interface{}) (utils.KVs, error)
+	ScanPrefix(keyPrefix string, expire time.Duration, actual any) (utils.KVs, error)
 }
 
 func NewL2Cache(
@@ -38,8 +38,8 @@ func NewL2Cache(
 	}
 }
 
-func (l *L2Cache) Get(key string, expire time.Duration, actual interface{}) ([]byte, error) {
-	val, err := l.memCache.Remember("get:"+key, expire, func() (interface{}, error) {
+func (l *L2Cache) Get(key string, expire time.Duration, actual any) ([]byte, error) {
+	val, err := l.memCache.Remember("get:"+key, expire, func() (any, error) {
 		return l.cache.Get(key, nil)
 	})
 
@@ -60,10 +60,10 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual interface{}) ([]b
 
 // MGet 由多个Get构成, 需要维护时, 只需要清理单个Get的缓存即可
 // 没有使用 l.Get 是因为避免 IsInterfaceNil 的反射运算浪费时间
-func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) (utils.KVs, error) {
+func (l *L2Cache) MGet(keys []string, expire time.Duration, actual any) (utils.KVs, error) {
 	var _res utils.KVs
 	for _, key := range keys {
-		if val, err := l.memCache.Remember("get:"+key, expire, func() (interface{}, error) {
+		if val, err := l.memCache.Remember("get:"+key, expire, func() (any, error) {
 			return l.cache.Get(key, nil)
 		}); err != nil {
 			return nil, err
@@ -74,7 +74,7 @@ func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) 
 		}
 	}
 
-	//res, err := l.memCache.Remember("mget:"+text_utils.Md5(strings.Join(keys, "|")), expire, func() (interface{}, error) {
+	//res, err := l.memCache.Remember("mget:"+text_utils.Md5(strings.Join(keys, "|")), expire, func() (any, error) {
 	//	return l.cache.MGet(keys, nil)
 	//})
 	//if err != nil {
@@ -92,7 +92,7 @@ func (l *L2Cache) MGet(keys []string, expire time.Duration, actual interface{}) 
 }
 
 func (l *L2Cache) Keys(keyPrefix string, expire time.Duration) ([]string, error) {
-	res, err := l.memCache.Remember("keys:"+keyPrefix, expire, func() (interface{}, error) {
+	res, err := l.memCache.Remember("keys:"+keyPrefix, expire, func() (any, error) {
 		return l.cache.Keys(keyPrefix)
 	})
 	if err != nil {
@@ -103,8 +103,8 @@ func (l *L2Cache) Keys(keyPrefix string, expire time.Duration) ([]string, error)
 	return _res, nil
 }
 
-func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual interface{}) (utils.KVs, error) {
-	res, err := l.memCache.Remember("scan-prefix:"+keyPrefix, expire, func() (interface{}, error) {
+func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual any) (utils.KVs, error) {
+	res, err := l.memCache.Remember("scan-prefix:"+keyPrefix, expire, func() (any, error) {
 		return l.cache.ScanPrefix(keyPrefix, nil)
 	})
 	if err != nil {

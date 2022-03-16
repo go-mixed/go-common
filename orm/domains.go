@@ -26,7 +26,7 @@ func (d Domains) Value() (driver.Value, error) {
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
-func (d *Domains) Scan(val interface{}) error {
+func (d *Domains) Scan(val any) error {
 	if val == nil {
 		*d = Domains(nil)
 		return nil

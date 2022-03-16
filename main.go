@@ -35,7 +35,7 @@ func main() {
 
 	fmt.Printf("Atoi %d\n", conv.Atoi("0000123", 0))
 
-	fmt.Printf("indexOf interface{}: %d\n", list_utils.IndexOf([]string{"1", "2"}, "2"))
+	fmt.Printf("indexOf any: %d\n", list_utils.IndexOf([]string{"1", "2"}, "2"))
 
 	domains := http_utils.Domains{
 		"*.b.com",
@@ -94,7 +94,7 @@ func main() {
 	}
 	fmt.Printf("struct to map: %#v\n", m)
 
-	b1 := map[interface{}]interface{}{}
+	b1 := map[any]any{}
 	b1["a"] = "v2"
 	b1[1] = 123
 	b1[3.141] = "pi"
@@ -113,7 +113,7 @@ func main() {
 	var values []string
 	t := time.Now()
 	for i := 0; i < 100000; i++ {
-		values = utils.MapKeys(c).([]string)
+		values = utils.MapKeys(c)
 	}
 	fmt.Printf("map keys: %#v %d\n", values, time.Since(t).Milliseconds())
 
@@ -124,7 +124,7 @@ func main() {
 	fmt.Printf("map keys: %#v %d\n", values, time.Since(t).Milliseconds())
 	t = time.Now()
 	for i := 0; i < 100000; i++ {
-		values = utils.MapValues(c).([]string)
+		values = utils.MapValues(c)
 	}
 	fmt.Printf("map values: %#v %d\n", values, time.Since(t).Milliseconds())
 
@@ -220,7 +220,7 @@ func main() {
 	fmt.Printf("程序结束时协程数: %d, 此时应该有task 4的消息打印\n", runtime.NumGoroutine())
 
 	now = time.Now()
-	command := cmd.NewCommand("ping", []string{"127.0.0.1", "-n", "4"}, cmd.WithTimeout(500*time.Millisecond), cmd.WithShellPrefix)
+	command := cmd.NewCommand("ping", []string{"127.0.0.1", "-n", "4"}, cmd.WithTimeout(500*time.Millisecond))
 	fmt.Printf("command: %s\n", command.String())
 	if err := command.Execute(); err != nil {
 		fmt.Printf("error: %s\n", err.Error())

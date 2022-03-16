@@ -13,11 +13,11 @@ type Controller struct {
 }
 
 type IController interface {
-	SuccessResponse(code, data interface{})
-	ErrorResponse(err error, data interface{})
+	SuccessResponse(code, data any)
+	ErrorResponse(err error, data any)
 }
 
-func (c *Controller) JsonCheck(d interface{}) error {
+func (c *Controller) JsonCheck(d any) error {
 	if err := c.Context.ShouldBindJSON(&d); err != nil {
 		if err == io.EOF {
 			return fmt.Errorf("empty body, must be a json")
@@ -28,7 +28,7 @@ func (c *Controller) JsonCheck(d interface{}) error {
 }
 
 // ErrorResponse default error response
-func (c *Controller) ErrorResponse(err error, data interface{}) {
+func (c *Controller) ErrorResponse(err error, data any) {
 
 	duration := time.Now().Sub(c.Context.GetTime("request_at"))
 
@@ -45,7 +45,7 @@ func (c *Controller) ErrorResponse(err error, data interface{}) {
 }
 
 // SuccessResponse default success response
-func (c *Controller) SuccessResponse(code, data interface{}) {
+func (c *Controller) SuccessResponse(code, data any) {
 
 	duration := time.Now().Sub(c.Context.GetTime("request_at"))
 

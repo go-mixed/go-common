@@ -9,17 +9,17 @@ import (
 )
 
 type Result struct {
-	Code     interface{} `json:"code"`
-	Message  string      `json:"message,omitempty"`
-	Data     interface{} `json:"data,omitempty"`
-	Duration float64     `json:"duration"`
-	At       int64       `json:"at"`
+	Code     any     `json:"code"`
+	Message  string  `json:"message,omitempty"`
+	Data     any     `json:"data,omitempty"`
+	Duration float64 `json:"duration"`
+	At       int64   `json:"at"`
 }
 
 type IResponseException interface {
 	error
-	GetCode() interface{}
-	SetCode(interface{})
+	GetCode() any
+	SetCode(any)
 	GetStatusCode() int
 	SetStatusCode(int)
 	GetMessage() string
@@ -27,12 +27,12 @@ type IResponseException interface {
 }
 
 type ResponseException struct {
-	Code       interface{}
+	Code       any
 	StatusCode int
 	Message    string
 }
 
-func NewResponseException(code interface{}, statusCode int, message string) IResponseException {
+func NewResponseException(code any, statusCode int, message string) IResponseException {
 	return &ResponseException{
 		Code:       code,
 		StatusCode: statusCode,
@@ -40,11 +40,11 @@ func NewResponseException(code interface{}, statusCode int, message string) IRes
 	}
 }
 
-func (e *ResponseException) GetCode() interface{} {
+func (e *ResponseException) GetCode() any {
 	return e.Code
 }
 
-func (e *ResponseException) SetCode(code interface{}) {
+func (e *ResponseException) SetCode(code any) {
 	e.Code = code
 }
 
@@ -69,7 +69,7 @@ func (e *ResponseException) SetMessage(message string) {
 }
 
 // ParseResult 读取JSON内容解析为 Result, 并且解析 Result.Data 为 outData
-func ParseResult(j []byte, outData interface{}) (*Result, error) {
+func ParseResult(j []byte, outData any) (*Result, error) {
 	result := &Result{}
 	if err := text_utils.JsonUnmarshalFromBytes(j, result); err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func ParseResult(j []byte, outData interface{}) (*Result, error) {
 
 // ParseResultFromReader 从reader中读取JSON内容并解析为 Result, 并且解析 Result.Data 为 outData
 // 会关闭reader
-func ParseResultFromReader(reader io.ReadCloser, outData interface{}) (*Result, error) {
+func ParseResultFromReader(reader io.ReadCloser, outData any) (*Result, error) {
 	defer reader.Close()
 
 	j, err := ioutil.ReadAll(reader)

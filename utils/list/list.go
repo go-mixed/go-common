@@ -2,7 +2,6 @@ package list_utils
 
 import (
 	"fmt"
-	"go-common/utils/core"
 	"reflect"
 	"strings"
 )
@@ -10,32 +9,10 @@ import (
 // Find 类似slice.IndexOf, 需要传递fn来判断是否相等
 // 注意 这是反射实现的函数, 会降低运行性能
 // 找不到返回-1
-func Find(slice interface{}, fn func(value interface{}) bool) int {
-	s := reflect.ValueOf(slice)
-	if s.Kind() == reflect.Slice {
-		for index := 0; index < s.Len(); index++ {
-			if fn(s.Index(index).Interface()) {
-				return index
-			}
-		}
-	}
-	return -1
-}
-
-// FindT 类似于Find, 第二个参数是一个func, 但是可以使用合法的类型, 避免函数内参数转换
-// arr := []string{"a", "b"}
-// FindT(arr, func(v string) bool {return v == "a"}) ==> 0
-// 注意 这是反射实现的函数, 以及反射实现的Invoke, 会更降低运行性能
-// 找不到返回-1
-func FindT(slice interface{}, fn interface{}) int {
-	s := reflect.ValueOf(slice)
-	if s.Kind() == reflect.Slice {
-		for index := 0; index < s.Len(); index++ {
-			val := core.Invoke(fn, s.Index(index).Interface())
-			v, ok := val.(bool)
-			if ok && v {
-				return index
-			}
+func Find[T comparable](slice []T, fn func(value T) bool) int {
+	for i := 0; i <= len(slice); i++ {
+		if fn(slice[i]) {
+			return i
 		}
 	}
 	return -1
@@ -43,8 +20,8 @@ func FindT(slice interface{}, fn interface{}) int {
 
 // IndexOf 简化版slice.IndexOf，需要完全相等才会返回index
 // 注意: 使用反射会降低运行性能, 尽量使用: StrIndexOf, IntIndexOf
-func IndexOf(slice interface{}, findMe interface{}) int {
-	return Find(slice, func(value interface{}) bool {
+func IndexOf[T comparable](slice []T, findMe T) int {
+	return Find(slice, func(value T) bool {
 		return value == findMe
 	})
 }
@@ -54,30 +31,12 @@ func StrIndexOf(slice []string, findMe string, ignoreCase bool) int {
 	if ignoreCase {
 		findMe = strings.ToLower(findMe)
 	}
-	for i := 0; i < len(slice); i++ {
-		v := slice[i]
+	return Find(slice, func(value string) bool {
 		if ignoreCase {
-			v = strings.ToLower(v)
+			value = strings.ToLower(value)
 		}
-		if findMe == v {
-			return i
-		}
-	}
-
-	return -1
-}
-
-// IntIndexOf int型数组的IndexOf
-func IntIndexOf(slice []int, findMe int) int {
-	for i := 0; i < len(slice); i++ {
-		v := slice[i]
-
-		if findMe == v {
-			return i
-		}
-	}
-
-	return -1
+		return findMe == value
+	})
 }
 
 // ToInterfaces 将interface{} 转为 []interface{}, 因为不能直接slice.([]interface{}) 此函数使用场景可以参照 SortDomains

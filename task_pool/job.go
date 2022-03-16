@@ -10,16 +10,16 @@ import (
 
 type Runnable func(ctx context.Context)
 
-func NewRunnable(task func(ctx context.Context, args ...interface{}), args ...interface{}) Runnable {
+func NewRunnable(task func(ctx context.Context, args ...any), args ...any) Runnable {
 	return func(ctx context.Context) {
 		task(ctx, args...)
 	}
 }
 
-func NewRunnableT(fn interface{}, args ...interface{}) Runnable {
+func NewRunnableT(fn any, args ...any) Runnable {
 	return func(ctx context.Context) {
 		// ctx 插入到第一个参数中
-		_args := append([]interface{}{}, ctx)
+		_args := append([]any{}, ctx)
 		_args = append(_args, args...)
 		core.Invoke(fn, _args...)
 	}

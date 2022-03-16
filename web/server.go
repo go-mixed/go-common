@@ -106,16 +106,15 @@ func (c *HttpServer) HasDefaultDomain() bool {
 
 // ContainsDomain 是否包含此域名, 此函数是判断完全相等, 如果需要匹配通配符, 使用 MatchDomain
 func (c *HttpServer) ContainsDomain(domain string) bool {
-	return list_utils.Find(c.orderedDomainConfigs, func(value interface{}) bool {
-		return strings.EqualFold(value.(*DomainConfig).domain, domain)
+	return list_utils.Find(c.orderedDomainConfigs, func(value *DomainConfig) bool {
+		return strings.EqualFold(value.domain, domain)
 	}) >= 0
 }
 
 // ContainsCert 是否包含此证书, 需要cert/key都相等
 func (c *HttpServer) ContainsCert(cert *Certificate) bool {
-	return list_utils.Find(c.certs, func(value interface{}) bool {
-		_v := value.(*Certificate)
-		return os.SameFile(cert.CertFileInfo(), _v.CertFileInfo()) && os.SameFile(cert.KeyFileInfo(), _v.KeyFileInfo())
+	return list_utils.Find(c.certs, func(value *Certificate) bool {
+		return os.SameFile(cert.CertFileInfo(), value.CertFileInfo()) && os.SameFile(cert.KeyFileInfo(), value.KeyFileInfo())
 	}) >= 0
 }
 
@@ -145,8 +144,8 @@ func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Ha
 	}
 
 	// 按照域名的特有方式进行排序
-	http_utils.SortDomains(&domainConfigs, func(v interface{}) string {
-		return v.(*DomainConfig).domain
+	http_utils.SortDomains(domainConfigs, func(v *DomainConfig) string {
+		return v.domain
 	})
 
 	c.ClearDomainCache()

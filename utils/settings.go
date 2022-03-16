@@ -19,7 +19,7 @@ import (
 // 可以传入多个文件，json、yaml可以混用，后面文件的配置会覆盖前面的配置
 // 支持(https://github.com/go-playground/validator)的校验格式，比如：struct {Url string `json:"url" validate:"required,url,min=5,max=256"`}
 // json支持hjson(https://hjson.github.io/)
-func LoadSettings(v interface{}, filenames ...string) error {
+func LoadSettings(v any, filenames ...string) error {
 	for _, filename := range filenames {
 		ext := filepath.Ext(filename)
 		if content, err := ioutil.ReadFile(filename); err != nil {
@@ -41,7 +41,7 @@ func LoadSettings(v interface{}, filenames ...string) error {
 	return validateSettings(v)
 }
 
-func validateSettings(v interface{}) error {
+func validateSettings(v any) error {
 	validate := validator.New()
 	validate.RegisterTagNameFunc(func(field reflect.StructField) string {
 		if tag, ok := field.Tag.Lookup("json"); ok && tag != "" {
@@ -76,7 +76,7 @@ func validateSettings(v interface{}) error {
 	return nil
 }
 
-func WriteSettings(v interface{}, filename string) error {
+func WriteSettings(v any, filename string) error {
 	j, err := text_utils.JsonMarshalToBytes(v)
 	if err != nil {
 		return fmt.Errorf("marshal settings json error: %w", err)

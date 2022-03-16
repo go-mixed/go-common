@@ -42,11 +42,11 @@ func emptyBefore(IController) {
 
 }
 
-func emptyAfter(c IController, v interface{}, e error) (interface{}, error) {
+func emptyAfter(c IController, v any, e error) (any, error) {
 	return v, e
 }
 
-func ControllerHandlerFunc(controllerName, methodName string, before func(IController), after func(IController, interface{}, error) (interface{}, error)) gin.HandlerFunc {
+func ControllerHandlerFunc(controllerName, methodName string, before func(IController), after func(IController, any, error) (any, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 
 		controller, err := NewController(controllerName, ctx)
@@ -78,7 +78,7 @@ func ControllerHandlerFunc(controllerName, methodName string, before func(IContr
 	}
 }
 
-func callControllerMethod(controller IController, methodName string, args ...interface{}) (interface{}, error) {
+func callControllerMethod(controller IController, methodName string, args ...any) (any, error) {
 	res, err := core.CallMethod2(controller, methodName, args...)
 
 	if !core.IsInterfaceNil(err) {

@@ -35,7 +35,7 @@ func NewHttpServer(address string, logger utils.ILogger) *Server {
 	return NewServer("http", address, logger)
 }
 
-func (s *Server) Registers(methods ...interface{}) error {
+func (s *Server) Registers(methods ...any) error {
 	for _, method := range methods {
 		if err := rpc.Register(method); err != nil {
 			return err

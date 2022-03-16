@@ -40,11 +40,11 @@ func NewFrom(defaultExpiration, cleanupInterval time.Duration, items map[string]
 	}
 }
 
-func (c *MemoryCache) SetNoExpiration(key string, value interface{}) {
+func (c *MemoryCache) SetNoExpiration(key string, value any) {
 	c.SetDefault(key, value)
 }
 
-func (c *MemoryCache) Remember(k string, expire time.Duration, callback func() (interface{}, error)) (interface{}, error) {
+func (c *MemoryCache) Remember(k string, expire time.Duration, callback func() (any, error)) (any, error) {
 	// 基于Key的锁
 	_mu, _ := c.mu.LoadOrStore(k, &sync.Mutex{})
 	mu := _mu.(*sync.Mutex)
@@ -65,19 +65,19 @@ func (c *MemoryCache) Remember(k string, expire time.Duration, callback func() (
 	}
 }
 
-func SetNoExpiration(k string, v interface{}) {
+func SetNoExpiration(k string, v any) {
 	defaultCache.Set(k, v, NoExpiration)
 }
 
-func Get(k string) (interface{}, bool) {
+func Get(k string) (any, bool) {
 	return defaultCache.Get(k)
 }
 
-func Set(k string, v interface{}, expire time.Duration) {
+func Set(k string, v any, expire time.Duration) {
 	defaultCache.Set(k, v, expire)
 }
 
-func Remember(k string, expire time.Duration, callback func() (interface{}, error)) (interface{}, error) {
+func Remember(k string, expire time.Duration, callback func() (any, error)) (any, error) {
 	return defaultCache.Remember(k, expire, callback)
 }
 

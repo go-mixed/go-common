@@ -56,10 +56,10 @@ func NewHttpClient(address string, logger utils.ILogger) (*Client, error) {
 	return NewClient("http", address, logger)
 }
 
-type Request []interface{}
-type Response []interface{}
+type Request []any
+type Response []any
 
-func (c *Client) CallArgs(methodName string, args ...interface{}) (Response, error) {
+func (c *Client) CallArgs(methodName string, args ...any) (Response, error) {
 	response := Response{}
 	if err := c.Call(methodName, args, &response); err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (c *Client) CallArgs(methodName string, args ...interface{}) (Response, err
 	return response, nil
 }
 
-func (c *Client) Call(serviceMethod string, args interface{}, reply interface{}) error {
+func (c *Client) Call(serviceMethod string, args any, reply any) error {
 	client, err := c.GetClient()
 	if err != nil {
 		return err
@@ -108,7 +108,7 @@ func (c *Client) GetClient() (*rpc.Client, error) {
 	return client.(*rpc.Client), nil
 }
 
-func (c *Client) Factory() (interface{}, error) {
+func (c *Client) Factory() (any, error) {
 	if c.network == "http" {
 		return c.dialHTTPPath("tcp", c.address, c.timeout, rpc.DefaultRPCPath)
 	}
@@ -152,11 +152,11 @@ func (c *Client) dialHTTPPath(network, address string, timeout time.Duration, pa
 	}
 }
 
-func (c *Client) PingClient(i interface{}) error {
+func (c *Client) PingClient(i any) error {
 	return nil
 }
 
-func (c *Client) CloseClient(i interface{}) error {
+func (c *Client) CloseClient(i any) error {
 	return i.(*rpc.Client).Close()
 }
 

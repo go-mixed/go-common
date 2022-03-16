@@ -83,7 +83,7 @@ func BuildMySqlDSN(dbOptions *DBOptions) string {
 	return buffer.String()
 }
 
-func AutoMigrate(dbOptions *DBOptions, zapLogger *zap.Logger, tables ...interface{}) error {
+func AutoMigrate(dbOptions *DBOptions, zapLogger *zap.Logger, tables ...any) error {
 	db, err := NewMySqlORM(dbOptions, zapLogger)
 	if err != nil {
 		return err

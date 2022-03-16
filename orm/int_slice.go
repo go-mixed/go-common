@@ -15,7 +15,7 @@ import (
 
 type Int64Slice []int64
 
-func (m *Int64Slice) Scan(value interface{}) error {
+func (m *Int64Slice) Scan(value any) error {
 	if value == nil {
 		*m = Int64Slice(nil)
 		return nil

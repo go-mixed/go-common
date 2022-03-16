@@ -2,7 +2,6 @@ package http_utils
 
 import (
 	"go-common/utils/core"
-	"go-common/utils/list"
 	"go-common/utils/text"
 	"sort"
 	"strings"
@@ -24,11 +23,10 @@ func DomainHasWildCard(d string) bool {
 }
 
 // SortDomains 对域名进行排序
-func SortDomains(src interface{}, fn func(v interface{}) string) {
-	_src := list_utils.ToInterfaces(src)
-	sort.SliceStable(_src, func(i, j int) bool {
-		d1 := strings.ToLower(fn(_src[i]))
-		d2 := strings.ToLower(fn(_src[j]))
+func SortDomains[T any](src []T, fn func(v T) string) {
+	sort.SliceStable(src, func(i, j int) bool {
+		d1 := strings.ToLower(fn(src[i]))
+		d2 := strings.ToLower(fn(src[j]))
 		l1 := len(d1)
 		l2 := len(d2)
 
@@ -59,8 +57,6 @@ func SortDomains(src interface{}, fn func(v interface{}) string) {
 
 		return l1 > l2 // 多余部分没有通配符, 此时看谁更长, 长的排到前面
 	})
-
-	_ = list_utils.InterfacesAs(_src, src)
 }
 
 func (d Domains) IsEmpty() bool {
@@ -90,8 +86,8 @@ func (d Domains) Sort() Domains {
 		return _d
 	}
 	// 按照域名的特有方式进行排序
-	SortDomains(&_d, func(v interface{}) string {
-		return v.(string)
+	SortDomains(_d, func(v string) string {
+		return v
 	})
 	return _d
 }
