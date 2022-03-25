@@ -9,7 +9,7 @@ import (
 // Find 类似slice.IndexOf, 需要传递fn来判断是否相等
 // 找不到返回-1
 func Find[T comparable](slice []T, fn func(value T) bool) int {
-	for i := 0; i <= len(slice); i++ {
+	for i := 0; i < len(slice); i++ {
 		if fn(slice[i]) {
 			return i
 		}

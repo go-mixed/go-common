@@ -86,7 +86,7 @@ var HttpReason = map[int]string{
 func ValuesToJson(values *url.Values) []byte {
 	var _values = map[string]interface{}{}
 	for key, val := range *values {
-		_values[key] = core.If(len(val) <= 1, any(val[0]), any(val))
+		_values[key] = core.IfT(len(val) <= 1, val[0], val)
 	}
 
 	buf, err := text_utils.JsonMarshalToBytes(_values)
