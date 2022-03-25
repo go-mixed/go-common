@@ -119,18 +119,7 @@ func main() {
 
 	t = time.Now()
 	for i := 0; i < 100000; i++ {
-		values = utils.MapStringKeys(c)
-	}
-	fmt.Printf("map keys: %#v %d\n", values, time.Since(t).Milliseconds())
-	t = time.Now()
-	for i := 0; i < 100000; i++ {
 		values = utils.MapValues(c)
-	}
-	fmt.Printf("map values: %#v %d\n", values, time.Since(t).Milliseconds())
-
-	t = time.Now()
-	for i := 0; i < 100000; i++ {
-		values = utils.MapStringValues(c)
 	}
 	fmt.Printf("map values: %#v %d\n", values, time.Now().Sub(t)/time.Millisecond)
 
