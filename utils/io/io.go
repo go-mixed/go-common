@@ -249,7 +249,7 @@ func Which(filename string) []string {
 
 // Unmount (强制)umount一个目录
 func Unmount(path string, force bool) error {
-	cmd := exec.Command("umount", core.If(force, "-f", "").(string), path)
+	cmd := exec.Command("umount", core.If(force, "-f", ""), path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if len(output) > 0 {

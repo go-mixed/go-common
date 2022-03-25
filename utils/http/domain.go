@@ -15,7 +15,7 @@ func DomainIndexOfWildCard(d string) int {
 	}
 	i := strings.Index(d, "*")
 	j := strings.Index(d, "?")
-	return core.If(i > j, i, j).(int)
+	return core.If(i > j, i, j)
 }
 
 func DomainHasWildCard(d string) bool {
@@ -30,7 +30,7 @@ func SortDomains[T any](src []T, fn func(v T) string) {
 		l1 := len(d1)
 		l2 := len(d2)
 
-		minLen := core.If(l1 < l2, l1, l2).(int)
+		minLen := core.If(l1 < l2, l1, l2)
 
 		// 倒着对比，谁先*, 谁拍后面
 		for i := 1; i <= minLen; i++ {

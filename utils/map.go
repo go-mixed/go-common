@@ -9,14 +9,10 @@ import (
 // MapKeys 获取map的所有keys MapKeys({1: 'a', 2: 'c'})
 func MapKeys[K comparable, V any](data map[K]V) []K {
 	keys := make([]K, 0, len(data))
-	for k, _ := range data {
+	for k := range data {
 		keys = append(keys, k)
 	}
 	return keys
-}
-
-func MapStringKeys[V any](data map[string]V) []string {
-	return MapKeys(data)
 }
 
 // MapValues 获取map的所有values MapValues({1: 'a', 2: 'c'})
@@ -26,10 +22,6 @@ func MapValues[K comparable, V any](data map[K]V) []V {
 		values = append(values, v)
 	}
 	return values
-}
-
-func MapStringValues[K comparable](data map[K]string) []string {
-	return MapValues(data)
 }
 
 func ToMap(data any, tag string) (map[string]any, error) {

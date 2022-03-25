@@ -154,7 +154,7 @@ func (c *Etcd) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (st
 		return "", nil, nil
 	}
 	var i int64
-	count := core.If(limit < int64(len(response.Kvs)), limit, int64(len(response.Kvs))).(int64)
+	count := core.If(limit < int64(len(response.Kvs)), limit, int64(len(response.Kvs)))
 	for i = 0; i < count; i++ {
 		key := string(response.Kvs[i].Key)
 		if keyPrefix == "" || strings.HasPrefix(key, keyPrefix) {

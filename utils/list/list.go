@@ -7,7 +7,6 @@ import (
 )
 
 // Find 类似slice.IndexOf, 需要传递fn来判断是否相等
-// 注意 这是反射实现的函数, 会降低运行性能
 // 找不到返回-1
 func Find[T comparable](slice []T, fn func(value T) bool) int {
 	for i := 0; i <= len(slice); i++ {
@@ -18,8 +17,7 @@ func Find[T comparable](slice []T, fn func(value T) bool) int {
 	return -1
 }
 
-// IndexOf 简化版slice.IndexOf，需要完全相等才会返回index
-// 注意: 使用反射会降低运行性能, 尽量使用: StrIndexOf, IntIndexOf
+// IndexOf 简化版slice.IndexOf
 func IndexOf[T comparable](slice []T, findMe T) int {
 	return Find(slice, func(value T) bool {
 		return value == findMe

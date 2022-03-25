@@ -11,10 +11,17 @@ import (
 )
 
 // If 类似三目运算, 但是这不是真正的三目运算, 因为不论 e为何值, a, b的表达式都会被运算, 其它语言中, e为true时, b不会运算
-// 比如: If(a != nil, a.XX, "default"), 如果a为nil, a.XX运算会导致程序会崩溃
+// 比如: If(a != nil, a.XX, "default"), 如果a为nil, a.XX运算会导致程序崩溃
 // 比如: If(e, a.fastFn(), a.SlowFn()), 不论e为何值, fastFn/SlowFn 都会被运行, 只是不返回SlowFn的值罢了
-// 此时只能 if a != nil {} else {}
-func If(e bool, a, b interface{}) interface{} {
+// 上面情况，只能 if a != nil {} else {}
+func If[T any](e bool, a, b T) T {
+	if e {
+		return a
+	}
+	return b
+}
+
+func IfT(e bool, a, b interface{}) interface{} {
 	if e {
 		if reflect.TypeOf(a).Kind() == reflect.Func {
 			return a.(func() interface{})()

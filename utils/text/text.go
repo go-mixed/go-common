@@ -81,7 +81,7 @@ func ToString(v interface{}, otherTypeAsJson bool) string {
 	case string:
 		return v.(string)
 	case bool:
-		return core.If(v.(bool), "true", "false").(string)
+		return core.If(v.(bool), "true", "false")
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, complex64, complex128:
@@ -94,7 +94,7 @@ func ToString(v interface{}, otherTypeAsJson bool) string {
 		// 针对 type ABC string 这种需要使用typeof.kind检查
 		switch reflect.TypeOf(v).Kind() {
 		case reflect.Bool:
-			return core.If(reflect.ValueOf(v).Bool(), "true", "false").(string)
+			return core.If(reflect.ValueOf(v).Bool(), "true", "false")
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 			reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
