@@ -3,7 +3,7 @@ package ip
 import (
 	"errors"
 	"fmt"
-	text_utils "go-common/utils/text"
+	"go-common/utils/text"
 	"net"
 	"strings"
 	"sync"
@@ -69,8 +69,6 @@ func (r *Ranger) RemoveIP(n *net.IPNet) error {
 }
 
 func (r *Ranger) getIndex(bit int) int {
-	r.Lock.RLock()
-	defer r.Lock.RUnlock()
 	var index = -1
 	var arr = r.Bits
 	for len(arr) > 0 {
