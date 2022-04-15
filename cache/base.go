@@ -77,7 +77,7 @@ type Cache struct {
 func NewRedisCache(client redis.UniversalClient, logger utils.ILogger, isPika bool) *Redis {
 	cache := &Redis{
 		Cache: Cache{
-			Ctx:    context.Background(),
+			Ctx:    core.If(client.Context() != nil, client.Context(), context.Background()),
 			Logger: logger,
 		},
 		RedisClient: client,
@@ -90,7 +90,7 @@ func NewRedisCache(client redis.UniversalClient, logger utils.ILogger, isPika bo
 func NewEtcdCache(client *clientv3.Client, logger utils.ILogger) *Etcd {
 	cache := &Etcd{
 		Cache: Cache{
-			Ctx:    context.Background(),
+			Ctx:    core.If(client.Ctx() != nil, client.Ctx(), context.Background()),
 			Logger: logger,
 		},
 		EtcdClient: client,

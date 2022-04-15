@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"github.com/go-redis/redis/v8"
 	"go-common/utils"
 	"go-common/utils/time"
@@ -74,6 +75,8 @@ func (c EtcdConfig) ToEtcdConfig() *clientv3.Config {
 		Logger:   utils.GetLogger(),
 		Username: c.Username,
 		Password: c.Password,
+
+		Context: context.Background(),
 	}
 }
 
