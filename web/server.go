@@ -26,8 +26,6 @@ type Certificate struct {
 	keyFileInfo  os.FileInfo
 }
 
-type Middleware func(w http.ResponseWriter, r *http.Request, nextHandler http.Handler)
-
 type DomainConfig struct {
 	domain  string
 	handler http.Handler
@@ -46,12 +44,10 @@ type HttpServer struct {
 	*HttpServerOptions
 
 	orderedDomainConfigs []*DomainConfig
-	middleware           []Middleware
-	// 真正执行的handler入口
-	handlerStack http.Handler
-	certs        []*Certificate
-	mu           sync.Mutex
-	logger       utils.ILogger
+	middleware           *MiddlewarePipeline
+	certs                []*Certificate
+	mu                   sync.Mutex
+	logger               utils.ILogger
 	// 为了加快命中, 当有访问时，会将请求域名所指向的handler缓存到lru中
 	domainCache *lru.TwoQueueCache
 }
@@ -65,7 +61,7 @@ func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
 		logger:               utils.NewDefaultLogger(),
 		domainCache:          cache,
 	}
-	s.handlerStack = s.defaultHandlerFunc() // 最后的handler
+	s.middleware = NewMiddlewarePipeline(s.controllerHandlerFunc())
 	return s
 }
 
@@ -155,41 +151,23 @@ func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Ha
 }
 
 // Use 添加中间件
-// 这种嵌套方式的中间件, 可以运行在controller前, 也可以运行在controller后
-// 运行在 controller 前
-// Use(func(w, r, next) {
-// 		r.Path = "/abc" + r.Path // 修改path
-//      next.ServeHTTP(w, r)
-// }
-// controller 后
-// Use(func(w, r, next) {
-//      next.ServeHTTP(w, r) // 先运行
-// 		w.Write(...)
-// }
+//  这种嵌套方式的中间件, 可以运行在controller前, 也可以运行在controller后
+// - 运行在 controller 前，一般为修改request的数据
+//  Use(func(w, r, next) {
+//       r.Path = "/abc" + r.Path // 修改path
+//       next.ServeHTTP(w, r)
+//  }
+// - 运行在 controller 后，一般为修改response的数据
+//  Use(func(w, r, next) {
+//      next.ServeHTTP(w, r) // 先运行controller
+// 	    w.Write(...)
+//  }
 //
 func (c *HttpServer) Use(fn ...Middleware) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.middleware = append(c.middleware, fn...)
-
-	// 倒着创建中间件管道
-	// 嵌套顺序为
-	// c.handlerStack = func m1(w, r) {
-	//    func m2(w, r) {
-	//        c.defaultHandlerFunc()(w, r)
-	//    }(w, r)
-	// }
-	var last = c.defaultHandlerFunc()
-	for i := len(c.middleware) - 1; i >= 0; i-- {
-		func(_last http.HandlerFunc, m Middleware) {
-			last = func(w http.ResponseWriter, r *http.Request) {
-				m(w, r, _last)
-			}
-		}(last, c.middleware[i])
-	}
-
-	c.handlerStack = last
+	c.middleware.Push(fn...)
 }
 
 func (c *HttpServer) SetLogger(logger utils.ILogger) {
@@ -288,7 +266,7 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 	})
 }
 
-func (c *HttpServer) defaultHandlerFunc() http.HandlerFunc {
+func (c *HttpServer) controllerHandlerFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		domain := http_utils.DomainFromRequestHost(r.Host)
 		if domainConfig := c.MatchDomain(domain); domainConfig != nil {
@@ -299,7 +277,7 @@ func (c *HttpServer) defaultHandlerFunc() http.HandlerFunc {
 
 // ServeHTTP HTTP入口函数，匹配域名之后 分发到不同handler
 func (c *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c.handlerStack.ServeHTTP(w, r)
+	c.middleware.Copy().ServeHTTP(w, r)
 }
 
 func (c *HttpServer) BuildServer() *http.Server {
