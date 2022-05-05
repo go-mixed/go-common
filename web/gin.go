@@ -30,6 +30,12 @@ func DefaultGinOptions(debug, registerPprof bool) *GinOptions {
 	}
 }
 
+func (o *GinOptions) NoResources() {
+	o.HTMLTemplatePath = ""
+	o.StaticPath = ""
+	o.StaticFiles = map[string]string{}
+}
+
 func NewGinEngine(options *GinOptions) *gin.Engine {
 	logger := utils.GetLogger()
 

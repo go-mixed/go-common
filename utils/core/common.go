@@ -3,11 +3,8 @@ package core
 import (
 	"fmt"
 	"go-common/utils/conv"
-	"io/ioutil"
-	"os"
 	"reflect"
 	"runtime"
-	"strings"
 )
 
 // If 类似三目运算, 但是这不是真正的三目运算, 因为不论 e为何值, a, b的表达式都会被运算, 其它语言中, e为true时, b不会运算
@@ -59,7 +56,7 @@ func GetFrame(skipFrames int) runtime.Frame {
 }
 
 // IsInterfaceNil 指针是否为nil
-func IsInterfaceNil(v interface{}) bool {
+func IsInterfaceNil(v any) bool {
 	if v == nil {
 		return true
 	}
@@ -70,7 +67,7 @@ func IsInterfaceNil(v interface{}) bool {
 // NestAccess 递归访问map/struct/slice
 // keys 是递归的key
 // 比如: NestAccess({"a": {"b": [{"c": "string"}]}}, "a", "b", "0", "c")  ==> string
-func NestAccess(from interface{}, keys ...string) (interface{}, error) {
+func NestAccess(from any, keys ...string) (interface{}, error) {
 	valueOf := reflect.ValueOf(from)
 	for _i, k := range keys {
 		if valueOf.IsNil() {
@@ -96,38 +93,4 @@ func NestAccess(from interface{}, keys ...string) (interface{}, error) {
 	}
 
 	return valueOf.Interface(), nil
-}
-
-// IsInWSL 是否运行在WSL中
-func IsInWSL() bool {
-	if runtime.GOOS == "linux" {
-		if f, err := os.Open("/proc/version"); err != nil {
-			return false
-		} else {
-			defer f.Close()
-			if content, err := ioutil.ReadAll(f); err != nil {
-				return false
-			} else {
-				return strings.Contains(strings.ToLower(string(content)), "microsoft")
-			}
-		}
-	}
-	return false
-}
-
-// IsInWSL2 是否运行在WSL2中
-func IsInWSL2() bool {
-	if runtime.GOOS == "linux" {
-		if f, err := os.Open("/proc/version"); err != nil {
-			return false
-		} else {
-			defer f.Close()
-			if content, err := ioutil.ReadAll(f); err != nil {
-				return false
-			} else {
-				return strings.Contains(strings.ToLower(string(content)), "wsl2")
-			}
-		}
-	}
-	return false
 }

@@ -10,12 +10,12 @@ type Middleware func(w http.ResponseWriter, r *http.Request, nextHandler http.Ha
 type MiddlewarePipeline struct {
 	pipeline *list.List
 
-	controllerHandler http.HandlerFunc
+	controllerHandler http.Handler
 
 	current *list.Element
 }
 
-func NewMiddlewarePipeline(controllerHandler http.HandlerFunc) *MiddlewarePipeline {
+func NewMiddlewarePipeline(controllerHandler http.Handler) *MiddlewarePipeline {
 	ls := list.New()
 
 	return &MiddlewarePipeline{
@@ -36,7 +36,9 @@ func (m *MiddlewarePipeline) GetPipeline() *list.List {
 }
 
 // Copy 每个http的会话都必须是单独一份copy, 即 middlewarePipeline.Copy().ServeHTTP(w, h)
-func (m *MiddlewarePipeline) Copy() *MiddlewarePipeline {
+//
+// 返回http.Handler是为了隐藏Push方法，避免pipeline被修改
+func (m *MiddlewarePipeline) Copy() http.Handler {
 	return &MiddlewarePipeline{
 		pipeline:          m.pipeline,
 		controllerHandler: m.controllerHandler,

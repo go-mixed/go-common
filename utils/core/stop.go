@@ -1,6 +1,11 @@
 package core
 
-import "context"
+import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+)
 
 // IsStopped 通道是否已经停止或close, 非阻塞,
 // 如果有多个通道, 任意一个通道停止都会返回true
@@ -106,4 +111,16 @@ func StopChanToContext(stopChan <-chan struct{}) (context.Context, context.Cance
 	}()
 
 	return ctx, cancel
+}
+
+func ListenStopSignal(cancel context.CancelFunc) {
+	go func() {
+		exitSign := make(chan os.Signal)
+		signal.Notify(exitSign, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+		select {
+		case <-exitSign:
+			cancel()
+		}
+	}()
 }
