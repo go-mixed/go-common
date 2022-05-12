@@ -55,7 +55,7 @@ func NewExecutorParams(NumWorkers int, ShutdownTimeout time.Duration, Name strin
 }
 
 type Executor struct {
-	wg      *sync.WaitGroup
+	wg      *core.WaitGroup // 一个可以Clear的WaitGroup
 	mu      *sync.Mutex
 	params  *Params // 参数
 	stopped bool    // 任务池是否已经停止了
@@ -88,7 +88,7 @@ func NewExecutorContext(ctx context.Context, params Params, logger utils.ILogger
 		mu:          &sync.Mutex{},
 		params:      &params,
 		stopped:     false,
-		wg:          &sync.WaitGroup{},
+		wg:          &core.WaitGroup{},
 		rootContext: stopCtx,
 		rootCancel:  cancel,
 
@@ -169,7 +169,7 @@ func (e *Executor) StopWithTimeout(timeout time.Duration) {
 	}
 
 	e.stopped = true
-	e.rootCancel() // cancel所有任务
+	e.rootCancel() // 发送cancel指令到正在执行的任务中
 	e.mu.Unlock()
 
 	var needStoppingJobCount = e.runningJobs.Len()
@@ -191,11 +191,9 @@ func (e *Executor) StopWithTimeout(timeout time.Duration) {
 			case <-afterC: // 如果超时仍然有任务在运行
 				stillRunningJobCount = e.runningJobs.Len()
 
-				// 清理正在任务，让下方的 Wait 解除阻塞
-				// 如果该任务无法自行停止，会导致泄露
-				for i := 0; i < stillRunningJobCount; i++ {
-					e.onJobDone(nil)
-				}
+				// 清理wg，让下方e.Wait解除阻塞
+				// 正在运行的任务将不可控，如果某个任务无法自行停止，会导致泄露
+				e.wg.Clear()
 
 				e.logger.Infof("[%s]stop incorrect, %d job(s) still running.", e.params.Name, stillRunningJobCount)
 				return // 退出协程
@@ -272,17 +270,15 @@ func (e *Executor) invokeJob(job *Job) {
 }
 
 // 任务结束时候的回调
-// 会触发runNext，以便让空闲任务池获得任务
+// 会触发 runNextJob 让空闲任务池获得任务
 func (e *Executor) onJobDone(job *Job) {
 	// 在正在运行的任务中删除此job
-	if job != nil {
-		if !job.IsComplete() {
-			e.logger.Warnf("task force quit with timeout: %.3fs, job submitted by \"%s\" in %s:%d ", job.runningTimeout.Seconds(), job.frame.Function, job.frame.File, job.frame.Line)
-		}
-		e.runningJobs.Remove(job)
+	if !job.IsComplete() {
+		e.logger.Warnf("task force quit with timeout: %.3fs, job submitted by \"%s\" in %s:%d ", job.runningTimeout.Seconds(), job.frame.Function, job.frame.File, job.frame.Line)
 	}
+	e.runningJobs.Remove(job)
 
-	e.runNextJob()
+	e.runNextJob() // 执行下一个任务
 
 	e.wg.Done() // 必须在新任务已经派发后才能Done，也runNextJob之后，不然会导致Wait过早退出
 }
