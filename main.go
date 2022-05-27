@@ -37,6 +37,9 @@ func main() {
 
 	fmt.Printf("indexOf any: %d\n", list_utils.IndexOf([]string{"1", "2"}, "2"))
 
+	dirs, _ := io_utils.GetDirectories(io_utils.GetCurrentDir(), 2)
+	fmt.Printf("dirs: %v\n", dirs)
+
 	domains := http_utils.Domains{
 		"*.b.com",
 		"b.com",

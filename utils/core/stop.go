@@ -113,14 +113,31 @@ func StopChanToContext(stopChan <-chan struct{}) (context.Context, context.Cance
 	return ctx, cancel
 }
 
-func ListenStopSignal(cancel context.CancelFunc) {
+// ListenStopSignal 监听进程退出信号, 结束时回调exitCallback
+//  例子:
+//  ctx, cancel := context.WithCancel(context.Background())
+//  defer cancel()
+//  ListenStopSignal(ctx, cancel)
+func ListenStopSignal(ctx context.Context, exitCallback context.CancelFunc) {
 	go func() {
 		exitSign := make(chan os.Signal)
+		//监听指定信号: 终端断开, ctrl+c, kill, ctrl+/
 		signal.Notify(exitSign, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+		defer close(exitSign)
 
 		select {
+		case <-ctx.Done():
+			// 正常退出协程
 		case <-exitSign:
-			cancel()
+			exitCallback()
 		}
+	}()
+}
+
+// ListenContext 监听ctx.Done, 结束时回调exitCallback
+func ListenContext(ctx context.Context, exitCallback context.CancelFunc) {
+	go func() {
+		WaitForStopped(ctx.Done())
+		exitCallback()
 	}()
 }

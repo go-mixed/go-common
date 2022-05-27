@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
 	"go-common/utils"
@@ -50,6 +51,9 @@ type HttpServer struct {
 	logger               utils.ILogger
 	// 为了加快命中, 当有访问时，会将请求域名所指向的handler缓存到lru中
 	domainCache *lru.TwoQueueCache
+	// 内部运行的http.Server
+	nativeHttpServer *http.Server
+	mainCtxCancel    context.CancelFunc
 }
 
 func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
@@ -292,34 +296,31 @@ func (c *HttpServer) BuildServer() *http.Server {
 	}
 }
 
-// Run 对外主函数, 用于运行http(s) server，函数监听ctx.Done()来停止服务器
-// 如果ctx为nil, 则自动监听Ctrl+C或者进程结束信号来结束server
+// Run 对外主函数, 用于运行http(s) server
+// 关闭可以通过 Close(), 或者Ctrl+C之类的进程结束信号, 或者传入ctx来控制
+// 停止后, 可以再次运行。
 func (c *HttpServer) Run(ctx context.Context, configServerFunc func(server *http.Server) error) error {
 
-	server := c.BuildServer()
+	if c.nativeHttpServer != nil {
+		return errors.New("server is already running")
+	}
 
-	go func() {
-		select {
-		case <-c.listenContext(ctx).Done():
-		}
+	c.nativeHttpServer = c.BuildServer()
 
-		if err := server.Close(); err != nil {
-			c.logger.Fatalf("Server closed: %s", err.Error())
-		}
-	}()
+	_, c.mainCtxCancel = c.listenContext(ctx)
 
 	// 启动http server
 	if !c.IsTLS() {
 
 		if configServerFunc != nil {
-			if err := configServerFunc(server); err != nil {
+			if err := configServerFunc(c.nativeHttpServer); err != nil {
 				return err
 			}
 		}
 
 		c.logger.Infof("Start http server on %s", c.GetHost())
 
-		if err := server.ListenAndServe(); err != nil {
+		if err := c.nativeHttpServer.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
 				c.logger.Info("http server closed")
 			} else {
@@ -328,19 +329,19 @@ func (c *HttpServer) Run(ctx context.Context, configServerFunc func(server *http
 		}
 	} else { // 启动https server
 		//
-		if err := SetServerTLSCerts(server, c.GetCertificates()); err != nil {
+		if err := SetServerTLSCerts(c.nativeHttpServer, c.GetCertificates()); err != nil {
 			return err
 		}
 
 		if configServerFunc != nil {
-			if err := configServerFunc(server); err != nil {
+			if err := configServerFunc(c.nativeHttpServer); err != nil {
 				return err
 			}
 		}
 
 		c.logger.Infof("Start https server on %s", c.GetHost())
 
-		if err := server.ListenAndServeTLS("", ""); err != nil {
+		if err := c.nativeHttpServer.ListenAndServeTLS("", ""); err != nil {
 			if err == http.ErrServerClosed {
 				c.logger.Info("https server closed")
 			} else {
@@ -352,24 +353,54 @@ func (c *HttpServer) Run(ctx context.Context, configServerFunc func(server *http
 	return nil
 }
 
-// 监听停止信号, ctx为nil时只收听进程退出信号
-func (c *HttpServer) listenContext(ctx context.Context) context.Context {
-	if ctx == nil {
-		ctx1, cancel := context.WithCancel(context.Background())
-		termChan := make(chan os.Signal)
-		//监听指定信号: 终端断开, ctrl+c, kill, ctrl+/
-		signal.Notify(termChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-		go func() {
-			select {
-			case <-termChan:
-				c.logger.Info("exit signal of process received.")
-				cancel()
-			}
-		}()
-		return ctx1
-	} else {
-		return ctx
+// Close 关闭服务器
+func (c *HttpServer) Close() error {
+	if c.mainCtxCancel != nil {
+		// 释放listenContext中阻塞的协程
+		c.mainCtxCancel()
+		c.mainCtxCancel = nil
 	}
+
+	if c.nativeHttpServer != nil {
+		if err := c.nativeHttpServer.Close(); err != nil {
+			c.logger.Fatalf("Server closed: %s", err.Error())
+			return err
+		}
+		c.nativeHttpServer = nil
+	}
+
+	return nil
+}
+
+// 监听停止信号, ctx为nil时仅仅收听进程退出信号
+// 返回一对新的ctx, 用于退出函数内的协程
+func (c *HttpServer) listenContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	// 新建这个context是为了在主动执行Close的情况下, 让下面的协程能正常退出
+	runningCtx, runningCancel := context.WithCancel(context.Background())
+	if ctx == nil { // 为空则赋值一个默认context
+		ctx = context.Background()
+	}
+
+	//监听指定信号: 终端断开, ctrl+c, kill, ctrl+/
+	exitSign := make(chan os.Signal)
+	signal.Notify(exitSign, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	go func() {
+		defer close(exitSign)
+		defer runningCancel() // 避免泄露
+
+		select {
+		case <-exitSign: // 退出信号
+			c.logger.Info("exit signal of process received.")
+			_ = c.Close()
+		case <-ctx.Done(): // 监控到ctx退出
+			_ = c.Close()
+		case <-runningCtx.Done(): // 这里被是被 Close 触发, 只是为了退出本协程, 避免协程一直阻塞
+		}
+
+	}()
+
+	return runningCtx, runningCancel
 }
 
 // SetServerTLSCerts 给http.Server{}一次添加多个TLS证书

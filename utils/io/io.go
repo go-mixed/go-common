@@ -262,7 +262,7 @@ func Unmount(path string, force bool) error {
 	return nil
 }
 
-// MakePathFromRelative 当path是相对路径是, 添加prefix在path之前, 如果path是绝对路径, 直接返回path
+// MakePathFromRelative 当path是相对路径时, 添加prefix在path之前, 如果path是绝对路径, 直接返回path
 // prefix默认为程序当前目录
 func MakePathFromRelative(prefix, path string) string {
 	if filepath.IsAbs(path) {
@@ -273,4 +273,39 @@ func MakePathFromRelative(prefix, path string) string {
 		}
 		return filepath.Join(prefix, path)
 	}
+}
+
+// GetDirectories 获取文件夹的路径列表
+//  level = 0 返回空列表
+//  level >= 1 返回level层子目录
+//  level <= -1 返回所有子目录
+func GetDirectories(rootPath string, level int) ([]string, error) {
+	if level == 0 {
+		return nil, nil
+	}
+	var ls []string
+
+	dirs, err := os.ReadDir(rootPath)
+	if err != nil {
+		return nil, err
+	}
+
+	rootPath, _ = filepath.Abs(rootPath)
+
+	for _, dir := range dirs {
+		if dir.IsDir() {
+			aPath := filepath.Join(rootPath, dir.Name())
+			ls = append(ls, aPath)
+
+			if level > 1 || level <= -1 {
+				newLs, err := GetDirectories(aPath, level-1)
+				if err != nil {
+					return nil, err
+				}
+				ls = append(ls, newLs...)
+			}
+		}
+	}
+
+	return ls, nil
 }
