@@ -4,11 +4,11 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"go.uber.org/multierr"
 	"hash"
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 )
 
 type MultipartFileReader struct {
@@ -204,13 +204,14 @@ func (r *MultipartFileReader) Checksums(into []byte) []byte {
 	return r.hash.Sum(into)
 }
 
+// Close 关闭文件
 func (r *MultipartFileReader) Close() error {
-	var errs []string
+	var errs error
 	for i := range r.files {
 		err := r.closeFile(i)
 		if err != nil {
-			errs = append(errs, err.Error())
+			errs = multierr.Append(errs, err)
 		}
 	}
-	return fmt.Errorf(strings.Join(errs, "\n"))
+	return errs
 }

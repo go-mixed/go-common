@@ -34,10 +34,29 @@ func RemoveCommentReader(reader io.Reader) (newReader io.Reader) {
 	return
 }
 
+// ReadFile 快速读取文件
+func ReadFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return io.ReadAll(f)
+}
+
+// BytesToReaderWithCloser []byte转换为一个带close的reader
 func BytesToReaderWithCloser(_bytes []byte) io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewBuffer(_bytes))
 }
 
+// ReadAndRestoreReader 读取reader的全部内容，并重新赋值给一个[]byte的reader，只建议用于可判断的小文件
+//  应用场景：
+//  response, _ = http.Get(...)
+//  content = ReadAndRestoreReader(&response.Body) // 这行有点入侵的意思，即获得了内容，又让下文可以继续操作response.Body
+//
+//  response.Body.Read(...)
+//  response.Body.Close()
 func ReadAndRestoreReader(reader *io.ReadCloser) []byte {
 	if reader == nil {
 		return nil
@@ -117,6 +136,7 @@ func IsExecutable(path string) bool {
 	return false
 }
 
+// FileSize 文件大小
 func FileSize(path string) int64 {
 	stat, err := os.Stat(path)
 	if err != nil {
@@ -125,6 +145,7 @@ func FileSize(path string) int64 {
 	return stat.Size()
 }
 
+// FileMode 文件的权限，比如0755
 func FileMode(path string) os.FileMode {
 	if stat, err := os.Stat(path); err != nil {
 		return 0
@@ -182,6 +203,7 @@ func CopyFile(sourcePath, destPath string) error {
 	return nil
 }
 
+// MustMkdirAll 不论文件夹是否存在，都能够创建文件夹（存在时，os.MkdirAll会报错）
 func MustMkdirAll(path string, perm os.FileMode) error {
 	// 目录存在
 	if PathExists(path) {

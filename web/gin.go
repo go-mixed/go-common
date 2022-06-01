@@ -22,7 +22,7 @@ func DefaultGinOptions(debug, registerPprof bool) *GinOptions {
 	return &GinOptions{
 		Debug:            debug,
 		RegisterPprof:    registerPprof,
-		HTMLTemplatePath: filepath.Join(currentDir, "resources/views/**/*"),
+		HTMLTemplatePath: filepath.Join(currentDir, "resources/views/**/*.html"),
 		StaticPath:       filepath.Join(currentDir, "resources/assets"),
 		StaticFiles: map[string]string{
 			"/favicon.ico": filepath.Join(currentDir, "resources/assets/img/favicon.ico"),
