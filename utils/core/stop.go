@@ -115,9 +115,16 @@ func StopChanToContext(stopChan <-chan struct{}) (context.Context, context.Cance
 
 // ListenStopSignal 监听进程退出信号, 结束时回调exitCallback
 //  例子:
-//  ctx, cancel := context.WithCancel(context.Background())
-//  defer cancel()
-//  ListenStopSignal(ctx, cancel)
+//  如下为正确做法，除了监听信号会退出ListenStopSignal的协程，在runXXX因为其它原因退出时，也会反向触发停止监听信号，并退出ListenStopSignal协程
+//  func runXXX() {
+//  	ctx, cancel := context.WithCancel(context.Background())
+//  	defer cancel()
+//  	ListenStopSignal(ctx, cancel)
+//      redis.Keys(ctx, "*") // ctrl+c，会停止redis的任务
+//  }
+//
+//  如果不像上面那么做，ListenStopSignal的协程会阻塞到监听到信号或进程退出：
+//  ListenStopSignal(context.Background(), func(){})
 func ListenStopSignal(ctx context.Context, exitCallback context.CancelFunc) {
 	go func() {
 		exitSign := make(chan os.Signal)
