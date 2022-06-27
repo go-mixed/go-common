@@ -43,5 +43,9 @@ func cleanSockFile(unixSockFile string) string {
 }
 
 func GetUdsFile(file string) string {
-	return filepath.Join(io_utils.GetCurrentDir(), "run", file+".sock")
+	p := os.Getenv("RUN_DIRECTORY")
+	if p == "" {
+		p = filepath.Join(io_utils.GetCurrentDir(), "run")
+	}
+	return filepath.Join(p, file+".sock")
 }
