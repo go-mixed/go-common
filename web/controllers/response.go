@@ -2,19 +2,12 @@ package controllers
 
 import (
 	"fmt"
+	"go-common/utils"
 	"go-common/utils/core"
 	"go-common/utils/text"
 	"io"
 	"io/ioutil"
 )
-
-type Result struct {
-	Code     any     `json:"code"`
-	Message  string  `json:"message,omitempty"`
-	Data     any     `json:"data,omitempty"`
-	Duration float64 `json:"duration"`
-	At       int64   `json:"at"`
-}
 
 type IResponseException interface {
 	error
@@ -69,8 +62,8 @@ func (e *ResponseException) SetMessage(message string) {
 }
 
 // ParseResult 读取JSON内容解析为 Result, 并且解析 Result.Data 为 outData
-func ParseResult(j []byte, outData any) (*Result, error) {
-	result := &Result{}
+func ParseResult(j []byte, outData any) (*utils.Result, error) {
+	result := &utils.Result{}
 	if err := text_utils.JsonUnmarshalFromBytes(j, result); err != nil {
 		return nil, err
 	}
@@ -87,7 +80,7 @@ func ParseResult(j []byte, outData any) (*Result, error) {
 
 // ParseResultFromReader 从reader中读取JSON内容并解析为 Result, 并且解析 Result.Data 为 outData
 // 会关闭reader
-func ParseResultFromReader(reader io.ReadCloser, outData any) (*Result, error) {
+func ParseResultFromReader(reader io.ReadCloser, outData any) (*utils.Result, error) {
 	defer reader.Close()
 
 	j, err := ioutil.ReadAll(reader)
