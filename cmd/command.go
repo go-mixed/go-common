@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/mattn/go-shellwords"
 	"io"
 	"os"
 	"os/exec"
@@ -17,7 +18,7 @@ import (
 // Command represents a single command which can be executed
 type Command struct {
 	Path string
-	Args []string
+	Args ShellCommand
 
 	Env          []string
 	Timeout      time.Duration
@@ -30,7 +31,12 @@ type Command struct {
 	stderr   bytes.Buffer
 	stdout   bytes.Buffer
 	combined bytes.Buffer
+
+	// run the command of host os in docker
+	privilegedInDocker bool
 }
+
+type ShellCommand []string
 
 // EnvVars represents a map where the key is the name of the env variable
 // and the value is the value of the variable
@@ -154,6 +160,14 @@ func WithEnvironmentVariables(env EnvVars) func(c *Command) {
 	}
 }
 
+// WithPrivilegedInDocker will prepend `"nsenter", "-t", "1", "-m", "-u", "-n", "-i"` to command
+//  only work on linux/darwin, ignore it on Windows
+func WithPrivilegedInDocker(enabled bool) func(c *Command) {
+	return func(c *Command) {
+		c.privilegedInDocker = enabled
+	}
+}
+
 func (c *Command) IsExecutable() bool {
 	fileInfo, err := os.Stat(c.Path)
 	if err != nil || fileInfo.IsDir() {
@@ -232,7 +246,7 @@ func (c *Command) ExecuteContext(ctx context.Context) error {
 		defer cancel()
 	}
 
-	cmd := createBaseCommand(c, ctx)
+	cmd := c.buildCommandContext(ctx)
 	cmd.Env = c.Env
 	cmd.Stdout = c.StdoutWriter
 	cmd.Stderr = c.StderrWriter
@@ -280,6 +294,21 @@ func (c *Command) getExitCode(err error) {
 }
 
 func (c *Command) String() string {
-	cmd := createBaseCommand(c, context.TODO())
+	cmd := c.buildCommandContext(context.TODO())
 	return cmd.String()
+}
+
+func (c *Command) buildCommandContext(ctx context.Context) *exec.Cmd {
+	prefix := getCommandPrefix(c)
+	var shell ShellCommand
+	// 將原c.Path字符串解析為ShellCommand
+	if newCommand, err := shellwords.Parse(c.Path); err != nil {
+		shell = append(prefix, c.Path) // 無法解析，保持原樣
+	} else {
+		shell = append(prefix, newCommand...)
+	}
+	// 添加原args到指令末尾
+	shell = append(shell, c.Args...)
+
+	return exec.CommandContext(ctx, shell[0], shell[1:]...)
 }

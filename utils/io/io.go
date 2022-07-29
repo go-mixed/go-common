@@ -203,24 +203,6 @@ func CopyFile(sourcePath, destPath string) error {
 	return nil
 }
 
-// MustMkdirAll 不论文件夹是否存在，都能够创建文件夹（存在时，os.MkdirAll会报错）
-func MustMkdirAll(path string, perm os.FileMode) error {
-	// 目录存在
-	if PathExists(path) {
-		if IsDir(path) {
-			if perm > 0 {
-				return os.Chmod(path, perm)
-			} else {
-				return nil
-			}
-		} else {
-			return fmt.Errorf("can not make directory, because the path of \"%s\" is a file", path)
-		}
-	}
-
-	return os.MkdirAll(path, perm)
-}
-
 // Md5 文件的MD5值
 func Md5(path string) (string, error) {
 	file, err := os.Open(path)
@@ -297,7 +279,7 @@ func MakePathFromRelative(prefix, path string) string {
 	}
 }
 
-// GetDirectories 获取文件夹的路径列表
+// GetDirectories 获取rootPath的子文件夹的路径列表，僅有文件夾
 //  level = 0 返回空列表
 //  level >= 1 返回level层子目录
 //  level <= -1 返回所有子目录
@@ -307,16 +289,16 @@ func GetDirectories(rootPath string, level int) ([]string, error) {
 	}
 	var ls []string
 
-	dirs, err := os.ReadDir(rootPath)
+	rootPath, _ = filepath.Abs(rootPath)
+
+	files, err := os.ReadDir(rootPath)
 	if err != nil {
 		return nil, err
 	}
 
-	rootPath, _ = filepath.Abs(rootPath)
-
-	for _, dir := range dirs {
-		if dir.IsDir() {
-			aPath := filepath.Join(rootPath, dir.Name())
+	for _, entry := range files {
+		if entry.IsDir() {
+			aPath := filepath.Join(rootPath, entry.Name())
 			ls = append(ls, aPath)
 
 			if level > 1 || level <= -1 {
@@ -326,6 +308,42 @@ func GetDirectories(rootPath string, level int) ([]string, error) {
 				}
 				ls = append(ls, newLs...)
 			}
+		}
+	}
+
+	return ls, nil
+}
+
+// GetFiles 获取rootPath下所有文件的路径列表，僅有文件，無文件夾
+//  level = 0 返回空列表
+//  level >= 1 返回level层子目录的文件
+//  level <= -1 返回所有子目录的文件
+func GetFiles(rootPath string, level int) ([]string, error) {
+	if level == 0 {
+		return nil, nil
+	}
+	var ls []string
+
+	rootPath, _ = filepath.Abs(rootPath)
+
+	files, err := os.ReadDir(rootPath)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range files {
+		aPath := filepath.Join(rootPath, entry.Name())
+
+		if entry.IsDir() {
+			if level > 1 || level <= -1 {
+				newLs, err := GetFiles(aPath, level-1)
+				if err != nil {
+					return nil, err
+				}
+				ls = append(ls, newLs...)
+			}
+		} else {
+			ls = append(ls, aPath)
 		}
 	}
 

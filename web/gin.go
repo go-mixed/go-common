@@ -3,8 +3,8 @@ package web
 import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"go-common/utils"
 	"go-common/utils/io"
+	"go.uber.org/zap"
 	"path/filepath"
 	"time"
 )
@@ -36,8 +36,7 @@ func (o *GinOptions) NoResources() {
 	o.StaticFiles = map[string]string{}
 }
 
-func NewGinEngine(options *GinOptions) *gin.Engine {
-	logger := utils.GetLogger()
+func NewGinEngine(options *GinOptions, logger *zap.Logger) *gin.Engine {
 
 	router := gin.Default()
 	if !options.Debug {

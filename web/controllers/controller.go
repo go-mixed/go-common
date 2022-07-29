@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go-common/utils"
 	"io"
 	"net/http"
 	"time"
@@ -35,7 +36,7 @@ func (c *Controller) ErrorResponse(err error, data any) {
 	_err := c.EnsureErrorResponse(err)
 
 	c.Context.Abort()
-	c.Context.JSON(_err.GetStatusCode(), Result{
+	c.Context.JSON(_err.GetStatusCode(), utils.Result{
 		Code:     _err.GetCode(),
 		Message:  _err.GetMessage(),
 		Data:     data,
@@ -49,7 +50,7 @@ func (c *Controller) SuccessResponse(code, data any) {
 
 	duration := time.Now().Sub(c.Context.GetTime("request_at"))
 
-	c.Context.JSON(200, Result{
+	c.Context.JSON(200, utils.Result{
 		Code:     code,
 		Message:  "",
 		Data:     data,

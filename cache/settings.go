@@ -3,9 +3,9 @@ package cache
 import (
 	"context"
 	"github.com/go-redis/redis/v8"
-	"go-common/utils"
 	"go-common/utils/time"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -64,7 +64,7 @@ func (o *RedisOptions) ToRedisUniversalOptions() *redis.UniversalOptions {
 	}
 }
 
-func (c EtcdConfig) ToEtcdConfig() *clientv3.Config {
+func (c EtcdConfig) ToEtcdConfig(logger *zap.Logger) *clientv3.Config {
 	return &clientv3.Config{
 		Endpoints:            c.Endpoints,
 		AutoSyncInterval:     c.AutoSyncInterval.ToDuration(),
@@ -72,7 +72,7 @@ func (c EtcdConfig) ToEtcdConfig() *clientv3.Config {
 		DialKeepAliveTime:    c.DialKeepAliveTime.ToDuration(),
 		DialKeepAliveTimeout: c.DialKeepAliveTimeout.ToDuration(),
 
-		Logger:   utils.GetLogger(),
+		Logger:   logger,
 		Username: c.Username,
 		Password: c.Password,
 
