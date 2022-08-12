@@ -13,7 +13,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
+
+// Config is config setting for Ginzap
+type Config struct {
+	TimeFormat string
+	UTC        bool
+	SkipPaths  []string
+}
 
 // GinZap returns a gin.HandlerFunc (middleware) that logs requests using uber-go/zap.
 //
@@ -21,41 +29,60 @@ import (
 // Requests without errors are logged using zap.Info().
 //
 // It receives:
-//   1. A time package format string (e.g. time.RFC3339).
-//   2. A boolean stating whether to use UTC time zone or local.
+//  1. A time package format string (e.g. time.RFC3339).
+//  2. A boolean stating whether to use UTC time zone or local.
 func GinZap(logger *zap.Logger, timeFormat string, utc bool) gin.HandlerFunc {
+	return GinzapWithConfig(logger, &Config{TimeFormat: timeFormat, UTC: utc})
+}
+
+// GinzapWithConfig returns a gin.HandlerFunc using configs
+func GinzapWithConfig(logger *zap.Logger, conf *Config) gin.HandlerFunc {
+	skipPaths := make(map[string]bool, len(conf.SkipPaths))
+	for _, path := range conf.SkipPaths {
+		skipPaths[path] = true
+	}
+	iLogger := logger.Sugar()
 	return func(c *gin.Context) {
 		start := time.Now()
 		// some evil middlewares modify this values
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
-
 		c.Next()
 
-		latency := time.Since(start)
-		end := time.Now()
-		if utc {
-			end = end.UTC()
-		}
-
-		if len(c.Errors) > 0 {
-			// Append error field if this is an erroneous request.
-			for _, e := range c.Errors.Errors() {
-				logger.Error(e)
+		if _, ok := skipPaths[path]; !ok {
+			end := time.Now()
+			latency := end.Sub(start)
+			if conf.UTC {
+				end = end.UTC()
 			}
-		} else {
-			logger.Debug(path,
-				zap.Int("status", c.Writer.Status()),
-				zap.String("method", c.Request.Method),
-				zap.String("path", path),
-				zap.String("query", query),
-				zap.String("ip", c.ClientIP()),
-				zap.String("user-agent", c.Request.UserAgent()),
-				zap.Any("request-headers", c.Request.Header),
-				zap.Any("response-headers", c.Writer.Header()),
-				zap.String("time", end.Format(timeFormat)),
-				zap.Duration("latency", latency),
-			)
+
+			if len(c.Errors) > 0 {
+				// Append error field if this is an erroneous request.
+				for _, e := range c.Errors.Errors() {
+					logger.Error(e)
+				}
+			} else {
+				// 输出允许Debug，输出详细信息
+				if ce := logger.Check(zap.DebugLevel, path); ce != nil {
+					fields := []zapcore.Field{
+						zap.Int("status", c.Writer.Status()),
+						zap.String("method", c.Request.Method),
+						zap.String("path", path),
+						zap.String("query", query),
+						zap.String("ip", c.ClientIP()),
+						zap.String("user-agent", c.Request.UserAgent()),
+						zap.Any("request-headers", c.Request.Header),
+						zap.Any("response-headers", c.Writer.Header()),
+						zap.Duration("latency", latency),
+					}
+					if conf.TimeFormat != "" {
+						fields = append(fields, zap.String("time", end.Format(conf.TimeFormat)))
+					}
+					ce.Write(fields...)
+				} else { // 否则输出简单信息
+					iLogger.Infof("[Http]%s [%s%s] status: %d ip: %s latency: %.6f", c.Request.Method, c.Request.Host, c.Request.URL.String(), c.Writer.Status(), c.ClientIP(), latency.Seconds())
+				}
+			}
 		}
 	}
 }

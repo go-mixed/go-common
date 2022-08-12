@@ -10,6 +10,8 @@ import (
 	"go-common/utils/http"
 	"go-common/utils/list"
 	"go-common/utils/text"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"net/http"
 	"os"
 	"os/signal"
@@ -39,6 +41,9 @@ type HttpServerOptions struct {
 	WriteTimeout      time.Duration
 	MaxHeaderBytes    int
 	ReadHeaderTimeout time.Duration
+
+	// 是否支持 Http2 without TLS
+	UseH2C bool
 }
 
 type HttpServer struct {
@@ -155,18 +160,18 @@ func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Ha
 }
 
 // Use 添加中间件
-//  这种嵌套方式的中间件, 可以运行在controller前, 也可以运行在controller后
-// - 运行在 controller 前，一般为修改request的数据
-//  Use(func(w, r, next) {
-//       r.Path = "/abc" + r.Path // 修改path
-//       next.ServeHTTP(w, r)
-//  }
-// - 运行在 controller 后，一般为修改response的数据
-//  Use(func(w, r, next) {
-//      next.ServeHTTP(w, r) // 先运行controller
-// 	    w.Write(...)
-//  }
 //
+//	这种嵌套方式的中间件, 可以运行在controller前, 也可以运行在controller后
+//   - 运行在 controller 前，一般为修改request的数据
+//     Use(func(w, r, next) {
+//     r.Path = "/abc" + r.Path // 修改path
+//     next.ServeHTTP(w, r)
+//     }
+//   - 运行在 controller 后，一般为修改response的数据
+//     Use(func(w, r, next) {
+//     next.ServeHTTP(w, r) // 先运行controller
+//     w.Write(...)
+//     }
 func (c *HttpServer) Use(fn ...Middleware) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -279,12 +284,20 @@ func (c *HttpServer) controllerHandlerFunc() http.HandlerFunc {
 	}
 }
 
-// ServeHTTP HTTP入口函数，匹配域名之后 分发到不同handler
+// ServeHTTP HTTP入口函数，执行中间件后，再匹配域名
 func (c *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c.middleware.Copy().ServeHTTP(w, r)
 }
 
 func (c *HttpServer) BuildServer() *http.Server {
+	var handler http.Handler = c
+
+	// 启用H2c
+	if !c.UseH2C {
+		h2s := &http2.Server{}
+		handler = h2c.NewHandler(c, h2s)
+	}
+
 	return &http.Server{
 		Addr:              c.GetHost(),
 		IdleTimeout:       c.IdleTimeout,
@@ -292,7 +305,7 @@ func (c *HttpServer) BuildServer() *http.Server {
 		WriteTimeout:      c.WriteTimeout,
 		MaxHeaderBytes:    c.MaxHeaderBytes,
 		ReadHeaderTimeout: c.ReadHeaderTimeout,
-		Handler:           c,
+		Handler:           handler,
 	}
 }
 

@@ -278,8 +278,10 @@ func (c *Etcd) PrefixResponseWithRev(keyPrefix string, minRev, maxRev int64, ops
 func (c *Etcd) WatchWithContext(ctx context.Context, keyPrefix string, minRev int64, opts ...clientv3.OpOption) <-chan *clientv3.Event {
 	watcher := clientv3.NewWatcher(c.EtcdClient)
 	outCh := make(chan *clientv3.Event)
-
+	// 当不再需要watch（即非watch自己主动退出），必须关闭ctx
+	innerCtx, innerCancel := context.WithCancel(ctx)
 	go func() {
+		defer innerCancel()
 		defer close(outCh) // 总是会关闭此通道
 	loop1:
 		for {
@@ -297,11 +299,14 @@ func (c *Etcd) WatchWithContext(ctx context.Context, keyPrefix string, minRev in
 			}
 			_opts = append(_opts, clientv3.WithRev(minRev), clientv3.WithPrevKV())
 			_opts = append(_opts, opts...)
-
-			for response := range watcher.Watch(ctx, keyPrefix, _opts...) {
+			// The context "ctx" MUST be canceled, as soon as watcher is no longer being used to release the associated resources.
+			for response := range watcher.Watch(innerCtx, keyPrefix, _opts...) {
 				if response.CompactRevision != 0 {
 					c.Logger.Warnf("[ETCD]required revision has been compacted, key: \"%s\", compact revision: %d, required-revision: %d", keyPrefix, response.CompactRevision, minRev)
 					minRev = response.CompactRevision
+					// If revisions waiting to be sent over the watch are compacted,
+					// then the watch will be canceled by the server,
+					// the client will post a compacted error watch response, and the channel will close.
 					continue loop1
 				}
 				if response.Canceled {

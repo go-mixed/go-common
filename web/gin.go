@@ -38,17 +38,29 @@ func (o *GinOptions) NoResources() {
 
 func NewGinEngine(options *GinOptions, logger *zap.Logger) *gin.Engine {
 
-	router := gin.Default()
+	router := gin.New()
+
+	if options.Debug {
+		router.Use(gin.Logger())
+	}
+	router.Use(gin.Recovery()) // 捕获RecoveryWithZap无法捕获的错误
 	if !options.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	// Add a ginzap middleware, which:
+	//   - Logs all requests, like a combined access and error log.
+	//   - Logs to stdout.
+	//   - RFC3339 with UTC time format.
 	router.Use(GinZap(logger, time.RFC3339, true)) // 使用zap作为logger
+
 	router.Use(func(context *gin.Context) {
 		context.Set("request_at", time.Now())
 	}) // 注册当前时间
 
-	router.Use(gin.Recovery())
+	// Logs all panic to error log
+	//   - stack means whether output the stack info.
+	router.Use(RecoveryWithZap(logger, true))
 
 	if options.RegisterPprof {
 		pprof.Register(router) // 注册火焰图pprof
