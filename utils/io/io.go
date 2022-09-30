@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"go-common/utils/core"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +20,7 @@ import (
 // start with // to end of line
 func RemoveCommentReader(reader io.Reader) (newReader io.Reader) {
 
-	bs, err := ioutil.ReadAll(reader)
+	bs, err := io.ReadAll(reader)
 	if err != nil {
 		panic(err)
 	}
@@ -47,22 +46,23 @@ func ReadFile(path string) ([]byte, error) {
 
 // BytesToReaderWithCloser []byte转换为一个带close的reader
 func BytesToReaderWithCloser(_bytes []byte) io.ReadCloser {
-	return ioutil.NopCloser(bytes.NewBuffer(_bytes))
+	return io.NopCloser(bytes.NewBuffer(_bytes))
 }
 
 // ReadAndRestoreReader 读取reader的全部内容，并重新赋值给一个[]byte的reader，只建议用于可判断的小文件
-//  应用场景：
-//  response, _ = http.Get(...)
-//  content = ReadAndRestoreReader(&response.Body) // 这行有点入侵的意思，即获得了内容，又让下文可以继续操作response.Body
 //
-//  response.Body.Read(...)
-//  response.Body.Close()
+//	应用场景：
+//	response, _ = http.Get(...)
+//	content = ReadAndRestoreReader(&response.Body) // 这行有点入侵的意思，即获得了内容，又让下文可以继续操作response.Body
+//
+//	response.Body.Read(...)
+//	response.Body.Close()
 func ReadAndRestoreReader(reader *io.ReadCloser) []byte {
 	if reader == nil {
 		return nil
 	}
 
-	_bytes, _ := ioutil.ReadAll(*reader)
+	_bytes, _ := io.ReadAll(*reader)
 	// close original reader
 	(*reader).Close()
 
@@ -232,7 +232,7 @@ func Which(filename string) []string {
 		if !IsDir(p) {
 			continue
 		}
-		fileList, err := ioutil.ReadDir(p)
+		fileList, err := os.ReadDir(p)
 		if err != nil {
 			continue
 		}
@@ -280,9 +280,10 @@ func MakePathFromRelative(prefix, path string) string {
 }
 
 // GetDirectories 获取rootPath的子文件夹的路径列表，僅有文件夾
-//  level = 0 返回空列表
-//  level >= 1 返回level层子目录
-//  level <= -1 返回所有子目录
+//
+//	level = 0 返回空列表
+//	level >= 1 返回level层子目录
+//	level <= -1 返回所有子目录
 func GetDirectories(rootPath string, level int) ([]string, error) {
 	if level == 0 {
 		return nil, nil
@@ -315,9 +316,10 @@ func GetDirectories(rootPath string, level int) ([]string, error) {
 }
 
 // GetFiles 获取rootPath下所有文件的路径列表，僅有文件，無文件夾
-//  level = 0 返回空列表
-//  level >= 1 返回level层子目录的文件
-//  level <= -1 返回所有子目录的文件
+//
+//	level = 0 返回空列表
+//	level >= 1 返回level层子目录的文件
+//	level <= -1 返回所有子目录的文件
 func GetFiles(rootPath string, level int) ([]string, error) {
 	if level == 0 {
 		return nil, nil
