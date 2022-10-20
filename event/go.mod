@@ -7,6 +7,6 @@ require (
 	go-common v0.0.0
 )
 
-require go.uber.org/atomic v1.9.0 // indirect
+require go.uber.org/atomic v1.10.0 // indirect
 
 replace go-common => ../
