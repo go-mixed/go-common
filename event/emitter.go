@@ -9,17 +9,17 @@ import (
 type Emitter struct {
 	*emitter.Emitter
 	ctxCancel context.CancelFunc
-	listeners map[string]interface{}
+	listeners map[string]any
 }
 
 func NewEmitter(cap uint) *Emitter {
 	return &Emitter{
 		Emitter:   emitter.New(cap),
-		listeners: map[string]interface{}{},
+		listeners: map[string]any{},
 	}
 }
 
-func (e *Emitter) Subscribe(topic string, handler interface{}) {
+func (e *Emitter) Subscribe(topic string, handler any) {
 	e.listeners[topic] = handler
 }
 

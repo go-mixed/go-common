@@ -71,7 +71,7 @@ type Stringer interface {
 // ToString 将任意类型转为字符串, 标量或标量的子类型可以直接转, 其它转为json的字符串
 // 注意: type ABC string 这种类型会走到default分支, 为了减少反射带来的性能负担, 对已知可以强转的类型, 可以自行强转: string(abc)
 // otherTypeAsJson: 无法识别的type转换为json 不然会返回空字符串
-func ToString(v interface{}, otherTypeAsJson bool) string {
+func ToString(v any, otherTypeAsJson bool) string {
 	// 先用 type assert检查, 支持标量, 速度更快
 	switch v.(type) {
 	case []rune:

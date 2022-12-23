@@ -18,15 +18,15 @@ func If[T any](e bool, a, b T) T {
 	return b
 }
 
-func IfT(e bool, a, b interface{}) interface{} {
+func IfT(e bool, a, b any) any {
 	if e {
 		if reflect.TypeOf(a).Kind() == reflect.Func {
-			return a.(func() interface{})()
+			return a.(func() any)()
 		}
 		return a
 	}
 	if reflect.TypeOf(b).Kind() == reflect.Func {
-		return b.(func() interface{})()
+		return b.(func() any)()
 	}
 	return b
 }
@@ -67,7 +67,7 @@ func IsInterfaceNil(v any) bool {
 // NestAccess 递归访问map/struct/slice
 // keys 是递归的key
 // 比如: NestAccess({"a": {"b": [{"c": "string"}]}}, "a", "b", "0", "c")  ==> string
-func NestAccess(from any, keys ...string) (interface{}, error) {
+func NestAccess(from any, keys ...string) (any, error) {
 	valueOf := reflect.ValueOf(from)
 	for _i, k := range keys {
 		if valueOf.IsNil() {

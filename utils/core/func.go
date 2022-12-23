@@ -20,14 +20,14 @@ type genericFunc struct {
 }
 
 // Call calls a dynamic function.
-func (g *genericFunc) Call(params ...interface{}) []interface{} {
+func (g *genericFunc) Call(params ...any) []any {
 	paramsIn := make([]reflect.Value, len(params))
 	for i, param := range params {
 		paramsIn[i] = reflect.ValueOf(param)
 	}
 	paramsOut := g.Cache.FnValue.Call(paramsIn)
 	if len(paramsOut) >= 1 {
-		res := make([]interface{}, len(paramsOut))
+		res := make([]any, len(paramsOut))
 		for i := 0; i < len(paramsOut); i++ {
 			res[i] = paramsOut[i].Interface()
 		}
@@ -36,7 +36,7 @@ func (g *genericFunc) Call(params ...interface{}) []interface{} {
 	return nil
 }
 
-func NewGenericFunc(fn interface{}) (*genericFunc, error) {
+func NewGenericFunc(fn any) (*genericFunc, error) {
 	cache := &functionCache{}
 	cache.FnValue = reflect.ValueOf(fn)
 
@@ -59,7 +59,7 @@ func NewGenericFunc(fn interface{}) (*genericFunc, error) {
 	return &genericFunc{Cache: cache}, nil
 }
 
-func NewInstanceFunc(instance interface{}, method string) (*genericFunc, error) {
+func NewInstanceFunc(instance any, method string) (*genericFunc, error) {
 	vOf := reflect.ValueOf(instance)
 	if _, ok := vOf.Type().MethodByName(method); ok {
 		return NewGenericFunc(vOf.MethodByName(method).Interface())
@@ -69,7 +69,7 @@ func NewInstanceFunc(instance interface{}, method string) (*genericFunc, error) 
 }
 
 // NewElemTypeSlice creates a slice of items elem types.
-func NewElemTypeSlice(items ...interface{}) []reflect.Type {
+func NewElemTypeSlice(items ...any) []reflect.Type {
 	typeList := make([]reflect.Type, len(items))
 	for i, item := range items {
 		typeItem := reflect.TypeOf(item)
@@ -80,12 +80,12 @@ func NewElemTypeSlice(items ...interface{}) []reflect.Type {
 	return typeList
 }
 
-func HasMethod(instance interface{}, method string) bool {
+func HasMethod(instance any, method string) bool {
 	_, ok := reflect.TypeOf(instance).MethodByName(method)
 	return ok
 }
 
-func CallMethod(instance interface{}, method string, args ...interface{}) interface{} {
+func CallMethod(instance any, method string, args ...any) any {
 	if _fn, err := NewInstanceFunc(instance, method); err == nil {
 		if res := _fn.Call(args...); len(res) >= 1 {
 			return res[0]
@@ -96,7 +96,7 @@ func CallMethod(instance interface{}, method string, args ...interface{}) interf
 	return nil
 }
 
-func CallMethod2(instance interface{}, method string, args ...interface{}) (interface{}, interface{}) {
+func CallMethod2(instance any, method string, args ...any) (any, any) {
 	if _fn, err := NewInstanceFunc(instance, method); err == nil {
 		if res := _fn.Call(args...); len(res) >= 2 {
 			return res[0], res[1]
@@ -107,7 +107,7 @@ func CallMethod2(instance interface{}, method string, args ...interface{}) (inte
 	return nil, nil
 }
 
-func CallMethod3(instance interface{}, method string, args ...interface{}) (interface{}, interface{}, interface{}) {
+func CallMethod3(instance any, method string, args ...any) (any, any, any) {
 	if _fn, err := NewInstanceFunc(instance, method); err == nil {
 		if res := _fn.Call(args...); len(res) >= 3 {
 			return res[0], res[1], res[2]
@@ -118,7 +118,7 @@ func CallMethod3(instance interface{}, method string, args ...interface{}) (inte
 	return nil, nil, nil
 }
 
-func Invoke(fn interface{}, args ...interface{}) interface{} {
+func Invoke(fn any, args ...any) any {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 1 {
 			return res[0]
@@ -129,7 +129,7 @@ func Invoke(fn interface{}, args ...interface{}) interface{} {
 	return nil
 }
 
-func Invoke2(fn interface{}, args ...interface{}) (interface{}, interface{}) {
+func Invoke2(fn any, args ...any) (any, any) {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 2 {
 			return res[0], res[1]
@@ -140,7 +140,7 @@ func Invoke2(fn interface{}, args ...interface{}) (interface{}, interface{}) {
 	return nil, nil
 }
 
-func Invoke3(fn interface{}, args ...interface{}) (interface{}, interface{}, interface{}) {
+func Invoke3(fn any, args ...any) (any, any, any) {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 3 {
 			return res[0], res[1], res[2]
@@ -151,7 +151,7 @@ func Invoke3(fn interface{}, args ...interface{}) (interface{}, interface{}, int
 	return nil, nil, nil
 }
 
-func Invoke4(fn interface{}, args ...interface{}) (interface{}, interface{}, interface{}, interface{}) {
+func Invoke4(fn any, args ...any) (any, any, any, any) {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 4 {
 			return res[0], res[1], res[2], res[3]
@@ -162,7 +162,7 @@ func Invoke4(fn interface{}, args ...interface{}) (interface{}, interface{}, int
 	return nil, nil, nil, nil
 }
 
-func Invoke5(fn interface{}, args ...interface{}) (interface{}, interface{}, interface{}, interface{}, interface{}) {
+func Invoke5(fn any, args ...any) (any, any, any, any, any) {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 5 {
 			return res[0], res[1], res[2], res[3], res[4]
@@ -173,7 +173,7 @@ func Invoke5(fn interface{}, args ...interface{}) (interface{}, interface{}, int
 	return nil, nil, nil, nil, nil
 }
 
-func Invoke6(fn interface{}, args ...interface{}) (interface{}, interface{}, interface{}, interface{}, interface{}, interface{}) {
+func Invoke6(fn any, args ...any) (any, any, any, any, any, any) {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 6 {
 			return res[0], res[1], res[2], res[3], res[4], res[5]
@@ -184,7 +184,7 @@ func Invoke6(fn interface{}, args ...interface{}) (interface{}, interface{}, int
 	return nil, nil, nil, nil, nil, nil
 }
 
-func Invoke7(fn interface{}, args ...interface{}) (interface{}, interface{}, interface{}, interface{}, interface{}, interface{}, interface{}) {
+func Invoke7(fn any, args ...any) (any, any, any, any, any, any, any) {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 7 {
 			return res[0], res[1], res[2], res[3], res[4], res[5], res[6]
@@ -195,7 +195,7 @@ func Invoke7(fn interface{}, args ...interface{}) (interface{}, interface{}, int
 	return nil, nil, nil, nil, nil, nil, nil
 }
 
-func Invoke8(fn interface{}, args ...interface{}) (interface{}, interface{}, interface{}, interface{}, interface{}, interface{}, interface{}, interface{}) {
+func Invoke8(fn any, args ...any) (any, any, interface{}, interface{}, interface{}, interface{}, interface{}, interface{}) {
 	if _fn, err := NewGenericFunc(fn); err == nil {
 		if res := _fn.Call(args...); len(res) >= 8 {
 			return res[0], res[1], res[2], res[3], res[4], res[5], res[6], res[7]

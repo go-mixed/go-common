@@ -7,29 +7,27 @@ import (
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	"go-common/utils/text"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	text_utils "go-common/utils/text"
+	"gopkg.in/yaml.v3"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 )
 
-// LoadSettings 读取JSON/YAML格式的配置, v必须为struct的指针
+// LoadSettings 读取JSON/YAML格式的配置, v必须为指针
 // 可以传入多个文件，json、yaml可以混用，后面文件的配置会覆盖前面的配置
-// 支持(https://github.com/go-playground/validator)的校验格式，比如：struct {Url string `json:"url" validate:"required,url,min=5,max=256"`}
-// json支持hjson(https://hjson.github.io/)
+// json 能被yaml.Unmarshal解析，但是c风格注释会被解析成kv值
+// 支持(https://github.com/go-playground/validator)的校验格式，比如：struct {Url string `yaml:"url" validate:"required,url,min=5,max=256"`}
 func LoadSettings(v any, filenames ...string) error {
 	for _, filename := range filenames {
 		ext := filepath.Ext(filename)
-		if content, err := ioutil.ReadFile(filename); err != nil {
+		if content, err := os.ReadFile(filename); err != nil {
 			return fmt.Errorf("read settings file error: %w", err)
-		} else if strings.EqualFold(ext, ".json") {
-			content = text_utils.HjsonToJson(content)
-			if err = text_utils.JsonUnmarshalFromBytes(content, v); err != nil {
-				return fmt.Errorf("unmarshal settings file \"%s\" error: %w", filename, err)
-			}
-		} else if strings.EqualFold(ext, ".yaml") || strings.EqualFold(ext, ".yml") {
+		} else if strings.EqualFold(ext, ".json") ||
+			strings.EqualFold(ext, ".json5") ||
+			strings.EqualFold(ext, ".yaml") ||
+			strings.EqualFold(ext, ".yml") {
 			if err = yaml.Unmarshal(content, v); err != nil {
 				return fmt.Errorf("unmarshal settings file \"%s\" error: %w", filename, err)
 			}
@@ -77,12 +75,25 @@ func validateSettings(v any) error {
 }
 
 func WriteSettings(v any, filename string) error {
-	j, err := text_utils.JsonMarshalToBytes(v)
-	if err != nil {
-		return fmt.Errorf("marshal settings json error: %w", err)
+	ext := filepath.Ext(filename)
+
+	var j []byte
+	var err error
+	if strings.EqualFold(ext, ".json") ||
+		strings.EqualFold(ext, ".json5") {
+		j, err = text_utils.JsonMarshalToBytes(v)
+	} else if strings.EqualFold(ext, ".yaml") ||
+		strings.EqualFold(ext, ".yml") {
+		j, err = yaml.Marshal(v)
+	} else {
+		err = fmt.Errorf("the extension of file \"%s\" must be .json,.yaml,.yml", filename)
 	}
 
-	err = ioutil.WriteFile(filename, j, 0o664)
+	if err != nil {
+		return fmt.Errorf("marshal settings error: %w", err)
+	}
+
+	err = os.WriteFile(filename, j, 0o664)
 	if err != nil {
 		return fmt.Errorf("write settings file error: %w", err)
 	}

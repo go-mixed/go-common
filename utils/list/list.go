@@ -37,8 +37,8 @@ func StrIndexOf(slice []string, findMe string, ignoreCase bool) int {
 	})
 }
 
-// ToInterfaces 将interface{} 转为 []interface{}, 因为不能直接slice.([]interface{}) 此函数使用场景可以参照 SortDomains
-func ToInterfaces(src interface{}) []interface{} {
+// ToInterfaces 将any 转为 []any, 因为不能直接slice.([]any) 此函数使用场景可以参照 SortDomains
+func ToInterfaces(src any) []any {
 	s := reflect.ValueOf(src)
 	if s.Kind() == reflect.Ptr {
 		s = s.Elem()
@@ -52,7 +52,7 @@ func ToInterfaces(src interface{}) []interface{} {
 		return nil
 	}
 
-	ret := make([]interface{}, s.Len())
+	ret := make([]any, s.Len())
 
 	for i := 0; i < s.Len(); i++ {
 		ret[i] = s.Index(i).Interface()
@@ -61,8 +61,8 @@ func ToInterfaces(src interface{}) []interface{} {
 	return ret
 }
 
-// InterfacesAs 将一个src(类型为[]interface{})的值写到dest指针中
-func InterfacesAs(src []interface{}, dest interface{}) error {
+// InterfacesAs 将一个src(类型为[]any)的值写到dest指针中
+func InterfacesAs(src []any, dest any) error {
 	valueOf := reflect.ValueOf(dest)
 
 	// 判断是否是Slice的指针
@@ -91,6 +91,6 @@ func InterfacesAs(src []interface{}, dest interface{}) error {
 // var a = []string{"a", "b"}
 // var b []string
 // InterfaceAs(a, &b)
-func InterfaceAs(src interface{}, dest interface{}) error {
+func InterfaceAs(src any, dest any) error {
 	return InterfacesAs(ToInterfaces(src), dest)
 }

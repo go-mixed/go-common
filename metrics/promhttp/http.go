@@ -52,7 +52,7 @@ const (
 )
 
 var gzipPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return gzip.NewWriter(nil)
 	},
 }
@@ -226,7 +226,7 @@ const (
 // log.Logger from the standard library implements this interface, and it is
 // easy to implement by custom loggers, if they don't do so already anyway.
 type Logger interface {
-	Println(v ...interface{})
+	Println(v ...any)
 }
 
 // HandlerOpts specifies options how to serve metrics via an http.Handler. The

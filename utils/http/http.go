@@ -84,7 +84,7 @@ var HttpReason = map[int]string{
 
 // ValuesToJson 是一个将Query转化为Json的函数
 func ValuesToJson(values *url.Values) []byte {
-	var _values = map[string]interface{}{}
+	var _values = map[string]any{}
 	for key, val := range *values {
 		_values[key] = core.IfT(len(val) <= 1, val[0], val)
 	}
@@ -100,7 +100,7 @@ func ValuesToJson(values *url.Values) []byte {
 
 // MapToUrlValues 一个简单的map -> url.Values, 需要传入需要转换的字节名列表
 // map的value尽量为字符串/数字/浮点数字, 不然转换出来的结果可能不符合预期
-func MapToUrlValues(data map[string]interface{}, includeFields []string) url.Values {
+func MapToUrlValues(data map[string]any, includeFields []string) url.Values {
 	values := url.Values{}
 	if len(includeFields) <= 0 {
 		return values
@@ -223,12 +223,12 @@ func UnescapeQueries(encodedQuery string) (unescapedQueries []string, err error)
 	return unescapedQueries, nil
 }
 
-func SetRequestKeyValue(r *http.Request, key, value interface{}) *http.Request {
+func SetRequestKeyValue(r *http.Request, key, value any) *http.Request {
 	c := context.WithValue(r.Context(), key, value)
 	return r.WithContext(c)
 }
 
-func GetRequestValue(r *http.Request, key interface{}) interface{} {
+func GetRequestValue(r *http.Request, key any) any {
 	return r.Context().Value(key)
 }
 

@@ -35,7 +35,7 @@ func Iso8601ToTime(str string) time.Time {
 
 type AnyTime time.Time
 
-func NewAnyTime(value interface{}) (AnyTime, error) {
+func NewAnyTime(value any) (AnyTime, error) {
 	var n time.Time
 	var err error
 	switch value.(type) {
@@ -84,7 +84,7 @@ func (t *AnyTime) GobDecode(data []byte) error {
 }
 
 // Scan for sql decode
-func (t *AnyTime) Scan(value interface{}) error {
+func (t *AnyTime) Scan(value any) error {
 	nullTime := &sql.NullTime{}
 	err := nullTime.Scan(value)
 	*t = AnyTime(nullTime.Time)

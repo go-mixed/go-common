@@ -36,7 +36,7 @@ func (r *Ranger) getIpByMask(ip string, mask int) string {
 	return _net.IP.String()
 }
 
-func (r *Ranger) AddIP(n *net.IPNet, value interface{}) {
+func (r *Ranger) AddIP(n *net.IPNet, value any) {
 	r.Lock.Lock()
 	defer r.Lock.Unlock()
 	bit, _ := n.Mask.Size()
@@ -121,7 +121,7 @@ func (r *Ranger) delIndex(bit int) int {
 	return index
 }
 
-func (r *Ranger) Contains(n *net.IPNet, v interface{}) bool {
+func (r *Ranger) Contains(n *net.IPNet, v any) bool {
 	r.Lock.RLock()
 	defer r.Lock.RUnlock()
 	_mask, _ := n.Mask.Size()

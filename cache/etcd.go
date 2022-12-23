@@ -18,7 +18,7 @@ type Etcd struct {
 	EtcdClient *clientv3.Client
 }
 
-func (c *Etcd) SetNoExpiration(key string, val interface{}) error {
+func (c *Etcd) SetNoExpiration(key string, val any) error {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[ETCD]Set %s, %0.6f", key, time.Since(now).Seconds())
@@ -46,7 +46,7 @@ func (c *Etcd) Del(key string) error {
 	return nil
 }
 
-func (c *Etcd) Set(key string, val interface{}, expiration time.Duration) error {
+func (c *Etcd) Set(key string, val any, expiration time.Duration) error {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[ETCD]Set %s, %0.6f", key, time.Since(now).Seconds())
@@ -71,7 +71,7 @@ func (c *Etcd) Set(key string, val interface{}, expiration time.Duration) error 
 	return nil
 }
 
-func (c *Etcd) Get(key string, actual interface{}) ([]byte, error) {
+func (c *Etcd) Get(key string, actual any) ([]byte, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Infof("[ETCD]Get %s, %0.6f", key, time.Since(now).Seconds())
@@ -99,7 +99,7 @@ func (c *Etcd) Get(key string, actual interface{}) ([]byte, error) {
 	return val, nil
 }
 
-func (c *Etcd) MGet(keys []string, actual interface{}) (utils.KVs, error) {
+func (c *Etcd) MGet(keys []string, actual any) (utils.KVs, error) {
 	kv := clientv3.NewKV(c.EtcdClient)
 
 	kvs := utils.KVs{}
@@ -170,7 +170,7 @@ func (c *Etcd) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (st
 	}
 }
 
-func (c *Etcd) ScanPrefix(keyPrefix string, result interface{}) (utils.KVs, error) {
+func (c *Etcd) ScanPrefix(keyPrefix string, result any) (utils.KVs, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[ETCD]ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
@@ -188,7 +188,7 @@ func (c *Etcd) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) 
 	return c.scanPrefixCallback(keyPrefix, callback, c.Range)
 }
 
-func (c *Etcd) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result interface{}) (string, utils.KVs, error) {
+func (c *Etcd) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result any) (string, utils.KVs, error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[ETCD]ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())

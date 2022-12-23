@@ -76,7 +76,7 @@ func (b *BoltBucket) Update(callback func(*bolt.Bucket) error) error {
 	})
 }
 
-func (b *BoltBucket) Get(key string, actual interface{}) ([]byte, error) {
+func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		buf = bucket.Get([]byte(key))
@@ -117,7 +117,7 @@ func (b *BoltBucket) Values() ([]string, error) {
 	return res, err
 }
 
-func (b *BoltBucket) GetAll(actual interface{}) (utils.KVs, error) {
+func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 	kvs := utils.KVs{}
 	err := b.View(func(bucket *bolt.Bucket) error {
 		c := bucket.Cursor()
@@ -136,7 +136,7 @@ func (b *BoltBucket) GetAll(actual interface{}) (utils.KVs, error) {
 	return kvs, err
 }
 
-func (b *BoltBucket) Set(key string, value interface{}) error {
+func (b *BoltBucket) Set(key string, value any) error {
 	return b.Update(func(bucket *bolt.Bucket) error {
 		err := bucket.Put([]byte(key), []byte(text_utils.ToString(value, true)))
 		if err != nil {
@@ -168,7 +168,7 @@ func (b *BoltBucket) Clear() error {
 // FindLte 查找 等于key 或 小于key的上一项 Less than and equal
 // 注意: 返回的key可能和需要查找key并不相似
 // 返回 key value 错误
-func (b *BoltBucket) FindLte(key string, actual interface{}) (utils.KV, error) {
+func (b *BoltBucket) FindLte(key string, actual any) (utils.KV, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		_key := []byte(key)
@@ -197,7 +197,7 @@ func (b *BoltBucket) FindLte(key string, actual interface{}) (utils.KV, error) {
 	return utils.KV{Key: key, Value: buf}, err
 }
 
-func (b *BoltBucket) FindLt(key string, actual interface{}) (utils.KV, error) {
+func (b *BoltBucket) FindLt(key string, actual any) (utils.KV, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		_key := []byte(key)
@@ -229,7 +229,7 @@ func (b *BoltBucket) FindLt(key string, actual interface{}) (utils.KV, error) {
 // FindGte 查找 等于key的 或 大于key的下一项 Greater than and equal
 // 注意: 返回的key可能和需要查找key并不相似
 // 返回 key value 错误
-func (b *BoltBucket) FindGte(key string, actual interface{}) (utils.KV, error) {
+func (b *BoltBucket) FindGte(key string, actual any) (utils.KV, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		_key := []byte(key)

@@ -187,7 +187,7 @@ func signerFromPem(pemBytes []byte, password []byte) (ssh.Signer, error) {
 	}
 }
 
-func parsePemBlock(block *pem.Block) (interface{}, error) {
+func parsePemBlock(block *pem.Block) (any, error) {
 	switch block.Type {
 	case "RSA PRIVATE KEY":
 		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)

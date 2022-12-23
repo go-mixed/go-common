@@ -8,12 +8,12 @@ import (
 	"strings"
 )
 
-// JsonListUnmarshal 将json字符串数组 转换成一个 []interface{}
+// JsonListUnmarshal 将json字符串数组 转换成一个 []any
 // 例子
 // type User struct { Name string Age int}
 // var users []User
 // JsonListIntoSlicePtr([]string{"{\"Name\": \"a\", \"Age\": 20}", "{\"Name\": \"b\", \"Age\": 21}"}, &users)
-func JsonListUnmarshal(jsonList []string, to interface{}) error {
+func JsonListUnmarshal(jsonList []string, to any) error {
 	var list [][]byte
 	for _, _j := range jsonList {
 		if _j == "" {
@@ -26,7 +26,7 @@ func JsonListUnmarshal(jsonList []string, to interface{}) error {
 	return JsonListUnmarshalFromBytes(list, to)
 }
 
-func JsonListUnmarshalFromBytes(jsonList [][]byte, to interface{}) error {
+func JsonListUnmarshalFromBytes(jsonList [][]byte, to any) error {
 	toValue := reflect.ValueOf(to)
 	if toValue.Kind() == reflect.Ptr {
 		toValue = toValue.Elem()
@@ -38,7 +38,7 @@ func JsonListUnmarshalFromBytes(jsonList [][]byte, to interface{}) error {
 		return fmt.Errorf("parameter \"to\" must be a slice ptr")
 	}
 
-	// []interface{} 得到interface{}的类型
+	// []any 得到any的类型
 	typeOfV := toValue.Type().Elem()
 
 	newSlice := reflect.MakeSlice(reflect.SliceOf(typeOfV), 0, 0)
@@ -62,30 +62,30 @@ func JsonListUnmarshalFromBytes(jsonList [][]byte, to interface{}) error {
 	return nil
 }
 
-func JsonUnmarshal(_json string, to interface{}) error {
+func JsonUnmarshal(_json string, to any) error {
 	return jsoniter.ConfigCompatibleWithStandardLibrary.UnmarshalFromString(_json, to)
 }
 
-func JsonMarshal(from interface{}) (string, error) {
+func JsonMarshal(from any) (string, error) {
 	return jsoniter.ConfigCompatibleWithStandardLibrary.MarshalToString(from)
 }
 
-func JsonUnmarshalFromBytes(_json []byte, to interface{}) error {
+func JsonUnmarshalFromBytes(_json []byte, to any) error {
 	return jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(_json, to)
 }
 
-func JsonMarshalToBytes(from interface{}) ([]byte, error) {
+func JsonMarshalToBytes(from any) ([]byte, error) {
 	return jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(from)
 }
 
 // JsonExtractIntoPtr 将一个json转到to, 支持使用.递归访问json内的值进行转换
 // to := struct{Name string}{}  JsonExtractIntoPtr({"a": {"b": [{"Name": "string"}]}}, &to, "a.b.0")
-func JsonExtractIntoPtr(_json []byte, to interface{}, label string) error {
+func JsonExtractIntoPtr(_json []byte, to any, label string) error {
 	if label == "" {
 		return JsonUnmarshalFromBytes(_json, to)
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := JsonUnmarshalFromBytes(_json, &m); err != nil {
 		return err
 	}
