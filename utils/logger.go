@@ -4,6 +4,8 @@ import (
 	"github.com/utahta/go-cronowriter"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zapio"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -48,17 +50,28 @@ func NewDefaultLogger() ILogger {
 	}
 }
 
-const ZapConsoleLogLevel = "ZAP_CONSOLE_LOG_LEVEL"
-const ZapLogLevel = "ZAP_LOG_LEVEL"
-const ZapLogEncoder = "ZAP_LOG_ENCODER"
+const ZapConsoleLevel = "ZAP_CONSOLE_LOG_LEVEL"
+const ZapFileLevel = "ZAP_LOG_LEVEL"
+const ZapFileEncoder = "ZAP_LOG_ENCODER"
 
-var globalLogger *zap.Logger
+type Logger struct {
+	*zap.Logger
 
-func SetGlobalLogger(logger *zap.Logger) {
+	FilePath      string
+	ErrorFilePath string
+
+	consoleLevel zapcore.Level
+	fileLevel    zapcore.Level
+	fileEncoder  *fileEncoder
+}
+
+var globalLogger *Logger
+
+func SetGlobalLogger(logger *Logger) {
 	globalLogger = logger
 }
 
-func GetGlobalLogger() *zap.Logger {
+func GetGlobalLogger() *Logger {
 	return globalLogger
 }
 
@@ -71,7 +84,7 @@ func GetILogger() ILogger {
 
 // InitLogger 初始化Logger
 // errorFilename 传递非空字符串，表示将错误分开写入到此文件中
-func InitLogger(filename string, errorFilename string) (*zap.Logger, error) {
+func InitLogger(filename string, errorFilename string) (*Logger, error) {
 	// 创建文件夹
 	if err := os.MkdirAll(filepath.Dir(filename), os.ModePerm); err != nil {
 		return nil, err
@@ -82,46 +95,74 @@ func InitLogger(filename string, errorFilename string) (*zap.Logger, error) {
 		}
 	}
 
-	var logger *zap.Logger
+	logger := &Logger{
+		FilePath:      filename,
+		ErrorFilePath: errorFilename,
 
-	// 获取log writer
-	writeSyncer := getLogWriter(filename)
-	writeStdout := zapcore.AddSync(os.Stdout)
-	consoleEncoder := getConsoleEncoder()
-	encoder := getLogEncoder()
-
-	errorLevel := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-		return level >= zapcore.ErrorLevel
-	})
-
-	consoleLevel := getLevel(ZapConsoleLogLevel, true)
-
-	// 错误log和运行log位于一个文件
-	if errorFilename == "" {
-		level := getLevel(ZapLogLevel, true)
-
-		core := zapcore.NewTee(
-			zapcore.NewCore(consoleEncoder, writeStdout, consoleLevel), // 控制台输出
-			zapcore.NewCore(encoder, writeSyncer, level),               // 文件输出
-		)
-		logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(errorLevel))
-	} else { // 分开写入
-		level := getLevel(ZapLogLevel, false)
-
-		errorWriteSyncer := getLogWriter(errorFilename)
-		core := zapcore.NewTee(
-			zapcore.NewCore(consoleEncoder, writeStdout, consoleLevel), // 控制台输出
-			zapcore.NewCore(encoder, writeSyncer, level),               // 非异常日志的文件输出
-			zapcore.NewCore(encoder, errorWriteSyncer, errorLevel),     // 异常日志的文件输出
-		)
-		logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(errorLevel))
+		consoleLevel: getZapLevelFromEnv(ZapConsoleLevel),
+		fileLevel:    getZapLevelFromEnv(ZapFileLevel),
+		fileEncoder:  &fileEncoder{},
 	}
+
+	logger.buildFileEncoder(strings.ToLower(os.Getenv(ZapFileEncoder)))
+
+	logger.Logger = zap.New(
+		logger.buildCore(),
+		zap.AddCaller(),
+		zap.AddStacktrace(zap.LevelEnablerFunc(logger.errorLevelFunc)),
+	)
 
 	SetGlobalLogger(logger)
 	return logger, nil
 }
 
-func getConsoleEncoder() zapcore.Encoder {
+// SetFileLevel 修改文件输出的最低Level，可实时修改
+func (l *Logger) SetFileLevel(level zapcore.Level) *Logger {
+	l.fileLevel = level
+	return l
+}
+
+// SetConsoleLevel 修改控制台输出的最低Level，可实时修改
+func (l *Logger) SetConsoleLevel(level zapcore.Level) *Logger {
+	l.consoleLevel = level
+	return l
+}
+
+// SetFileEncoder 修改文件输出的encoder：console、json，可实时修改
+func (l *Logger) SetFileEncoder(encoder string) *Logger {
+	l.buildFileEncoder(encoder)
+	return l
+}
+
+func (l *Logger) buildCore() zapcore.Core {
+
+	errorLevelFunc := zap.LevelEnablerFunc(l.errorLevelFunc)
+	var cores []zapcore.Core
+
+	// 获取console的cores
+	consoleEncoder := l.getConsoleEncoder()
+	stdoutSyncer := zapcore.AddSync(os.Stdout)
+	stderrSyncer := zapcore.AddSync(os.Stderr)
+	cores = append(cores,
+		zapcore.NewCore(consoleEncoder, stdoutSyncer, zap.LevelEnablerFunc(l.consoleLevelFunc)), // stdout输出
+		zapcore.NewCore(consoleEncoder, stderrSyncer, errorLevelFunc),                           // stderr输出
+	)
+
+	// 获取文件的cores
+	fileSyncer := l.getFileWriter(l.FilePath)
+	cores = append(cores, zapcore.NewCore(l.fileEncoder, fileSyncer, zap.LevelEnablerFunc(l.fileLevelFunc))) // 常规信息的文件输出
+
+	if l.ErrorFilePath != "" {
+		errorSyncer := l.getFileWriter(l.ErrorFilePath)
+		cores = append(cores, zapcore.NewCore(l.fileEncoder, errorSyncer, errorLevelFunc)) // 错误log单独输出
+	} else {
+		cores = append(cores, zapcore.NewCore(l.fileEncoder, fileSyncer, errorLevelFunc)) // 错误和常规的log在一个文件
+	}
+
+	return zapcore.NewTee(cores...)
+}
+
+func (l *Logger) getConsoleEncoder() zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
@@ -129,49 +170,78 @@ func getConsoleEncoder() zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(encoderConfig)
 }
 
-func getLogEncoder() zapcore.Encoder {
+func (l *Logger) buildFileEncoder(encoder string) {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
-	switch strings.ToLower(os.Getenv(ZapLogEncoder)) {
-	case "json":
-		return zapcore.NewJSONEncoder(encoderConfig)
+	switch encoder {
+	case "json", "JSON":
+		l.fileEncoder.Encoder = zapcore.NewJSONEncoder(encoderConfig)
 	default:
-		return zapcore.NewConsoleEncoder(encoderConfig)
+		l.fileEncoder.Encoder = zapcore.NewConsoleEncoder(encoderConfig)
 	}
 }
 
-// "ZAP_LOG_LEVEL" or "ZAP_CONSOLE_LOG_LEVEL"
-func getLevel(env string, withError bool) zap.LevelEnablerFunc {
+func (l *Logger) errorLevelFunc(level zapcore.Level) bool {
+	return level >= zap.ErrorLevel
+}
+
+func (l *Logger) fileLevelFunc(level zapcore.Level) bool {
+	return level >= l.fileLevel && level < zap.ErrorLevel
+}
+
+func (l *Logger) consoleLevelFunc(level zapcore.Level) bool {
+	return level >= l.consoleLevel && level < zap.ErrorLevel
+}
+
+func getZapLevelFromEnv(env string) zapcore.Level {
 	minLevel := zapcore.DebugLevel
-	logEnvLevel := strings.ToLower(os.Getenv(env))
-	if logEnvLevel == "disabled" {
-		return func(level zapcore.Level) bool {
-			return false
+	envLevel := strings.ToLower(os.Getenv(env))
+	if envLevel == "disabled" {
+		return 0
+	} else {
+		if err := minLevel.UnmarshalText([]byte(envLevel)); err != nil {
+			minLevel = zap.DebugLevel
 		}
-	} else if logEnvLevel == "info" {
-		minLevel = zapcore.InfoLevel
-	} else if logEnvLevel == "warn" {
-		minLevel = zapcore.WarnLevel
 	}
 
-	if withError {
-		return func(level zapcore.Level) bool {
-			return level >= minLevel
-		}
-	} else {
-		return func(level zapcore.Level) bool {
-			return level >= minLevel && level < zapcore.ErrorLevel
-		}
-	}
+	return minLevel
 }
 
-func getLogWriter(filename string) zapcore.WriteSyncer {
+func (l *Logger) getFileWriter(filename string) zapcore.WriteSyncer {
 	ext := filepath.Ext(filename)
 	path := filename[0:len(filename)-len(ext)] + ".%Y-%m-%d" + ext
 
 	return zapcore.AddSync(cronowriter.MustNew(path))
+}
+
+func (l *Logger) ToWriter(level zapcore.Level) io.Writer {
+	return &zapio.Writer{
+		Log:   l.Logger,
+		Level: level,
+	}
+}
+
+func (l *Logger) ZapLogger() *zap.Logger {
+	return l.Logger
+}
+
+func (l *Logger) Clone() *Logger {
+	return &Logger{
+		Logger:        l.Logger,
+		FilePath:      l.FilePath,
+		ErrorFilePath: l.ErrorFilePath,
+		fileLevel:     l.fileLevel,
+		consoleLevel:  l.consoleLevel,
+		fileEncoder:   l.fileEncoder,
+	}
+}
+
+func (l *Logger) With(fields ...zap.Field) *Logger {
+	_l := l.Clone()
+	_l.Logger = l.Logger.With(fields...)
+	return _l
 }
 
 func (d DefaultLogger) Fatal(v ...any) {
@@ -256,4 +326,8 @@ func (d DefaultLogger) Warnf(format string, v ...any) {
 		d.stdOutLog.SetPrefix("WARN\t")
 		d.stdOutLog.Printf(format, v...)
 	}
+}
+
+type fileEncoder struct {
+	zapcore.Encoder
 }
