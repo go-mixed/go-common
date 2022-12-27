@@ -1,8 +1,8 @@
 package ip
 
 import (
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils/text"
 	"net"
 	"strings"

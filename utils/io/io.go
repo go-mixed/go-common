@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils/core"
 	"io"
 	"os"
@@ -163,7 +163,7 @@ func MoveFile(sourcePath, destPath string) error {
 
 	// The copy was successful, so now delete the original file
 	if err := os.Remove(sourcePath); err != nil {
-		return fmt.Errorf("failed removing original file: %s", err)
+		return errors.Errorf("failed removing original file: %s", err)
 	}
 
 	return nil
@@ -173,7 +173,7 @@ func MoveFile(sourcePath, destPath string) error {
 func CopyFile(sourcePath, destPath string) error {
 	inputFile, err := os.Open(sourcePath)
 	if err != nil {
-		return fmt.Errorf("couldn't open source file: %s", err)
+		return errors.Errorf("couldn't open source file: %s", err)
 	}
 	defer inputFile.Close()
 
@@ -187,17 +187,17 @@ func CopyFile(sourcePath, destPath string) error {
 	perm := fi.Mode() & os.ModePerm
 	outputFile, err := os.OpenFile(destPath, flag, perm)
 	if err != nil {
-		return fmt.Errorf("couldn't open dest file: %s", err)
+		return errors.Errorf("couldn't open dest file: %s", err)
 	}
 	defer outputFile.Close()
 
 	_, err = io.Copy(outputFile, inputFile)
 	if err != nil {
-		return fmt.Errorf("writing to output file failed: %s", err)
+		return errors.Errorf("writing to output file failed: %s", err)
 	}
 
 	if err := outputFile.Sync(); err != nil {
-		return fmt.Errorf("failed sync dest file: %s", err)
+		return errors.Errorf("failed sync dest file: %s", err)
 	}
 
 	return nil

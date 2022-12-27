@@ -2,7 +2,7 @@ package storage
 
 import (
 	"bytes"
-	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"go-common/utils/core"
 	"go-common/utils/text"
@@ -23,7 +23,7 @@ type BoltBucket struct {
 func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 	db, err := bolt.Open(path, 0o664, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
-		return nil, fmt.Errorf("open bolt file \"%s\" error: %w", path, err)
+		return nil, errors.Errorf("open bolt file \"%s\" error: %w", path, err)
 	}
 
 	return &Bolt{
@@ -256,7 +256,7 @@ func (b *BoltBucket) Range(keyStart, keyEnd string, keyPrefix string, limit int6
 	_keyStart := []byte(keyStart)
 	_keyEnd := []byte(keyEnd)
 	if bytes.Compare(_keyStart, _keyEnd) > 0 {
-		return "", nil, fmt.Errorf("error key range, \"keyStart\" must less than \"keyEnd\"")
+		return "", nil, errors.Errorf("error key range, \"keyStart\" must less than \"keyEnd\"")
 	}
 
 	var _nextKey []byte
@@ -286,7 +286,7 @@ func (b *BoltBucket) RevRange(keyStart, keyEnd string, keyPrefix string, limit i
 	_keyStart := []byte(keyStart)
 	_keyEnd := []byte(keyEnd)
 	if bytes.Compare(_keyStart, _keyEnd) < 0 {
-		return "", nil, fmt.Errorf("error key range, \"keyStart\" must greater than \"keyEnd\"")
+		return "", nil, errors.Errorf("error key range, \"keyStart\" must greater than \"keyEnd\"")
 	}
 
 	var _prevKey []byte

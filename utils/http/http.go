@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils/core"
 	"go-common/utils/text"
 	"net"
@@ -119,7 +119,7 @@ func CloseResponseWriter(w http.ResponseWriter) error {
 
 	// The rw can't be hijacked, return early.
 	if !ok {
-		return fmt.Errorf("can't hijack ResponseWriter")
+		return errors.Errorf("can't hijack ResponseWriter")
 	}
 
 	// Hijack the rw.

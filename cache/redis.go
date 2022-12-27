@@ -2,8 +2,8 @@ package cache
 
 import (
 	"context"
-	"fmt"
-	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis/v9"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"go-common/utils/conv"
 	"go-common/utils/core"
@@ -299,11 +299,11 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 	}
 	nextKey, ok := res[0].(string)
 	if !ok {
-		return "", nil, fmt.Errorf("scan range returns an invalid next-key")
+		return "", nil, errors.Errorf("scan range returns an invalid next-key")
 	}
 	_kv, ok := res[1].([]any)
 	if !ok {
-		return "", nil, fmt.Errorf("scan range returns an invalid k/v")
+		return "", nil, errors.Errorf("scan range returns an invalid k/v")
 	}
 	if len(_kv) <= 0 {
 		return nextKey, nil, nil

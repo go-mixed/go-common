@@ -1,7 +1,7 @@
 package text_utils
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
 )
 
@@ -12,7 +12,7 @@ func (b *JsonBool) UnmarshalJSON(data []byte) error {
 	_b, err := strconv.ParseBool(asString)
 	*b = JsonBool(_b)
 	if err != nil {
-		return fmt.Errorf("boolean unmarshal of json error: %w", err)
+		return errors.Errorf("boolean unmarshal of json error: %w", err)
 	}
 	return err
 }

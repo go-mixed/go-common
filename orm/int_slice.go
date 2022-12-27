@@ -3,8 +3,8 @@ package orm
 import (
 	"context"
 	"database/sql/driver"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils/text"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

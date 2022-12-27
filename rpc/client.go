@@ -2,8 +2,7 @@ package rpc
 
 import (
 	"bufio"
-	"errors"
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/silenceper/pool"
 	"go-common/utils"
 	"io"
@@ -81,7 +80,7 @@ func (c *Client) Call(serviceMethod string, args any, reply any) error {
 
 		select {
 		case <-after.C: // 无需经过下面的错误判断, 直接退出
-			return fmt.Errorf("rpc client call timeout > %.4fs", c.timeout.Seconds())
+			return errors.Errorf("rpc client call timeout > %.4fs", c.timeout.Seconds())
 		case call := <-client.Go(serviceMethod, args, reply, make(chan *rpc.Call, 1)).Done:
 			err = call.Error
 		}

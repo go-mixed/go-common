@@ -2,11 +2,11 @@ package task_pool
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"go-common/utils/core"
-	list_utils "go-common/utils/list"
+	"go-common/utils/list"
 	"os"
 	"os/signal"
 	"runtime"
@@ -31,10 +31,10 @@ func (p *Params) validate() error {
 
 // DefaultExecutorParams 默认 Executor 参数
 //
-// 	NumWorkers: 默认CPU核心数
-// 	MaxJobQueueCapacity: 1000 最大等待的任务数为1000
-// 	MaxJobQueueWaitTime: 30s 设置0表示不过期
-// 	ShutdownTimeout: 3 seconds 发送Stop指令后最多等待多少秒退出
+//	NumWorkers: 默认CPU核心数
+//	MaxJobQueueCapacity: 1000 最大等待的任务数为1000
+//	MaxJobQueueWaitTime: 30s 设置0表示不过期
+//	ShutdownTimeout: 3 seconds 发送Stop指令后最多等待多少秒退出
 func DefaultExecutorParams() Params {
 	return Params{
 		Name:            core.GetFrame(1).Function,
@@ -106,13 +106,14 @@ func NewExecutorContext(ctx context.Context, params Params, logger utils.ILogger
 // 对于持久的任务，一定要监听 ctx.Done 通道后退出任务，不然在Ctrl+C时导致程序无法正确的退出。
 //
 // 请参考下面例子完成持久任务的退出操作：
-// 	e.Submit(func(ctx context.Context) error {
-// 		// 死循环，说明这是一个持久的任务
+//
+//	e.Submit(func(ctx context.Context) error {
+//		// 死循环，说明这是一个持久的任务
 //		for {
 //			select {
 //			case <-ctx.Done(): // 监听通道, 做好随时退出的准备
-// 				print("exit task")
-// 				return
+//				print("exit task")
+//				return
 //			default: // 没有收到信息时，会正常往下执行
 //			}
 //			... do something

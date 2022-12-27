@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"io"
 	"net/http"
@@ -21,7 +21,7 @@ type IController interface {
 func (c *Controller) JsonCheck(d any) error {
 	if err := c.Context.ShouldBindJSON(&d); err != nil {
 		if err == io.EOF {
-			return fmt.Errorf("empty body, must be a json")
+			return errors.Errorf("empty body, must be a json")
 		}
 		return err
 	}

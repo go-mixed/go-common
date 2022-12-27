@@ -5,7 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
-	"errors"
+	"github.com/pkg/errors"
 )
 
 //加密过程：

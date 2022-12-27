@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"net"
 	"time"
@@ -36,7 +36,7 @@ func (c *SimpleUDPClient) SimpleWrite(codec Codec, messageID uint32, data []byte
 		return 0, err
 	}
 	if len(buf) > MaxInternetUdpLen {
-		return 0, fmt.Errorf("the length of a simple-udp packet cannot > %d", MaxInternetUdpLen)
+		return 0, errors.Errorf("the length of a simple-udp packet cannot > %d", MaxInternetUdpLen)
 	}
 
 	return c.Write(buf)
@@ -51,7 +51,7 @@ func (c *SimpleUDPClient) SimpleRead() (*SimpleData, error) {
 
 	s := SimpleData{}
 	if err = s.UnmarshalBinary(buf[:n]); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal binary: [%x], error: %w", buf, err)
+		return nil, errors.Errorf("cannot unmarshal binary: [%x], error: %w", buf, err)
 	}
 
 	return &s, nil

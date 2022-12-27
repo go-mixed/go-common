@@ -1,7 +1,7 @@
 package list_utils
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"reflect"
 	"strings"
 )
@@ -67,11 +67,11 @@ func InterfacesAs(src []any, dest any) error {
 
 	// 判断是否是Slice的指针
 	if k := valueOf.Kind(); k != reflect.Ptr {
-		return fmt.Errorf("expected pointer, got %v", k)
+		return errors.Errorf("expected pointer, got %v", k)
 	}
 	// 判断是否是Slice
 	if k := valueOf.Elem().Kind(); k != reflect.Slice {
-		return fmt.Errorf("expected pointer to slice, got %v", k)
+		return errors.Errorf("expected pointer to slice, got %v", k)
 	}
 
 	// 新建Slice对象

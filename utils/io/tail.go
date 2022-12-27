@@ -1,7 +1,7 @@
 package io_utils
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"os"
 )
@@ -58,7 +58,7 @@ func tail(path string, n int, keepOrder bool) (tail []string, tailBytes []byte, 
 	for i := offsetEnd - 1; i >= 0; i-- {
 		_, err = file.ReadAt(cursor, i)
 		if err != nil {
-			err = fmt.Errorf("Failed to read at %d: %s\n", i, err)
+			err = errors.Errorf("Failed to read at %d: %s\n", i, err)
 			break
 		}
 
@@ -74,13 +74,13 @@ func tail(path string, n int, keepOrder bool) (tail []string, tailBytes []byte, 
 			}
 			_, err = file.Seek(newStringStart, io.SeekStart)
 			if err != nil {
-				err = fmt.Errorf("Failed to seek at %d: %s\n", newStringStart, err)
+				err = errors.Errorf("Failed to seek at %d: %s\n", newStringStart, err)
 				break
 			}
 			newString := make([]byte, newStringEnd-newStringStart)
 			_, err = file.Read(newString)
 			if err != nil {
-				err = fmt.Errorf("Failed to read new line at %d: %s\n", newStringStart, err)
+				err = errors.Errorf("Failed to read new line at %d: %s\n", newStringStart, err)
 				break
 			}
 			tail = append(tail, string(newString))

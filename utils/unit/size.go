@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -93,7 +94,7 @@ func RAMInBytes(size string) (int64, error) {
 func parseSize(sizeStr string, uMap unitMap) (int64, error) {
 	matches := sizeRegex.FindStringSubmatch(sizeStr)
 	if len(matches) != 4 {
-		return -1, fmt.Errorf("invalid size: '%s'", sizeStr)
+		return -1, errors.Errorf("invalid size: '%s'", sizeStr)
 	}
 
 	size, err := strconv.ParseFloat(matches[1], 64)

@@ -3,7 +3,7 @@ package cache
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"go-common/utils/core"
 	"go-common/utils/text"
@@ -388,7 +388,7 @@ func (c *Etcd) WithContext(ctx context.Context) *Etcd {
 func (c *Etcd) Lease(leaseID int64) (*clientv3.LeaseTimeToLiveResponse, error) {
 	id := clientv3.LeaseID(leaseID)
 	if id == clientv3.NoLease {
-		return nil, fmt.Errorf("it is not a valid lease id: %d", leaseID)
+		return nil, errors.Errorf("it is not a valid lease id: %d", leaseID)
 	}
 
 	return c.EtcdClient.TimeToLive(c.Ctx, id)

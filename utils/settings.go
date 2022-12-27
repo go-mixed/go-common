@@ -2,12 +2,11 @@ package utils
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	text_utils "go-common/utils/text"
+	"github.com/pkg/errors"
+	"go-common/utils/text"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
@@ -23,16 +22,16 @@ func LoadSettings(v any, filenames ...string) error {
 	for _, filename := range filenames {
 		ext := filepath.Ext(filename)
 		if content, err := os.ReadFile(filename); err != nil {
-			return fmt.Errorf("read settings file error: %w", err)
+			return errors.Errorf("read settings file error: %w", err)
 		} else if strings.EqualFold(ext, ".json") ||
 			strings.EqualFold(ext, ".json5") ||
 			strings.EqualFold(ext, ".yaml") ||
 			strings.EqualFold(ext, ".yml") {
 			if err = yaml.Unmarshal(content, v); err != nil {
-				return fmt.Errorf("unmarshal settings file \"%s\" error: %w", filename, err)
+				return errors.Errorf("unmarshal settings file \"%s\" error: %w", filename, err)
 			}
 		} else {
-			return fmt.Errorf("unsupported settings format of \"%s\"", filename)
+			return errors.Errorf("unsupported settings format of \"%s\"", filename)
 		}
 	}
 
@@ -86,16 +85,16 @@ func WriteSettings(v any, filename string) error {
 		strings.EqualFold(ext, ".yml") {
 		j, err = yaml.Marshal(v)
 	} else {
-		err = fmt.Errorf("the extension of file \"%s\" must be .json,.yaml,.yml", filename)
+		err = errors.Errorf("the extension of file \"%s\" must be .json,.yaml,.yml", filename)
 	}
 
 	if err != nil {
-		return fmt.Errorf("marshal settings error: %w", err)
+		return errors.Errorf("marshal settings error: %w", err)
 	}
 
 	err = os.WriteFile(filename, j, 0o664)
 	if err != nil {
-		return fmt.Errorf("write settings file error: %w", err)
+		return errors.Errorf("write settings file error: %w", err)
 	}
 
 	return nil

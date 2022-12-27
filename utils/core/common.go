@@ -1,7 +1,7 @@
 package core
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils/conv"
 	"reflect"
 	"runtime"
@@ -71,7 +71,7 @@ func NestAccess(from any, keys ...string) (any, error) {
 	valueOf := reflect.ValueOf(from)
 	for _i, k := range keys {
 		if valueOf.IsNil() {
-			return nil, fmt.Errorf("have no key at %v", keys[:_i])
+			return nil, errors.Errorf("have no key at %v", keys[:_i])
 		} else if valueOf.Kind() == reflect.Ptr {
 			valueOf = valueOf.Elem()
 		}
@@ -79,7 +79,7 @@ func NestAccess(from any, keys ...string) (any, error) {
 		case reflect.Slice:
 			i := conv.Atoi(k, -1)
 			if i < 0 || i >= valueOf.Len() {
-				return nil, fmt.Errorf("have no key at %v", keys[:_i])
+				return nil, errors.Errorf("have no key at %v", keys[:_i])
 			} else {
 				valueOf = valueOf.Index(i).Elem()
 			}
@@ -88,7 +88,7 @@ func NestAccess(from any, keys ...string) (any, error) {
 		case reflect.Struct:
 			valueOf = valueOf.FieldByName(k).Elem()
 		default:
-			return nil, fmt.Errorf("no key at %v", keys[:_i])
+			return nil, errors.Errorf("no key at %v", keys[:_i])
 		}
 	}
 

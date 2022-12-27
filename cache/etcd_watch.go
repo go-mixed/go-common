@@ -2,7 +2,7 @@ package cache
 
 import (
 	"context"
-	"fmt"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"go-common/utils/core"
 	"go.etcd.io/etcd/api/v3/mvccpb"
@@ -58,11 +58,11 @@ func (w *EtcdWatch) DumpAndWatch(ctx context.Context, keyPrefix string, fromRevi
 	var revision int64
 	var err error
 	if revision, err = w.Dump(ctx, keyPrefix, fromRevision, -1, handle); err != nil {
-		return revision, fmt.Errorf("dump cc from etcd error: %w", err)
+		return revision, errors.Errorf("dump cc from etcd error: %w", err)
 	}
 
 	if revision, err = w.Watch(ctx, keyPrefix, revision+1, handle); err != nil {
-		return revision, fmt.Errorf("watch cc from etcd error: %w", err)
+		return revision, errors.Errorf("watch cc from etcd error: %w", err)
 	}
 
 	return revision, nil

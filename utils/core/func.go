@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"reflect"
 	"runtime"
 )
@@ -41,7 +42,7 @@ func NewGenericFunc(fn any) (*genericFunc, error) {
 	cache.FnValue = reflect.ValueOf(fn)
 
 	if cache.FnValue.Type().Kind() != reflect.Func {
-		return nil, fmt.Errorf("is not a function type. It is a '%s'", cache.FnValue.Type())
+		return nil, errors.Errorf("is not a function type. It is a '%s'", cache.FnValue.Type())
 	}
 	cache.FnType = cache.FnValue.Type()
 	numTypesIn := cache.FnType.NumIn()
@@ -64,7 +65,7 @@ func NewInstanceFunc(instance any, method string) (*genericFunc, error) {
 	if _, ok := vOf.Type().MethodByName(method); ok {
 		return NewGenericFunc(vOf.MethodByName(method).Interface())
 	} else {
-		return nil, fmt.Errorf("method %s not found", method)
+		return nil, errors.Errorf("method %s not found", method)
 	}
 }
 

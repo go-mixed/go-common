@@ -2,9 +2,8 @@ package cache
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis/v9"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -36,11 +35,11 @@ func ConnectToEtcd(options *clientv3.Config, logger utils.ILogger) (*Etcd, error
 	status, err := client.Status(ctx, options.Endpoints[0])
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("dial to etcd endpoint [%s] timeout", options.Endpoints[0])
+			return nil, errors.Errorf("dial to etcd endpoint [%s] timeout", options.Endpoints[0])
 		}
 		return nil, err
 	} else if status == nil {
-		return nil, fmt.Errorf("the status from etcd was nil")
+		return nil, errors.Errorf("the status from etcd was nil")
 	}
 
 	return NewEtcdCache(client, logger), nil

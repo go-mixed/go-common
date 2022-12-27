@@ -2,7 +2,7 @@ package cache
 
 import (
 	"context"
-	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis/v9"
 	"go-common/utils"
 	"go-common/utils/core"
 	"go-common/utils/text"
@@ -77,7 +77,7 @@ type Cache struct {
 func NewRedisCache(client redis.UniversalClient, logger utils.ILogger, isPika bool) *Redis {
 	cache := &Redis{
 		Cache: Cache{
-			Ctx:    core.If(client.Context() != nil, client.Context(), context.Background()),
+			Ctx:    context.Background(),
 			Logger: logger,
 		},
 		RedisClient: client,

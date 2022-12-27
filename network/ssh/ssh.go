@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"net"
@@ -27,7 +27,7 @@ func NewSSHClient(host string, user string, privateKeyPath string, privateKeyPas
 	// read private key file
 	pemBytes, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading private key file failed: %w", err)
+		return nil, errors.Errorf("reading private key file failed: %w", err)
 	}
 	// create signer
 	signer, err := signerFromPem(pemBytes, []byte(privateKeyPassword))
@@ -76,7 +76,7 @@ func (s *SSHClient) GetClientWithTimeout(timeout time.Duration) (*ssh.Client, er
 		// open connection
 		conn, err := net.DialTimeout("tcp", s.Host, s.Config.Timeout)
 		if err != nil {
-			return nil, fmt.Errorf("dial to %v(ssh) failed %w", s.Host, err)
+			return nil, errors.Errorf("dial to %v(ssh) failed %w", s.Host, err)
 		}
 
 		timeoutConn := &Conn{
@@ -95,7 +95,7 @@ func (s *SSHClient) GetClientWithTimeout(timeout time.Duration) (*ssh.Client, er
 	} else {
 		conn, err := ssh.Dial("tcp", s.Host, s.Config)
 		if err != nil {
-			return nil, fmt.Errorf("dial to %v(ssh) failed %w", s.Host, err)
+			return nil, errors.Errorf("dial to %v(ssh) failed %w", s.Host, err)
 		}
 
 		return conn, nil
@@ -136,7 +136,7 @@ func (s *SSHClient) RunCommand(cmd string, timeout time.Duration) (string, error
 	// open session
 	session, err := conn.NewSession()
 	if err != nil {
-		return "", fmt.Errorf("create session for %v failed %w", s.Host, err)
+		return "", errors.Errorf("create session for %v failed %w", s.Host, err)
 	}
 	defer session.Close()
 
@@ -160,7 +160,7 @@ func signerFromPem(pemBytes []byte, password []byte) (ssh.Signer, error) {
 		// decrypt PEM
 		pemBlock.Bytes, err = x509.DecryptPEMBlock(pemBlock, []byte(password))
 		if err != nil {
-			return nil, fmt.Errorf("decrypting PEM block failed %v", err)
+			return nil, errors.Errorf("decrypting PEM block failed %v", err)
 		}
 
 		// get RSA, EC or DSA key
@@ -172,7 +172,7 @@ func signerFromPem(pemBytes []byte, password []byte) (ssh.Signer, error) {
 		// generate signer instance from key
 		signer, err := ssh.NewSignerFromKey(key)
 		if err != nil {
-			return nil, fmt.Errorf("creating signer from encrypted key failed %v", err)
+			return nil, errors.Errorf("creating signer from encrypted key failed %v", err)
 		}
 
 		return signer, nil
@@ -180,7 +180,7 @@ func signerFromPem(pemBytes []byte, password []byte) (ssh.Signer, error) {
 		// generate signer instance from plain key
 		signer, err := ssh.ParsePrivateKey(pemBytes)
 		if err != nil {
-			return nil, fmt.Errorf("parsing plain private key failed %v", err)
+			return nil, errors.Errorf("parsing plain private key failed %v", err)
 		}
 
 		return signer, nil
@@ -192,25 +192,25 @@ func parsePemBlock(block *pem.Block) (any, error) {
 	case "RSA PRIVATE KEY":
 		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("parsing PKCS private key failed %w", err)
+			return nil, errors.Errorf("parsing PKCS private key failed %w", err)
 		} else {
 			return key, nil
 		}
 	case "EC PRIVATE KEY":
 		key, err := x509.ParseECPrivateKey(block.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("parsing EC private key failed %w", err)
+			return nil, errors.Errorf("parsing EC private key failed %w", err)
 		} else {
 			return key, nil
 		}
 	case "DSA PRIVATE KEY":
 		key, err := ssh.ParseDSAPrivateKey(block.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("parsing DSA private key failed %w", err)
+			return nil, errors.Errorf("parsing DSA private key failed %w", err)
 		} else {
 			return key, nil
 		}
 	default:
-		return nil, fmt.Errorf("parsing private key failed, unsupported key type %q", block.Type)
+		return nil, errors.Errorf("parsing private key failed, unsupported key type %q", block.Type)
 	}
 }

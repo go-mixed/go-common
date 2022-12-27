@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/binary"
-	"errors"
+	"github.com/pkg/errors"
 	"gopkg.in/restruct.v1"
 	"net"
 )

@@ -3,9 +3,9 @@ package web
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"go-common/utils/http"
 	"go-common/utils/list"
@@ -139,7 +139,7 @@ func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Ha
 	for _, domain := range domains {
 		domain = strings.ToLower(domain)
 		if c.ContainsDomain(domain) {
-			return fmt.Errorf("domain duplicate: \"%s\" is already in the server config", domain)
+			return errors.Errorf("domain duplicate: \"%s\" is already in the server config", domain)
 		}
 
 		domainConfigs = append(domainConfigs, &DomainConfig{
@@ -161,17 +161,17 @@ func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Ha
 
 // Use 添加中间件
 //
-//	这种嵌套方式的中间件, 可以运行在controller前, 也可以运行在controller后
-//   - 运行在 controller 前，一般为修改request的数据
-//     Use(func(w, r, next) {
-//     r.Path = "/abc" + r.Path // 修改path
-//     next.ServeHTTP(w, r)
-//     }
-//   - 运行在 controller 后，一般为修改response的数据
-//     Use(func(w, r, next) {
-//     next.ServeHTTP(w, r) // 先运行controller
-//     w.Write(...)
-//     }
+//		这种嵌套方式的中间件, 可以运行在controller前, 也可以运行在controller后
+//	  - 运行在 controller 前，一般为修改request的数据
+//	    Use(func(w, r, next) {
+//	    r.Path = "/abc" + r.Path // 修改path
+//	    next.ServeHTTP(w, r)
+//	    }
+//	  - 运行在 controller 后，一般为修改response的数据
+//	    Use(func(w, r, next) {
+//	    next.ServeHTTP(w, r) // 先运行controller
+//	    w.Write(...)
+//	    }
 func (c *HttpServer) Use(fn ...Middleware) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -192,7 +192,7 @@ func (c *HttpServer) AddCertificate(certs ...*Certificate) error {
 			continue
 		}
 		if cert.CertFileInfo() == nil || cert.KeyFileInfo() == nil {
-			return fmt.Errorf("cert \"%s\" or key \"%s\" is invalid", cert.CertFile, cert.KeyFile)
+			return errors.Errorf("cert \"%s\" or key \"%s\" is invalid", cert.CertFile, cert.KeyFile)
 		}
 		if !c.ContainsCert(cert) { // 添加cert列表
 			c.certs = append(c.certs, cert)

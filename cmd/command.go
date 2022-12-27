@@ -3,9 +3,9 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/mattn/go-shellwords"
+	"github.com/pkg/errors"
 	"io"
 	"os"
 	"os/exec"
@@ -43,8 +43,7 @@ type ShellCommand []string
 //
 // Example:
 //
-//  env := map[string]string{"ENV": "VALUE"}
-//
+//	env := map[string]string{"ENV": "VALUE"}
 type EnvVars map[string]string
 
 // NewCommand creates a new command
@@ -52,16 +51,16 @@ type EnvVars map[string]string
 // Default timeout is set to 30 minutes
 //
 // Example:
-//      c := cmd.NewCommand("echo hello", function (c *Command) {
-//		    c.WorkingDir = "/tmp"
-//      })
-//      c.Execute()
+//
+//	     c := cmd.NewCommand("echo hello", function (c *Command) {
+//			    c.WorkingDir = "/tmp"
+//	     })
+//	     c.Execute()
 //
 // or you can use existing options functions
 //
-//      c := cmd.NewCommand("echo hello", cmd.WithStandardStreams)
-//      c.Execute()
-//
+//	c := cmd.NewCommand("echo hello", cmd.WithStandardStreams)
+//	c.Execute()
 func NewCommand(path string, args []string, options ...func(*Command)) *Command {
 	c := &Command{
 		Path:     path,
@@ -92,9 +91,8 @@ func NewCommand(path string, args []string, options ...func(*Command)) *Command 
 //
 // Example:
 //
-//     c := cmd.NewCommand("echo hello", cmd.WithStandardStreams)
-//     c.Execute()
-//
+//	c := cmd.NewCommand("echo hello", cmd.WithStandardStreams)
+//	c.Execute()
 func WithStandardStreams(c *Command) {
 	c.StdoutWriter = io.MultiWriter(os.Stdout, &c.stdout, &c.combined)
 	c.StderrWriter = io.MultiWriter(os.Stderr, &c.stdout, &c.combined)
@@ -119,8 +117,8 @@ func WithCustomStderr(writers ...io.Writer) func(c *Command) {
 // WithTimeout sets the timeout of the command
 //
 // Example:
-//     cmd.NewCommand("sleep 10;", cmd.WithTimeout(500))
 //
+//	cmd.NewCommand("sleep 10;", cmd.WithTimeout(500))
 func WithTimeout(t time.Duration) func(c *Command) {
 	return func(c *Command) {
 		c.Timeout = t
@@ -161,7 +159,8 @@ func WithEnvironmentVariables(env EnvVars) func(c *Command) {
 }
 
 // WithPrivilegedInDocker will prepend `"nsenter", "-t", "1", "-m", "-u", "-n", "-i"` to command
-//  only work on linux/darwin, ignore it on Windows
+//
+//	only work on linux/darwin, ignore it on Windows
 func WithPrivilegedInDocker(enabled bool) func(c *Command) {
 	return func(c *Command) {
 		c.privilegedInDocker = enabled
@@ -210,13 +209,13 @@ func (c *Command) Combined() string {
 	return c.combined.String()
 }
 
-//ExitCode returns the exit code of the command
+// ExitCode returns the exit code of the command
 func (c *Command) ExitCode() int {
 	c.isExecuted("ExitCode")
 	return c.exitCode
 }
 
-//Executed returns if the command was already executed
+// Executed returns if the command was already executed
 func (c *Command) Executed() bool {
 	return c.executed
 }
@@ -268,8 +267,8 @@ func (c *Command) ExecuteContext(ctx context.Context) error {
 	case <-ctx.Done(): // 监听ctx退出, 并检查是否是超时退出的情况
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			if errors.Is(ctxErr, context.DeadlineExceeded) {
-				err = fmt.Errorf("command timed out after %v", c.Timeout)
-				// fmt.Errorf("Timeout occurred and can not kill process with pid %v", cmd.Process.Pid)
+				err = errors.Errorf("command timed out after %v", c.Timeout)
+				// errors.Errorf("Timeout occurred and can not kill process with pid %v", cmd.Process.Pid)
 			}
 		}
 	case err = <-errChan: // 正常运行结束

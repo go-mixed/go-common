@@ -1,8 +1,8 @@
 package text_utils
 
 import (
-	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 	"go-common/utils/core"
 	"reflect"
 	"strings"
@@ -31,11 +31,11 @@ func JsonListUnmarshalFromBytes(jsonList [][]byte, to any) error {
 	if toValue.Kind() == reflect.Ptr {
 		toValue = toValue.Elem()
 	} else {
-		return fmt.Errorf("parameter \"to\" must be a ptr")
+		return errors.Errorf("parameter \"to\" must be a ptr")
 	}
 
 	if toValue.Kind() != reflect.Slice {
-		return fmt.Errorf("parameter \"to\" must be a slice ptr")
+		return errors.Errorf("parameter \"to\" must be a slice ptr")
 	}
 
 	// []any 得到any的类型

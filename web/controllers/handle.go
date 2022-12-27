@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"go-common/utils/core"
 	"io"
 	"net/http"
@@ -23,11 +23,11 @@ func NewController(controllerName string, ctx *gin.Context) (IController, error)
 		if controller := callback(ctx); controller != nil {
 			return controller, nil
 		} else {
-			return nil, fmt.Errorf("get nil controller [%s]", controllerName)
+			return nil, errors.Errorf("get nil controller [%s]", controllerName)
 		}
 	}
 
-	return nil, fmt.Errorf("controller [%s] not exists", controllerName)
+	return nil, errors.Errorf("controller [%s] not exists", controllerName)
 }
 
 func RegisterController(controllerName string, fn func(ctx *gin.Context) IController) {
@@ -90,7 +90,7 @@ func callControllerMethod(controller IController, methodName string, args ...any
 				return res, errors.New(err.(string))
 			}
 		default:
-			return res, fmt.Errorf("%#v", err)
+			return res, errors.Errorf("%#v", err)
 		}
 	}
 

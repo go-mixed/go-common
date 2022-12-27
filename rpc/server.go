@@ -2,7 +2,7 @@ package rpc
 
 import (
 	"context"
-	"errors"
+	"github.com/pkg/errors"
 	"go-common/utils"
 	"go-common/utils/core"
 	"go-common/utils/http"
