@@ -4,7 +4,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 	"go-common/utils/core"
-	"reflect"
 	"strings"
 )
 
@@ -27,55 +26,25 @@ func JsonListUnmarshal(jsonList []string, to any) error {
 }
 
 func JsonListUnmarshalFromBytes(jsonList [][]byte, to any) error {
-	toValue := reflect.ValueOf(to)
-	if toValue.Kind() == reflect.Ptr {
-		toValue = toValue.Elem()
-	} else {
-		return errors.Errorf("parameter \"to\" must be a ptr")
-	}
-
-	if toValue.Kind() != reflect.Slice {
-		return errors.Errorf("parameter \"to\" must be a slice ptr")
-	}
-
-	// []any 得到any的类型
-	typeOfV := toValue.Type().Elem()
-
-	newSlice := reflect.MakeSlice(reflect.SliceOf(typeOfV), 0, 0)
-
-	for _, _json := range jsonList {
-		if _json == nil {
-			newSlice = reflect.Append(newSlice, reflect.Zero(typeOfV))
-			continue
-		}
-
-		newInstance := reflect.New(typeOfV).Elem()
-		// 传递newInstance的指针给 json.Unmarshal
-		if err := JsonUnmarshalFromBytes(_json, newInstance.Addr().Interface()); err != nil {
-			return err
-		}
-
-		newSlice = reflect.Append(newSlice, newInstance)
-	}
-
-	toValue.Set(newSlice)
-	return nil
+	return ListDecode(JsonUnmarshalFromBytes, jsonList, to)
 }
 
 func JsonUnmarshal(_json string, to any) error {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.UnmarshalFromString(_json, to)
+	return errors.WithStack(jsoniter.ConfigCompatibleWithStandardLibrary.UnmarshalFromString(_json, to))
 }
 
 func JsonMarshal(from any) (string, error) {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.MarshalToString(from)
+	j, err := jsoniter.ConfigCompatibleWithStandardLibrary.MarshalToString(from)
+	return j, errors.WithStack(err)
 }
 
 func JsonUnmarshalFromBytes(_json []byte, to any) error {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(_json, to)
+	return errors.WithStack(jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(_json, to))
 }
 
 func JsonMarshalToBytes(from any) ([]byte, error) {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(from)
+	j, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(from)
+	return j, errors.WithStack(err)
 }
 
 // JsonExtractIntoPtr 将一个json转到to, 支持使用.递归访问json内的值进行转换

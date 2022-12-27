@@ -11,8 +11,11 @@ import (
 )
 
 type Bolt struct {
-	DB     *bolt.DB
-	logger utils.ILogger
+	DB *bolt.DB
+
+	logger     utils.ILogger
+	decodeFunc func([]byte, any) error
+	encodeFunc func(any) ([]byte, error)
 }
 
 type BoltBucket struct {
@@ -29,7 +32,20 @@ func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 	return &Bolt{
 		DB:     db,
 		logger: logger,
+
+		encodeFunc: text_utils.JsonMarshalToBytes,
+		decodeFunc: text_utils.JsonUnmarshalFromBytes,
 	}, nil
+}
+
+func (b *Bolt) SetEncodeFunc(encodeFunc func(any) ([]byte, error)) *Bolt {
+	b.encodeFunc = encodeFunc
+	return b
+}
+
+func (b *Bolt) SetDecodeFunc(decodeFunc func([]byte, any) error) *Bolt {
+	b.decodeFunc = decodeFunc
+	return b
 }
 
 func (b *Bolt) Bucket(bucket string) *BoltBucket {
@@ -48,10 +64,10 @@ func (b *BoltBucket) Batch(callback func(*bolt.Bucket) error) error {
 		bucket, err := tx.CreateBucketIfNotExists(b.bucket)
 		if err != nil {
 			b.logger.Errorf("bolt bucket %s error: %s", b.bucket, err.Error())
-			return err
+			return errors.WithStack(err)
 		}
 
-		return callback(bucket)
+		return errors.WithStack(callback(bucket))
 	})
 }
 
@@ -61,7 +77,7 @@ func (b *BoltBucket) View(callback func(*bolt.Bucket) error) error {
 		if bucket == nil {
 			return nil
 		}
-		return callback(bucket)
+		return errors.WithStack(callback(bucket))
 	})
 }
 
@@ -72,19 +88,17 @@ func (b *BoltBucket) Update(callback func(*bolt.Bucket) error) error {
 			b.logger.Errorf("[Bolt]bucket %s error: %s", b.bucket, err.Error())
 			return err
 		}
-		return callback(bucket)
+		return errors.WithStack(callback(bucket))
 	})
 }
 
 func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
-		buf = bucket.Get([]byte(key))
-		if buf != nil && !core.IsInterfaceNil(actual) {
-			err := text_utils.JsonUnmarshalFromBytes(buf, actual)
-			if err != nil {
-				b.logger.Errorf("[Bolt]Get json error: %s", err.Error())
-				return err
+		if buf = bucket.Get([]byte(key)); buf != nil && !core.IsInterfaceNil(actual) {
+			if err := b.decodeFunc(buf, actual); err != nil {
+				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
+				return errors.WithStack(err)
 			}
 		}
 		return nil
@@ -96,11 +110,10 @@ func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 func (b *BoltBucket) Keys() ([]string, error) {
 	var res []string
 	err := b.View(func(bucket *bolt.Bucket) error {
-		err := bucket.ForEach(func(k, v []byte) error {
+		return bucket.ForEach(func(k, v []byte) error {
 			res = append(res, string(k))
 			return nil
 		})
-		return err
 	})
 	return res, err
 }
@@ -108,11 +121,10 @@ func (b *BoltBucket) Keys() ([]string, error) {
 func (b *BoltBucket) Values() ([]string, error) {
 	var res []string
 	err := b.View(func(bucket *bolt.Bucket) error {
-		err := bucket.ForEach(func(k, v []byte) error {
+		return bucket.ForEach(func(k, v []byte) error {
 			res = append(res, string(v))
 			return nil
 		})
-		return err
 	})
 	return res, err
 }
@@ -125,10 +137,9 @@ func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 			kvs = kvs.Append(string(k), v)
 		}
 		if actual != nil && !core.IsInterfaceNil(actual) {
-			err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), actual)
-			if err != nil {
-				b.logger.Errorf("[Bolt]Get json error: %s", err.Error())
-				return err
+			if err := text_utils.ListDecode(b.decodeFunc, kvs.Values(), actual); err != nil {
+				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
+				return errors.WithStack(err)
 			}
 		}
 		return nil
@@ -138,11 +149,14 @@ func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 
 func (b *BoltBucket) Set(key string, value any) error {
 	return b.Update(func(bucket *bolt.Bucket) error {
-		err := bucket.Put([]byte(key), []byte(text_utils.ToString(value, true)))
+		buf, err := b.encodeFunc(value)
 		if err != nil {
+			return errors.WithMessagef(err, "[Bolt]Set data and encode error")
+		}
+		if err = bucket.Put([]byte(key), buf); err != nil {
 			b.logger.Errorf("[Bolt]Set error: %s", err.Error())
 		}
-		return err
+		return errors.WithStack(err)
 	})
 }
 
@@ -152,14 +166,33 @@ func (b *BoltBucket) Delete(key string) error {
 		if err != nil {
 			b.logger.Errorf("[Bolt]Set error: %s", err.Error())
 		}
-		return err
+		return errors.WithStack(err)
 	})
+}
+
+func (b *BoltBucket) Count() int {
+	var count int
+	if b.bucket != nil {
+		if err := b.DB.View(func(tx *bolt.Tx) error {
+			if bucket := tx.Bucket(b.bucket); bucket != nil {
+				stats := bucket.Stats()
+				count = stats.KeyN
+			}
+			return nil
+		}); err != nil {
+			b.logger.Errorf("[Bolt]read bucket \"%s\" count error: %s", b.bucket, err.Error())
+		}
+	}
+	return count
 }
 
 func (b *BoltBucket) Clear() error {
 	if b.bucket != nil {
 		return b.DB.Update(func(tx *bolt.Tx) error {
-			return tx.DeleteBucket(b.bucket)
+			if bucket := tx.Bucket(b.bucket); bucket != nil {
+				return tx.DeleteBucket(b.bucket)
+			}
+			return nil
 		})
 	}
 	return nil
@@ -184,10 +217,9 @@ func (b *BoltBucket) FindLte(key string, actual any) (utils.KV, error) {
 		}
 
 		if buf != nil && !core.IsInterfaceNil(actual) {
-			err := text_utils.JsonUnmarshalFromBytes(buf, actual)
-			if err != nil {
-				b.logger.Errorf("[Bolt]FindLte json error: %s", err.Error())
-				return err
+			if err := b.decodeFunc(buf, actual); err != nil {
+				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
+				return errors.WithStack(err)
 			}
 		}
 
@@ -213,10 +245,10 @@ func (b *BoltBucket) FindLt(key string, actual any) (utils.KV, error) {
 		}
 
 		if buf != nil && !core.IsInterfaceNil(actual) {
-			err := text_utils.JsonUnmarshalFromBytes(buf, actual)
+			err := b.decodeFunc(buf, actual)
 			if err != nil {
-				b.logger.Errorf("[Bolt]FindLte json error: %s", err.Error())
-				return err
+				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
+				return errors.WithStack(err)
 			}
 		}
 
@@ -238,10 +270,9 @@ func (b *BoltBucket) FindGte(key string, actual any) (utils.KV, error) {
 		key = string(_key)
 
 		if buf != nil && !core.IsInterfaceNil(actual) {
-			err := text_utils.JsonUnmarshalFromBytes(buf, actual)
-			if err != nil {
-				b.logger.Errorf("[Bolt]FindGte json error: %s", err.Error())
-				return err
+			if err := b.decodeFunc(buf, actual); err != nil {
+				b.logger.Errorf("[Bolt]FindGte data and decode error: %s", err.Error())
+				return errors.WithStack(err)
 			}
 		}
 
@@ -256,7 +287,7 @@ func (b *BoltBucket) Range(keyStart, keyEnd string, keyPrefix string, limit int6
 	_keyStart := []byte(keyStart)
 	_keyEnd := []byte(keyEnd)
 	if bytes.Compare(_keyStart, _keyEnd) > 0 {
-		return "", nil, errors.Errorf("error key range, \"keyStart\" must less than \"keyEnd\"")
+		return "", nil, errors.Errorf("[Bolt]error key range, \"keyStart\" must less than \"keyEnd\"")
 	}
 
 	var _nextKey []byte
