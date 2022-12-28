@@ -3,6 +3,7 @@ package utils
 import (
 	"github.com/utahta/go-cronowriter"
 	"go.uber.org/zap"
+	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapio"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -60,9 +62,10 @@ type Logger struct {
 	FilePath      string
 	ErrorFilePath string
 
-	consoleLevel zapcore.Level
-	fileLevel    zapcore.Level
-	fileEncoder  *fileEncoder
+	consoleLevel   zapcore.Level
+	consoleEncoder zapcore.Encoder
+	fileLevel      zapcore.Level
+	fileEncoder    zapcore.Encoder
 }
 
 var globalLogger *Logger
@@ -99,12 +102,11 @@ func InitLogger(filename string, errorFilename string) (*Logger, error) {
 		FilePath:      filename,
 		ErrorFilePath: errorFilename,
 
-		consoleLevel: getZapLevelFromEnv(ZapConsoleLevel),
-		fileLevel:    getZapLevelFromEnv(ZapFileLevel),
-		fileEncoder:  &fileEncoder{},
+		consoleLevel:   getZapLevelFromEnv(ZapConsoleLevel),
+		consoleEncoder: makeEncoder("console"),
+		fileLevel:      getZapLevelFromEnv(ZapFileLevel),
+		fileEncoder:    makeEncoder(strings.ToLower(os.Getenv(ZapFileEncoder))),
 	}
-
-	logger.buildFileEncoder(strings.ToLower(os.Getenv(ZapFileEncoder)))
 
 	logger.Logger = zap.New(
 		logger.buildCore(),
@@ -116,13 +118,17 @@ func InitLogger(filename string, errorFilename string) (*Logger, error) {
 	return logger, nil
 }
 
-// SetFileLevel 修改文件输出的最低Level，可实时修改
+// SetFileLevel 修改文件输出的最低Level，可实时修改。无法关闭ErrorLevel及以上的输出
+//
+//	如果不想输出Info、Debug、Warn，可以这样: SetFileLevel(zap.ErrorLevel)
 func (l *Logger) SetFileLevel(level zapcore.Level) *Logger {
 	l.fileLevel = level
 	return l
 }
 
-// SetConsoleLevel 修改控制台输出的最低Level，可实时修改
+// SetConsoleLevel 修改控制台输出的最低Level，可实时修改。无法关闭ErrorLevel及以上的输出
+//
+//	如果不想输出Info、Debug、Warn，可以这样: SetConsoleLevel(zap.ErrorLevel)
 func (l *Logger) SetConsoleLevel(level zapcore.Level) *Logger {
 	l.consoleLevel = level
 	return l
@@ -130,57 +136,47 @@ func (l *Logger) SetConsoleLevel(level zapcore.Level) *Logger {
 
 // SetFileEncoder 修改文件输出的encoder：console、json，可实时修改
 func (l *Logger) SetFileEncoder(encoder string) *Logger {
-	l.buildFileEncoder(encoder)
+	l.fileEncoder = makeEncoder(encoder)
 	return l
 }
 
 func (l *Logger) buildCore() zapcore.Core {
 
-	errorLevelFunc := zap.LevelEnablerFunc(l.errorLevelFunc)
 	var cores []zapcore.Core
+	errorLevelFunc := zap.LevelEnablerFunc(l.errorLevelFunc)
 
 	// 获取console的cores
-	consoleEncoder := l.getConsoleEncoder()
+	consoleEncoderFunc := encoderFunc(l.consoleEncoderFunc)
+	consoleLevelFunc := zap.LevelEnablerFunc(l.consoleLevelFunc)
 	stdoutSyncer := zapcore.AddSync(os.Stdout)
 	stderrSyncer := zapcore.AddSync(os.Stderr)
 	cores = append(cores,
-		zapcore.NewCore(consoleEncoder, stdoutSyncer, zap.LevelEnablerFunc(l.consoleLevelFunc)), // stdout输出
-		zapcore.NewCore(consoleEncoder, stderrSyncer, errorLevelFunc),                           // stderr输出
+		zapcore.NewCore(consoleEncoderFunc, stdoutSyncer, consoleLevelFunc), // stdout输出
+		zapcore.NewCore(consoleEncoderFunc, stderrSyncer, errorLevelFunc),   // stderr输出
 	)
 
 	// 获取文件的cores
 	fileSyncer := l.getFileWriter(l.FilePath)
-	cores = append(cores, zapcore.NewCore(l.fileEncoder, fileSyncer, zap.LevelEnablerFunc(l.fileLevelFunc))) // 常规信息的文件输出
+	fileLevelFunc := zap.LevelEnablerFunc(l.fileLevelFunc)
+	fileEncoderFunc := encoderFunc(l.fileEncoderFunc)
+	cores = append(cores, zapcore.NewCore(fileEncoderFunc, fileSyncer, fileLevelFunc)) // 常规信息的文件输出
 
 	if l.ErrorFilePath != "" {
 		errorSyncer := l.getFileWriter(l.ErrorFilePath)
-		cores = append(cores, zapcore.NewCore(l.fileEncoder, errorSyncer, errorLevelFunc)) // 错误log单独输出
+		cores = append(cores, zapcore.NewCore(fileEncoderFunc, errorSyncer, errorLevelFunc)) // 错误log单独输出
 	} else {
-		cores = append(cores, zapcore.NewCore(l.fileEncoder, fileSyncer, errorLevelFunc)) // 错误和常规的log在一个文件
+		cores = append(cores, zapcore.NewCore(fileEncoderFunc, fileSyncer, errorLevelFunc)) // 错误和常规的log在一个文件
 	}
 
 	return zapcore.NewTee(cores...)
 }
 
-func (l *Logger) getConsoleEncoder() zapcore.Encoder {
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-
-	return zapcore.NewConsoleEncoder(encoderConfig)
+func (l *Logger) consoleEncoderFunc() zapcore.Encoder {
+	return l.consoleEncoder
 }
 
-func (l *Logger) buildFileEncoder(encoder string) {
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-
-	switch encoder {
-	case "json", "JSON":
-		l.fileEncoder.Encoder = zapcore.NewJSONEncoder(encoderConfig)
-	default:
-		l.fileEncoder.Encoder = zapcore.NewConsoleEncoder(encoderConfig)
-	}
+func (l *Logger) fileEncoderFunc() zapcore.Encoder {
+	return l.fileEncoder
 }
 
 func (l *Logger) errorLevelFunc(level zapcore.Level) bool {
@@ -193,20 +189,6 @@ func (l *Logger) fileLevelFunc(level zapcore.Level) bool {
 
 func (l *Logger) consoleLevelFunc(level zapcore.Level) bool {
 	return level >= l.consoleLevel && level < zap.ErrorLevel
-}
-
-func getZapLevelFromEnv(env string) zapcore.Level {
-	minLevel := zapcore.DebugLevel
-	envLevel := strings.ToLower(os.Getenv(env))
-	if envLevel == "disabled" {
-		return 0
-	} else {
-		if err := minLevel.UnmarshalText([]byte(envLevel)); err != nil {
-			minLevel = zap.DebugLevel
-		}
-	}
-
-	return minLevel
 }
 
 func (l *Logger) getFileWriter(filename string) zapcore.WriteSyncer {
@@ -232,9 +214,11 @@ func (l *Logger) Clone() *Logger {
 		Logger:        l.Logger,
 		FilePath:      l.FilePath,
 		ErrorFilePath: l.ErrorFilePath,
-		fileLevel:     l.fileLevel,
-		consoleLevel:  l.consoleLevel,
-		fileEncoder:   l.fileEncoder,
+
+		consoleLevel:   l.consoleLevel,
+		consoleEncoder: l.consoleEncoder,
+		fileLevel:      l.fileLevel,
+		fileEncoder:    l.fileEncoder,
 	}
 }
 
@@ -328,6 +312,139 @@ func (d DefaultLogger) Warnf(format string, v ...any) {
 	}
 }
 
-type fileEncoder struct {
-	zapcore.Encoder
+func getZapLevelFromEnv(env string) zapcore.Level {
+	minLevel := zapcore.DebugLevel
+	envLevel := strings.ToLower(os.Getenv(env))
+	if envLevel == "disabled" {
+		return zap.ErrorLevel // 返回error level
+	} else {
+		if err := minLevel.UnmarshalText([]byte(envLevel)); err != nil {
+			minLevel = zap.DebugLevel
+		}
+	}
+
+	return minLevel
+}
+
+func makeEncoder(encoder string) zapcore.Encoder {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	switch encoder {
+	case "json", "JSON":
+		return zapcore.NewJSONEncoder(encoderConfig)
+	default:
+		return zapcore.NewConsoleEncoder(encoderConfig)
+	}
+}
+
+type encoderFunc func() zapcore.Encoder
+
+func (f encoderFunc) AddArray(key string, marshaler zapcore.ArrayMarshaler) error {
+	return f().AddArray(key, marshaler)
+}
+
+func (f encoderFunc) AddObject(key string, marshaler zapcore.ObjectMarshaler) error {
+	return f().AddObject(key, marshaler)
+}
+
+func (f encoderFunc) AddBinary(key string, value []byte) {
+	f().AddBinary(key, value)
+}
+
+func (f encoderFunc) AddByteString(key string, value []byte) {
+	f().AddByteString(key, value)
+}
+
+func (f encoderFunc) AddBool(key string, value bool) {
+	f().AddBool(key, value)
+}
+
+func (f encoderFunc) AddComplex128(key string, value complex128) {
+	f().AddComplex128(key, value)
+}
+
+func (f encoderFunc) AddComplex64(key string, value complex64) {
+	f().AddComplex64(key, value)
+}
+
+func (f encoderFunc) AddDuration(key string, value time.Duration) {
+	f().AddDuration(key, value)
+}
+
+func (f encoderFunc) AddFloat64(key string, value float64) {
+	f().AddFloat64(key, value)
+}
+
+func (f encoderFunc) AddFloat32(key string, value float32) {
+	f().AddFloat32(key, value)
+}
+
+func (f encoderFunc) AddInt(key string, value int) {
+	f().AddInt(key, value)
+}
+
+func (f encoderFunc) AddInt64(key string, value int64) {
+	f().AddInt64(key, value)
+}
+
+func (f encoderFunc) AddInt32(key string, value int32) {
+	f().AddInt32(key, value)
+}
+
+func (f encoderFunc) AddInt16(key string, value int16) {
+	f().AddInt16(key, value)
+}
+
+func (f encoderFunc) AddInt8(key string, value int8) {
+	f().AddInt8(key, value)
+}
+
+func (f encoderFunc) AddString(key, value string) {
+	f().AddString(key, value)
+}
+
+func (f encoderFunc) AddTime(key string, value time.Time) {
+	f().AddTime(key, value)
+}
+
+func (f encoderFunc) AddUint(key string, value uint) {
+	f().AddUint(key, value)
+}
+
+func (f encoderFunc) AddUint64(key string, value uint64) {
+	f().AddUint64(key, value)
+}
+
+func (f encoderFunc) AddUint32(key string, value uint32) {
+	f().AddUint32(key, value)
+}
+
+func (f encoderFunc) AddUint16(key string, value uint16) {
+	f().AddUint16(key, value)
+}
+
+func (f encoderFunc) AddUint8(key string, value uint8) {
+	f().AddUint8(key, value)
+}
+
+func (f encoderFunc) AddUintptr(key string, value uintptr) {
+	f().AddUintptr(key, value)
+}
+
+func (f encoderFunc) AddReflected(key string, value interface{}) error {
+	return f().AddReflected(key, value)
+}
+
+func (f encoderFunc) OpenNamespace(key string) {
+	f().OpenNamespace(key)
+}
+
+func (f encoderFunc) Clone() zapcore.Encoder {
+	return f().Clone()
+}
+
+func (f encoderFunc) EncodeEntry(entry zapcore.Entry, fields []zapcore.Field) (*buffer.Buffer, error) {
+	return f().EncodeEntry(entry, fields)
 }
