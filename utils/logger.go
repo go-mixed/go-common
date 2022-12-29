@@ -2,6 +2,7 @@ package utils
 
 import (
 	"github.com/utahta/go-cronowriter"
+	"go-common/utils/core"
 	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
@@ -22,6 +23,26 @@ const (
 	ERROR
 	FATAL
 )
+
+type LoggerOptions struct {
+	FilePath      string `json:"file_path" yaml:"file_path" validate:"required"`
+	ErrorFilePath string `json:"error_file_path" yaml:"error_file_path"`
+
+	FileEncoder     string `json:"file_encoder" yaml:"file_encoder"`
+	FileMinLevel    string `json:"file_min_level" yaml:"file_min_level"`
+	ConsoleMinLevel string `json:"console_min_level" yaml:"console_min_level"`
+}
+
+func DefaultLoggerOptions() LoggerOptions {
+	return LoggerOptions{
+		FilePath:      "logs/app.log",
+		ErrorFilePath: "",
+
+		FileEncoder:     "console",
+		FileMinLevel:    "debug",
+		ConsoleMinLevel: "debug",
+	}
+}
 
 type ILogger interface {
 	Fatal(v ...any)
@@ -85,27 +106,26 @@ func GetILogger() ILogger {
 	return NewDefaultLogger()
 }
 
-// InitLogger 初始化Logger
-// errorFilename 传递非空字符串，表示将错误分开写入到此文件中
-func InitLogger(filename string, errorFilename string) (*Logger, error) {
+// NewLogger 新建一个独立的logger
+func NewLogger(options LoggerOptions) (*Logger, error) {
 	// 创建文件夹
-	if err := os.MkdirAll(filepath.Dir(filename), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(options.FilePath), os.ModePerm); err != nil {
 		return nil, err
 	}
-	if errorFilename != "" {
-		if err := os.MkdirAll(filepath.Dir(errorFilename), os.ModePerm); err != nil {
+	if options.ErrorFilePath != "" {
+		if err := os.MkdirAll(filepath.Dir(options.ErrorFilePath), os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
 	logger := &Logger{
-		FilePath:      filename,
-		ErrorFilePath: errorFilename,
+		FilePath:      options.FilePath,
+		ErrorFilePath: options.ErrorFilePath,
 
-		consoleLevel:   getZapLevelFromEnv(ZapConsoleLevel),
+		consoleLevel:   toZapLevel(core.If(options.ConsoleMinLevel != "", options.ConsoleMinLevel, os.Getenv(ZapConsoleLevel))),
 		consoleEncoder: makeEncoder("console"),
-		fileLevel:      getZapLevelFromEnv(ZapFileLevel),
-		fileEncoder:    makeEncoder(strings.ToLower(os.Getenv(ZapFileEncoder))),
+		fileLevel:      toZapLevel(core.If(options.FileMinLevel != "", options.FileMinLevel, os.Getenv(ZapFileLevel))),
+		fileEncoder:    makeEncoder(core.If(options.FileEncoder != "", options.FileEncoder, os.Getenv(ZapFileEncoder))),
 	}
 
 	logger.Logger = zap.New(
@@ -114,6 +134,20 @@ func InitLogger(filename string, errorFilename string) (*Logger, error) {
 		zap.AddStacktrace(zap.LevelEnablerFunc(logger.errorLevelFunc)),
 	)
 
+	return logger, nil
+}
+
+// InitLogger 全局新建Logger
+// errorFilename 非空时表示将ERROR以上的日志写入到此文件中
+func InitLogger(filename string, errorFilename string) (*Logger, error) {
+	logger, err := NewLogger(LoggerOptions{
+		FilePath:      filename,
+		ErrorFilePath: errorFilename,
+	})
+
+	if err != nil {
+		return nil, err
+	}
 	SetGlobalLogger(logger)
 	return logger, nil
 }
@@ -312,11 +346,12 @@ func (d DefaultLogger) Warnf(format string, v ...any) {
 	}
 }
 
-func getZapLevelFromEnv(env string) zapcore.Level {
+// 默认是INFO
+func toZapLevel(level string) zapcore.Level {
 	minLevel := zapcore.DebugLevel
-	envLevel := strings.ToLower(os.Getenv(env))
+	envLevel := strings.ToLower(level)
 	if envLevel == "disabled" {
-		return zap.ErrorLevel // 返回error level
+		return zap.ErrorLevel // 设置为ERROR会跳过DEBUG、INFO、WARN
 	} else {
 		if err := minLevel.UnmarshalText([]byte(envLevel)); err != nil {
 			minLevel = zap.DebugLevel

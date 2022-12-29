@@ -107,6 +107,15 @@ func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 	return buf, err
 }
 
+// ForEach 遍历所有kv，可以对bolt进行修改
+func (b *BoltBucket) ForEach(callback func(kv utils.KV) error) error {
+	return b.Batch(func(bucket *bolt.Bucket) error {
+		return bucket.ForEach(func(k, v []byte) error {
+			return errors.WithStack(callback(utils.KV{Key: string(k), Value: v}))
+		})
+	})
+}
+
 func (b *BoltBucket) Keys() ([]string, error) {
 	var res []string
 	err := b.View(func(bucket *bolt.Bucket) error {

@@ -47,6 +47,8 @@ type RedisOptions struct {
 
 	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time"`
 	ConnMaxLifetime time.Duration `yaml:"max_connection_age"`
+
+	IsPika bool `yaml:"is_pika"`
 }
 
 func (o *RedisOptions) ToRedisUniversalOptions() *redis.UniversalOptions {
@@ -107,6 +109,8 @@ func DefaultRedisOptions() *RedisOptions {
 
 		ConnMaxIdleTime: time.Minute,
 		ConnMaxLifetime: time.Minute * 10,
+
+		IsPika: false,
 	}
 }
 
