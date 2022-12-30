@@ -3,6 +3,7 @@ package utils
 import (
 	"github.com/utahta/go-cronowriter"
 	"go-common/utils/core"
+	io_utils "go-common/utils/io"
 	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
@@ -35,7 +36,7 @@ type LoggerOptions struct {
 
 func DefaultLoggerOptions() LoggerOptions {
 	return LoggerOptions{
-		FilePath:      "logs/app.log",
+		FilePath:      filepath.Join(io_utils.GetCurrentDir(), "logs", "app.log"),
 		ErrorFilePath: "",
 
 		FileEncoder:     "console",

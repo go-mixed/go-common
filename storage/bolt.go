@@ -7,6 +7,7 @@ import (
 	"go-common/utils/core"
 	"go-common/utils/text"
 	bolt "go.etcd.io/bbolt"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,8 @@ type BoltBucket struct {
 	*Bolt
 	bucket []byte
 }
+
+var ErrForEachBreak = errors.New("for each break")
 
 func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 	db, err := bolt.Open(path, 0o664, &bolt.Options{Timeout: 1 * time.Second})
@@ -59,6 +62,7 @@ func (b *Bolt) Close() error {
 	return b.DB.Close()
 }
 
+// Batch 批量操作（事务），注意：使用Batch的写入操作会有延迟（MaxBatchDelay），其它事务会出现幻读
 func (b *BoltBucket) Batch(callback func(*bolt.Bucket) error) error {
 	return b.DB.Batch(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(b.bucket)
@@ -71,6 +75,7 @@ func (b *BoltBucket) Batch(callback func(*bolt.Bucket) error) error {
 	})
 }
 
+// View 只读操作
 func (b *BoltBucket) View(callback func(*bolt.Bucket) error) error {
 	return b.DB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(b.bucket)
@@ -81,6 +86,7 @@ func (b *BoltBucket) View(callback func(*bolt.Bucket) error) error {
 	})
 }
 
+// Update 修改操作，注意：和 Batch 不同的是，Update中写入操作是实时的
 func (b *BoltBucket) Update(callback func(*bolt.Bucket) error) error {
 	return b.DB.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(b.bucket)
@@ -108,12 +114,16 @@ func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 }
 
 // ForEach 遍历所有kv，可以对bolt进行修改
-func (b *BoltBucket) ForEach(callback func(kv utils.KV) error) error {
-	return b.Batch(func(bucket *bolt.Bucket) error {
+func (b *BoltBucket) ForEach(callback func(bucket *bolt.Bucket, kv *utils.KV) error) (int64, error) {
+	var i int64
+	err := b.Update(func(bucket *bolt.Bucket) error {
 		return bucket.ForEach(func(k, v []byte) error {
-			return errors.WithStack(callback(utils.KV{Key: string(k), Value: v}))
+			i++
+			err := callback(bucket, utils.NewKV(string(k), v))
+			return errors.WithStack(err)
 		})
 	})
+	return i, err
 }
 
 func (b *BoltBucket) Keys() ([]string, error) {
@@ -177,6 +187,35 @@ func (b *BoltBucket) Delete(key string) error {
 		}
 		return errors.WithStack(err)
 	})
+}
+
+// BatchDeleteRange 延迟批量删除：从keyStart（含）删除到keyEnd（含），并且需要匹配前缀keyPrefix
+//
+//	keyStart为空表示第一个key，keyEnd为空表示最后一个key keyPrefix为空表示不筛选前缀
+//	注意：由于使用的是Batch，所以删除有延时，其它事务会出现幻读
+func (b *BoltBucket) BatchDeleteRange(keyStart string, keyEnd string, keyPrefix string) (int64, error) {
+	_, n, err := b.rangeCallback(b.Batch, keyStart, keyEnd, keyPrefix, -1, func(bucket *bolt.Bucket, kv *utils.KV) error {
+		err := bucket.Delete([]byte(kv.Key))
+		if err != nil {
+			b.logger.Errorf("[Bolt]deleting \"%s\" of bucket: \"%s\" error: %s", kv.Key, b.bucket, err.Error())
+		}
+		return err
+	})
+	return n, err
+}
+
+// DeleteRange 实时批量删除（性能会降低）: 从keyStart（含）删除到keyEnd（含），并且需要匹配前缀keyPrefix
+//
+//	keyStart为空表示bucket第一个，keyEnd为空表示直到bucket最后一个，keyPrefix为空表示不筛选前缀
+func (b *BoltBucket) DeleteRange(keyStart string, keyEnd string, keyPrefix string) (int64, error) {
+	_, n, err := b.rangeCallback(b.Update, keyStart, keyEnd, keyPrefix, -1, func(bucket *bolt.Bucket, kv *utils.KV) error {
+		err := bucket.Delete([]byte(kv.Key))
+		if err != nil {
+			b.logger.Errorf("[Bolt]deleting \"%s\" of bucket: \"%s\" error: %s", kv.Key, b.bucket, err.Error())
+		}
+		return err
+	})
+	return n, err
 }
 
 func (b *BoltBucket) Count() int {
@@ -291,37 +330,27 @@ func (b *BoltBucket) FindGte(key string, actual any) (utils.KV, error) {
 	return utils.KV{Key: key, Value: buf}, err
 }
 
+// Range 返回指定范围内的所有kv，从keyStart（含）到keyEnd（含），并符合前缀keyPrefix，以及数量在小于等于limit，limit为-1表示不限
+//
+//	返回：下一个key，符合要求的kvs，错误
 func (b *BoltBucket) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error) {
-	_keyPrefix := []byte(keyPrefix)
-	_keyStart := []byte(keyStart)
-	_keyEnd := []byte(keyEnd)
-	if bytes.Compare(_keyStart, _keyEnd) > 0 {
-		return "", nil, errors.Errorf("[Bolt]error key range, \"keyStart\" must less than \"keyEnd\"")
-	}
-
-	var _nextKey []byte
 	kvs := utils.KVs{}
-	if err := b.View(func(bucket *bolt.Bucket) error {
-		cursor := bucket.Cursor()
-		var i int64 = 0
-		var k []byte
-		var v []byte
-		for k, v = cursor.Seek(_keyStart); i < limit && k != nil && bytes.HasPrefix(k, _keyPrefix) && bytes.Compare(k, _keyEnd) < 0; k, v = cursor.Next() {
-			kvs = kvs.Append(string(k), v)
-			i++
-		}
-		if i > 0 && i == limit {
-			_nextKey = k
-		}
-		return nil
-	}); err != nil {
-		return "", nil, err
-	}
 
-	return string(_nextKey), kvs, nil
+	nextKey, _, err := b.rangeCallback(b.View, keyStart, keyEnd, keyPrefix, limit, func(bucket *bolt.Bucket, kv *utils.KV) error {
+		kvs = append(kvs, kv)
+		return nil
+	})
+
+	return nextKey, kvs, err
 }
 
+// RevRange 【反转】返回指定范围内的所有kv，从keyStart（含）到keyEnd（含），并符合前缀keyPrefix，以及数量在小于等于limit，limit为-1表示不限
+//
+//	返回：上一个key，符合要求的kvs，错误
 func (b *BoltBucket) RevRange(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error) {
+	if limit == 0 {
+		return "", nil, nil
+	}
 	_keyPrefix := []byte(keyPrefix)
 	_keyStart := []byte(keyStart)
 	_keyEnd := []byte(keyEnd)
@@ -361,4 +390,69 @@ func (b *BoltBucket) RevRange(keyStart, keyEnd string, keyPrefix string, limit i
 	}
 
 	return string(_prevKey), kvs, nil
+}
+
+// RangeCallback 按范围执行回调：从keyStart（含）循环到keyEnd（含），并且匹配前缀keyPrefix，以及数量小于等于limit
+// keyStart为空表示第一个key，keyEnd为空表示最后一个key，keyPrefix为空表示不筛选前缀，limit为-1表示数量不限
+func (b *BoltBucket) RangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(bucket *bolt.Bucket, kv *utils.KV) error) (string, int64, error) {
+	return b.rangeCallback(b.Update, keyStart, keyEnd, keyPrefix, limit, callback)
+}
+
+// keyStart为空表示第一个key，keyEnd为空表示最后一个key，keyPrefix为空表示不筛选前缀，limit为-1表示数量不限
+// fn为b.View、b.Update、b.Batch，callback为每一次循环的回调
+func (b *BoltBucket) rangeCallback(fn func(callback func(*bolt.Bucket) error) error, keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(bucket *bolt.Bucket, kv *utils.KV) error) (string, int64, error) {
+	if limit == 0 {
+		return "", 0, nil
+	}
+	_keyPrefix := []byte(keyPrefix)
+	_keyStart := []byte(keyStart)
+	_keyEnd := []byte(keyEnd)
+	var i int64 = 0
+
+	var realKeyStart []byte
+	var realKeyEnd []byte
+	var _nextKey string
+
+	if keyStart != "" && keyEnd != "" && strings.Compare(keyStart, keyEnd) > 0 {
+		return _nextKey, i, errors.Errorf("[Bolt]range error, \"keyStart\" must less than \"keyEnd\" if they both defined")
+	}
+
+	err := fn(func(bucket *bolt.Bucket) error {
+		cursor := bucket.Cursor()
+		var k []byte
+		var v []byte
+		if keyStart != "" { // 搜寻起始值
+			k, v = cursor.Seek(_keyStart)
+		} else { // 否则从开头开始
+			k, v = cursor.First()
+		}
+		realKeyStart = k
+		for ; k != nil; k, v = cursor.Next() {
+			if keyPrefix != "" && !bytes.HasPrefix(k, _keyPrefix) { // 前缀不符
+				continue
+			} else if keyEnd != "" && bytes.Compare(k, _keyEnd) > 0 { // 超过keyEnd
+				break
+			}
+
+			i++
+			realKeyEnd = k
+
+			if err := callback(bucket, utils.NewKV(string(k), v)); err != nil {
+				//b.logger.Errorf("[Bolt]foreach \"%s\" of bucket: \"%s\" error: %s", k, b.bucket, err.Error())
+				return err
+			}
+			//b.logger.Debugf("[Bolt]foreach \"%s\" of bucket: \"%s\"", k, b.bucket)
+
+			// 超过limit
+			if limit > 0 && i >= limit {
+				break
+			}
+		}
+
+		_nextKey = string(k)
+		return nil
+	})
+
+	b.logger.Debugf("[Bolt]foreach %d items of bucket: \"%s\", from \"%s\" to \"%s\"", i, b.bucket, realKeyStart, realKeyEnd)
+	return _nextKey, i, err
 }
