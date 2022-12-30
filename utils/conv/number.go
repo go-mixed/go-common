@@ -64,6 +64,10 @@ func I64toa(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
 
+func Ui64toa(i uint64) string {
+	return strconv.FormatUint(i, 10)
+}
+
 func HexToInt(_hex string) int64 {
 	return ParseInt(_hex, 16, 64, 0)
 }
@@ -85,12 +89,12 @@ func PercentageToFloat(p string) float32 {
 	return Atof(strings.TrimSuffix(p, "%"), 0) / 100
 }
 
-// PaddingInt left padding to an int via "0", return a string of 10 length
-func PaddingInt(i int) string {
-	return fmt.Sprintf("%010d", i)
+// PaddingInt64 left padding to an int64 via "0", return a string of the length your defined
+func PaddingInt64(i int64, length int8) string {
+	return fmt.Sprintf("%0"+Itoa(int(length))+"d", i)
 }
 
-// PaddingInt64 left padding to an int64 via "0", return a string of the length your defined
-func PaddingInt64(i int64, length int8) string{
-	return fmt.Sprintf("%0" + Itoa(int(length))+"d", i)
+// PaddingUint64 left padding to an uint64 via "0", return a string of the length your defined
+func PaddingUint64(i uint64, length int8) string {
+	return fmt.Sprintf("%0"+Itoa(int(length))+"d", i)
 }
