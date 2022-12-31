@@ -1,9 +1,0 @@
-go 1.19
-
-use (
-	.
-)
-
-replace (
-	gopkg.in/go-mixed/go-common.v1 => ../
-)

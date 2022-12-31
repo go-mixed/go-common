@@ -2,13 +2,14 @@ package server
 
 import (
 	"context"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"net"
 	"testing"
 	"time"
 )
 
 func TestSimpleUDP(t *testing.T) {
-	server := NewSimpleUDPServer("0.0.0.0:99", logger.NewDefaultLogger())
+	server := NewSimpleUDPServer("0.0.0.0:99", utils.NewDefaultLogger())
 	a := SimpleUDPHandleFunc(func(conn SimplePacketConn, addr net.Addr, data *SimpleData) {
 		time.Sleep(1 * time.Second)
 		conn.SimpleWrite(addr, data.Codec, data.MessageID, append([]byte("pong: ")))
@@ -22,7 +23,7 @@ func TestSimpleUDP(t *testing.T) {
 	time.Sleep(time.Second)
 	defer cancel()
 
-	client, err := NewSimpleUDPClient("127.0.0.1:99", logger.NewDefaultLogger())
+	client, err := NewSimpleUDPClient("127.0.0.1:99", utils.NewDefaultLogger())
 	if err != nil {
 		t.Errorf("client connect error: %s", err.Error())
 	}

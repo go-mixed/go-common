@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"github.com/pkg/errors"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"gopkg.in/go-mixed/go-common.v1/utils/http"
 	"net"
@@ -13,7 +14,7 @@ import (
 type Server struct {
 	network string
 	address string
-	logger  logger.ILogger
+	logger  utils.ILogger
 	*rpc.Server
 }
 
@@ -21,7 +22,7 @@ type Server struct {
 // and ListenAndServeTLS methods after a call to Shut down or Close.
 var ErrServerClosed = errors.New("rpc: Server closed")
 
-func NewServer(network, address string, logger logger.ILogger) *Server {
+func NewServer(network, address string, logger utils.ILogger) *Server {
 	return &Server{
 		network,
 		address,
@@ -30,7 +31,7 @@ func NewServer(network, address string, logger logger.ILogger) *Server {
 	}
 }
 
-func NewHttpServer(address string, logger logger.ILogger) *Server {
+func NewHttpServer(address string, logger utils.ILogger) *Server {
 	return NewServer("http", address, logger)
 }
 

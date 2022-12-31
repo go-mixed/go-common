@@ -1,28 +1,36 @@
 package logger
 
 import (
+	"github.com/utahta/go-cronowriter"
 	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapio"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-const (
-	DEBUG = iota
-	INFO
-	WARN
-	PANIC
-	ERROR
-	FATAL
-)
+const ZapConsoleLevel = "ZAP_CONSOLE_LOG_LEVEL"
+const ZapFileLevel = "ZAP_LOG_LEVEL"
+const ZapFileEncoder = "ZAP_LOG_ENCODER"
+
+type Logger struct {
+	*zap.Logger
+
+	FilePath      string
+	ErrorFilePath string
+
+	consoleLevel   zapcore.Level
+	consoleEncoder zapcore.Encoder
+	fileLevel      zapcore.Level
+	fileEncoder    zapcore.Encoder
+}
 
 type LoggerOptions struct {
 	FilePath      string `json:"file_path" yaml:"file_path" validate:"required"`
@@ -44,35 +52,6 @@ func DefaultLoggerOptions() LoggerOptions {
 	}
 }
 
-type DefaultLogger struct {
-	stdOutLog *log.Logger
-	stdErrLog *log.Logger
-	Level     int
-}
-
-func NewDefaultLogger() ILogger {
-	return &DefaultLogger{
-		stdOutLog: log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile|log.Lmsgprefix),
-		stdErrLog: log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile|log.Lmsgprefix),
-	}
-}
-
-const ZapConsoleLevel = "ZAP_CONSOLE_LOG_LEVEL"
-const ZapFileLevel = "ZAP_LOG_LEVEL"
-const ZapFileEncoder = "ZAP_LOG_ENCODER"
-
-type Logger struct {
-	*zap.Logger
-
-	FilePath      string
-	ErrorFilePath string
-
-	consoleLevel   zapcore.Level
-	consoleEncoder zapcore.Encoder
-	fileLevel      zapcore.Level
-	fileEncoder    zapcore.Encoder
-}
-
 var globalLogger *Logger
 
 func SetGlobalLogger(logger *Logger) {
@@ -83,11 +62,11 @@ func GetGlobalLogger() *Logger {
 	return globalLogger
 }
 
-func GetILogger() ILogger {
+func GetILogger() utils.ILogger {
 	if globalLogger != nil {
 		return globalLogger.Sugar()
 	}
-	return NewDefaultLogger()
+	return utils.NewDefaultLogger()
 }
 
 // NewLogger 新建一个独立的logger
@@ -244,90 +223,6 @@ func (l *Logger) With(fields ...zap.Field) *Logger {
 	_l := l.Clone()
 	_l.Logger = l.Logger.With(fields...)
 	return _l
-}
-
-func (d DefaultLogger) Fatal(v ...any) {
-	if d.Level <= FATAL {
-		d.stdErrLog.SetPrefix("FATAL\t")
-		d.stdErrLog.Fatal(v...)
-	}
-}
-
-func (d DefaultLogger) Fatalf(format string, v ...any) {
-	if d.Level <= FATAL {
-		d.stdErrLog.SetPrefix("FATAL\t")
-		d.stdErrLog.Fatalf(format, v...)
-	}
-}
-
-func (d DefaultLogger) Error(v ...any) {
-	if d.Level <= ERROR {
-		d.stdErrLog.SetPrefix("ERROR\t")
-		d.stdErrLog.Print(v...)
-	}
-}
-
-func (d DefaultLogger) Errorf(format string, v ...any) {
-	if d.Level <= ERROR {
-		d.stdErrLog.SetPrefix("ERROR\t")
-		d.stdErrLog.Printf(format, v...)
-	}
-}
-
-func (d DefaultLogger) Panic(v ...any) {
-	if d.Level <= PANIC {
-		d.stdErrLog.SetPrefix("PANIC\t")
-		d.stdErrLog.Panic(v...)
-	}
-}
-
-func (d DefaultLogger) Panicf(format string, v ...any) {
-	if d.Level <= PANIC {
-		d.stdErrLog.SetPrefix("PANIC\t")
-		d.stdErrLog.Panicf(format, v...)
-	}
-}
-
-func (d DefaultLogger) Debug(v ...any) {
-	if d.Level <= DEBUG {
-		d.stdOutLog.SetPrefix("DEBUG\t")
-		d.stdOutLog.Print(v...)
-	}
-}
-
-func (d DefaultLogger) Debugf(format string, v ...any) {
-	if d.Level <= DEBUG {
-		d.stdOutLog.SetPrefix("DEBUG\t")
-		d.stdOutLog.Printf(format, v...)
-	}
-}
-
-func (d DefaultLogger) Info(v ...any) {
-	if d.Level <= INFO {
-		d.stdOutLog.SetPrefix("INFO\t")
-		d.stdOutLog.Print(v...)
-	}
-}
-
-func (d DefaultLogger) Infof(format string, v ...any) {
-	if d.Level <= INFO {
-		d.stdOutLog.SetPrefix("INFO\t")
-		d.stdOutLog.Printf(format, v...)
-	}
-}
-
-func (d DefaultLogger) Warn(v ...any) {
-	if d.Level <= WARN {
-		d.stdOutLog.SetPrefix("WARN\t")
-		d.stdOutLog.Print(v...)
-	}
-}
-
-func (d DefaultLogger) Warnf(format string, v ...any) {
-	if d.Level <= WARN {
-		d.stdOutLog.SetPrefix("WARN\t")
-		d.stdOutLog.Printf(format, v...)
-	}
 }
 
 // 默认是INFO

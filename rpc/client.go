@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"github.com/pkg/errors"
 	"github.com/silenceper/pool"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"io"
 	"net"
 	"net/http"
@@ -15,14 +16,14 @@ import (
 type Client struct {
 	network     string
 	address     string
-	logger      logger.ILogger
+	logger      utils.ILogger
 	channelPool pool.Pool
 	timeout     time.Duration
 }
 
 var connected = "200 Connected to Go RPC"
 
-func NewClient(network, address string, logger logger.ILogger) (*Client, error) {
+func NewClient(network, address string, logger utils.ILogger) (*Client, error) {
 
 	client := &Client{
 		network,
@@ -50,7 +51,7 @@ func NewClient(network, address string, logger logger.ILogger) (*Client, error) 
 	return client, nil
 }
 
-func NewHttpClient(address string, logger logger.ILogger) (*Client, error) {
+func NewHttpClient(address string, logger utils.ILogger) (*Client, error) {
 	return NewClient("http", address, logger)
 }
 

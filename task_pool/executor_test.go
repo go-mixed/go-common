@@ -2,6 +2,7 @@ package task_pool
 
 import (
 	"context"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"runtime"
 	"testing"
 	"time"
@@ -11,7 +12,7 @@ func TestExecutor(t *testing.T) {
 
 	t.Logf("初始程数: %d", runtime.NumGoroutine())
 
-	executor, _ := NewExecutor(NewExecutorParams(2, 1*time.Second, "测试"), logger.NewDefaultLogger())
+	executor, _ := NewExecutor(NewExecutorParams(2, 1*time.Second, "测试"), utils.NewDefaultLogger())
 
 	now := time.Now()
 	executor.Submit(func(ctx context.Context) {

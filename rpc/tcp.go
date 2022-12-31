@@ -1,9 +1,11 @@
 package rpc
 
-func NewTcpServer(host string, logger logger.ILogger) *Server {
+import "gopkg.in/go-mixed/go-common.v1/utils"
+
+func NewTcpServer(host string, logger utils.ILogger) *Server {
 	return NewServer("tcp", host, logger)
 }
 
-func NewTcpClient(host string, logger logger.ILogger) (*Client, error) {
+func NewTcpClient(host string, logger utils.ILogger) (*Client, error) {
 	return NewClient("tcp", host, logger)
 }

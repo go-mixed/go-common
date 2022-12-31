@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 )
 
@@ -40,10 +41,10 @@ func (fn EtcdHandleFn) Handle(ctx context.Context, eventType EtcdEventType, preK
 
 type EtcdWatch struct {
 	etcd   *Etcd
-	logger logger.ILogger
+	logger utils.ILogger
 }
 
-func NewEtcdWatch(etcd *Etcd, logger logger.ILogger) *EtcdWatch {
+func NewEtcdWatch(etcd *Etcd, logger utils.ILogger) *EtcdWatch {
 	return &EtcdWatch{
 		etcd:   etcd,
 		logger: logger,
