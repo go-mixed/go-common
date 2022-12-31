@@ -1,11 +1,11 @@
-module gopkg.in/go-mixed/go-common/storage.v1
+module gopkg.in/go-mixed/go-common.v1/storage.v1
 
 go 1.19
 
 require (
 	github.com/pkg/errors v0.9.1
 	go.etcd.io/bbolt v1.3.6
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231052731-9dcd63d8f147
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231061850-7a65dba158ae
 )
 
 require (

@@ -1,4 +1,4 @@
-module gopkg.in/go-mixed/go-common/cmd.v1
+module gopkg.in/go-mixed/go-common.v1/cmd.v1
 
 go 1.19
 

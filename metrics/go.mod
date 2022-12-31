@@ -1,4 +1,4 @@
-module gopkg.in/go-mixed/go-common/metrics.v1
+module gopkg.in/go-mixed/go-common.v1/metrics.v1
 
 go 1.19
 
@@ -7,7 +7,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
 	github.com/prometheus/common v0.39.0
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231052731-9dcd63d8f147
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231061850-7a65dba158ae
 )
 
 require (
