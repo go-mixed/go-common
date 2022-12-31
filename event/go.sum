@@ -4,3 +4,5 @@ github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231061850-7a65dba158ae h1:b6E++h8wqAECD0vBEmggqlLtnCK8tsk/ohhY+DueKCg=
 gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231061850-7a65dba158ae/go.mod h1:PeB3paY9ApoD3VgnaA5bJCaWohTM6FM8yJsNcdfwHaA=
+gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231141723-5c750b54b7f1 h1:sCoHh8n0JKp1ysynyeLoNLTfhfG8mz0PARlbGHY3sH8=
+gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231141723-5c750b54b7f1/go.mod h1:PeB3paY9ApoD3VgnaA5bJCaWohTM6FM8yJsNcdfwHaA=

@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/pkg/errors v0.9.1
 	go.uber.org/zap v1.24.0
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231061850-7a65dba158ae
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231141723-5c750b54b7f1
 	gorm.io/driver/mysql v1.4.4
 	gorm.io/gorm v1.24.2
 	moul.io/zapgorm2 v1.2.0

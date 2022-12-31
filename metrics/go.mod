@@ -7,7 +7,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
 	github.com/prometheus/common v0.39.0
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231061850-7a65dba158ae
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231141723-5c750b54b7f1
 )
 
 require (

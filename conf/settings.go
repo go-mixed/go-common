@@ -2,11 +2,11 @@ package conf
 
 import (
 	"bytes"
+	"encoding/json"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
-	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
@@ -80,7 +80,7 @@ func WriteSettings(v any, filename string) error {
 	var err error
 	if strings.EqualFold(ext, ".json") ||
 		strings.EqualFold(ext, ".json5") {
-		j, err = text_utils.JsonMarshalToBytes(v)
+		j, err = json.Marshal(v)
 	} else if strings.EqualFold(ext, ".yaml") ||
 		strings.EqualFold(ext, ".yml") {
 		j, err = yaml.Marshal(v)

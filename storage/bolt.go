@@ -6,7 +6,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
-	text_utils "gopkg.in/go-mixed/go-common.v1/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"strings"
 	"time"
 )
