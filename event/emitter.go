@@ -3,7 +3,7 @@ package event
 import (
 	"context"
 	"github.com/olebedev/emitter"
-	"go-common/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 )
 
 type Emitter struct {

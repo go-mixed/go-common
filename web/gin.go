@@ -3,8 +3,8 @@ package web
 import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"go-common/utils/io"
 	"go.uber.org/zap"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"path/filepath"
 	"time"
 )

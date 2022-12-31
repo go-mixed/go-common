@@ -1,13 +1,9 @@
 package rpc
 
-import (
-	"go-common/utils"
-)
-
-func NewTcpServer(host string, logger utils.ILogger) *Server {
+func NewTcpServer(host string, logger logger.ILogger) *Server {
 	return NewServer("tcp", host, logger)
 }
 
-func NewTcpClient(host string, logger utils.ILogger) (*Client, error) {
+func NewTcpClient(host string, logger logger.ILogger) (*Client, error) {
 	return NewClient("tcp", host, logger)
 }

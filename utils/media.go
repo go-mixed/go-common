@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"go-common/utils/list"
+	"gopkg.in/go-mixed/go-common.v1/utils/list"
 	"strings"
 )
 

@@ -3,7 +3,7 @@ package ip
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"go-common/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"net"
 	"strings"
 	"sync"

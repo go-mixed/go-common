@@ -11,7 +11,7 @@ func NewSliceString(s []string) *String {
 	return &String{n}
 }
 
-//快速排序
+// QuickSortString 快速排序
 func QuickSortString(arr []string) []string {
 	if len(arr) <= 1 {
 		return arr

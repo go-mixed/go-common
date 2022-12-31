@@ -1,10 +1,10 @@
-module go-common-orm
+module gopkg.in/go-mixed/go-common/orm.v1
 
 go 1.19
 
 require (
 	github.com/pkg/errors v0.9.1
-	go-common v0.0.0-00010101000000-000000000000
+	gopkg.in/go-mixed/go-common.v1 v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.24.0
 	gorm.io/driver/mysql v1.4.4
 	gorm.io/gorm v1.24.2
@@ -32,5 +32,3 @@ require (
 	golang.org/x/text v0.5.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace go-common => ../

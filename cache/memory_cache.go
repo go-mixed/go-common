@@ -2,7 +2,7 @@ package cache
 
 import (
 	ocache "github.com/patrickmn/go-cache"
-	"go-common/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"sync"
 	"time"
 )

@@ -16,7 +16,7 @@ package promhttp
 import (
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
-	innerhttp "go-common/utils/http"
+	innerhttp "gopkg.in/go-mixed/go-common.v1/utils/http"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"

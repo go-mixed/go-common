@@ -1,7 +1,7 @@
 package orm
 
 import (
-	"go-common/utils/time"
+	"gopkg.in/go-mixed/go-common.v1/utils/time"
 	"runtime"
 )
 

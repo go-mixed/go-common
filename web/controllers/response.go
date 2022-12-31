@@ -2,9 +2,9 @@ package controllers
 
 import (
 	"fmt"
-	"go-common/utils"
-	"go-common/utils/core"
-	"go-common/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"io"
 	"io/ioutil"
 )

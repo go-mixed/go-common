@@ -1,4 +1,4 @@
-module go-common-web
+module gopkg.in/go-mixed/go-common/web.v1
 
 go 1.19
 
@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.8.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/pkg/errors v0.9.1
-	go-common v0.0.0
+	gopkg.in/go-mixed/go-common.v1 v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.24.0
 	golang.org/x/net v0.4.0
 )
@@ -36,5 +36,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace go-common => ../

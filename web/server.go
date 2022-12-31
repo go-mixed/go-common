@@ -6,12 +6,9 @@ import (
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
-	"go-common/utils"
-	"go-common/utils/http"
-	"go-common/utils/list"
-	"go-common/utils/text"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"gopkg.in/go-mixed/go-common.v1/utils/http"
 	"net/http"
 	"os"
 	"os/signal"
@@ -53,7 +50,7 @@ type HttpServer struct {
 	middleware           *MiddlewarePipeline
 	certs                []*Certificate
 	mu                   sync.Mutex
-	logger               utils.ILogger
+	logger               logger.ILogger
 	// 为了加快命中, 当有访问时，会将请求域名所指向的handler缓存到lru中
 	domainCache *lru.TwoQueueCache
 	// 内部运行的http.Server
@@ -67,7 +64,7 @@ func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
 		HttpServerOptions:    httpServerOptions,
 		orderedDomainConfigs: make([]*DomainConfig, 0, 1),
 		mu:                   sync.Mutex{},
-		logger:               utils.NewDefaultLogger(),
+		logger:               logger.NewDefaultLogger(),
 		domainCache:          cache,
 	}
 	s.middleware = NewMiddlewarePipeline(s.controllerHandlerFunc())
@@ -179,7 +176,7 @@ func (c *HttpServer) Use(fn ...Middleware) {
 	c.middleware.Push(fn...)
 }
 
-func (c *HttpServer) SetLogger(logger utils.ILogger) {
+func (c *HttpServer) SetLogger(logger logger.ILogger) {
 	c.logger = logger
 }
 

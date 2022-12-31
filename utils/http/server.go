@@ -2,7 +2,7 @@ package http_utils
 
 import (
 	"context"
-	"go-common/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"net/http"
 	"os"
 	"os/signal"

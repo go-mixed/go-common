@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
-	"go-common/utils"
-	"go-common/utils/core"
-	"go-common/utils/list"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/list"
 	"os"
 	"os/signal"
 	"runtime"
@@ -68,16 +67,16 @@ type Executor struct {
 	runningJobs *list_utils.ConcurrencyList
 	queueJobs   *list_utils.ConcurrencyList
 
-	logger utils.ILogger
+	logger logger.ILogger
 }
 
 // NewExecutor 创建一个任务运行池，只能同时运行limit个任务
-func NewExecutor(params Params, logger utils.ILogger) (*Executor, error) {
+func NewExecutor(params Params, logger logger.ILogger) (*Executor, error) {
 	return NewExecutorContext(context.Background(), params, logger)
 }
 
 // NewExecutorContext 根据ctx创建一个任务运行池, 当ctx被cancel时, 所有任务都会被停止
-func NewExecutorContext(ctx context.Context, params Params, logger utils.ILogger) (*Executor, error) {
+func NewExecutorContext(ctx context.Context, params Params, logger logger.ILogger) (*Executor, error) {
 	if err := params.validate(); err != nil {
 		return nil, err
 	}

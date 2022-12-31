@@ -1,4 +1,4 @@
-package utils
+package conf
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
-	"go-common/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"

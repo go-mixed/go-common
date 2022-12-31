@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"go-common/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"io"
 	"net/http"
 )

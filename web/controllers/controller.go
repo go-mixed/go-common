@@ -3,7 +3,7 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"go-common/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"io"
 	"net/http"
 	"time"

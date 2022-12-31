@@ -1,31 +1,22 @@
-module go-common
+module gopkg.in/go-mixed/go-common.v1
 
 go 1.19
 
 require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
-	github.com/go-playground/locales v0.14.0
-	github.com/go-playground/universal-translator v0.18.0
-	github.com/go-playground/validator/v10 v10.11.1
 	github.com/json-iterator/go v1.1.12
-	github.com/mattn/go-shellwords v1.0.12
 	github.com/pkg/errors v0.9.1
 	github.com/silenceper/pool v1.0.0
-	github.com/utahta/go-cronowriter v1.2.0
-	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.9.0
-	go.uber.org/zap v1.24.0
 	golang.org/x/text v0.5.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
-	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/lestrrat-go/strftime v1.0.6 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
-	golang.org/x/crypto v0.4.0 // indirect
+	github.com/stretchr/testify v1.8.0 // indirect
+	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 )

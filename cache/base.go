@@ -3,10 +3,10 @@ package cache
 import (
 	"context"
 	"github.com/go-redis/redis/v9"
-	"go-common/utils"
-	"go-common/utils/core"
-	"go-common/utils/text"
-	"go.etcd.io/etcd/client/v3"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"time"
 )
 

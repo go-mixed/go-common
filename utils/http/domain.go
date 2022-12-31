@@ -1,8 +1,8 @@
 package http_utils
 
 import (
-	"go-common/utils/core"
-	"go-common/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"sort"
 	"strings"
 )

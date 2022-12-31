@@ -3,7 +3,7 @@ package text_utils
 import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
-	"go-common/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"strings"
 )
 

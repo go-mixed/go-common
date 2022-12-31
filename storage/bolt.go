@@ -3,10 +3,9 @@ package storage
 import (
 	"bytes"
 	"github.com/pkg/errors"
-	"go-common/utils"
-	"go-common/utils/core"
-	"go-common/utils/text"
 	bolt "go.etcd.io/bbolt"
+	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"strings"
 	"time"
 )
@@ -14,7 +13,7 @@ import (
 type Bolt struct {
 	DB *bolt.DB
 
-	logger     utils.ILogger
+	logger     logger.ILogger
 	decodeFunc func([]byte, any) error
 	encodeFunc func(any) ([]byte, error)
 }
@@ -26,7 +25,7 @@ type BoltBucket struct {
 
 var ErrForEachBreak = errors.New("for each break")
 
-func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
+func NewBolt(path string, logger logger.ILogger) (*Bolt, error) {
 	db, err := bolt.Open(path, 0o664, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return nil, errors.Errorf("open bolt file \"%s\" error: %w", path, err)

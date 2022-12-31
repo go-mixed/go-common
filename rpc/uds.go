@@ -1,19 +1,19 @@
 package rpc
 
 import (
-	"go-common/utils"
-	"go-common/utils/core"
-	"go-common/utils/io"
-	"go-common/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 // NewUdsServer Unix domain socket supported
-//- Unix, Unix-like, Linux
-//- Windows 10 Insider Build 17063+(Windows 10 version 1809 (aka the October 2018 Update))
-//- Windows Server 1809/2019+
+// - Unix, Unix-like, Linux
+// - Windows 10 Insider Build 17063+(Windows 10 version 1809 (aka the October 2018 Update))
+// - Windows Server 1809/2019+
 func NewUdsServer(unixSockFile string, logger utils.ILogger) *Server {
 	unixSockFile = cleanSockFile(unixSockFile)
 	_ = os.Remove(unixSockFile)

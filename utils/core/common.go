@@ -2,7 +2,7 @@ package core
 
 import (
 	"github.com/pkg/errors"
-	"go-common/utils/conv"
+	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"reflect"
 	"runtime"
 )

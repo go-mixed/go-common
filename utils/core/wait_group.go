@@ -1,8 +1,8 @@
 package core
 
 import (
-	"go.uber.org/atomic"
 	"sync"
+	"sync/atomic"
 )
 
 // WaitGroup 一个不会因为 Done 时负数而导致panic的WaitGroup
@@ -21,7 +21,7 @@ func (w *WaitGroup) Add(delta int) {
 
 // Done 判别并阻止负数panic
 func (w *WaitGroup) Done() bool {
-	if w.counter.Dec() >= 0 {
+	if w.counter.Add(-1) >= 0 {
 		w.WaitGroup.Done()
 		return true
 	} else {

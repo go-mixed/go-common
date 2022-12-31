@@ -2,7 +2,6 @@ package server
 
 import (
 	"github.com/pkg/errors"
-	"go-common/utils"
 	"net"
 	"time"
 )
@@ -10,10 +9,10 @@ import (
 type SimpleUDPClient struct {
 	addr   string
 	conn   net.Conn
-	logger utils.ILogger
+	logger logger.ILogger
 }
 
-func NewSimpleUDPClient(addr string, logger utils.ILogger) (*SimpleUDPClient, error) {
+func NewSimpleUDPClient(addr string, logger logger.ILogger) (*SimpleUDPClient, error) {
 	var err error
 	client := &SimpleUDPClient{
 		addr:   addr,

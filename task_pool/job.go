@@ -2,7 +2,7 @@ package task_pool
 
 import (
 	"context"
-	"go-common/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"runtime"
 	"sync"
 	"time"

@@ -2,15 +2,12 @@ package list_utils
 
 import (
 	"fmt"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"sort"
-
-	jsoniter "github.com/json-iterator/go"
 )
 
 // StringSet - uses map as set of strings.
 type StringSet map[string]struct{}
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // ToSlice - returns StringSet as string slice.
 func (set StringSet) ToSlice() []string {
@@ -128,7 +125,7 @@ func (set StringSet) Union(sset StringSet) StringSet {
 
 // MarshalJSON - converts to JSON data.
 func (set StringSet) MarshalJSON() ([]byte, error) {
-	return json.Marshal(set.ToSlice())
+	return text_utils.JsonMarshalToBytes(set.ToSlice())
 }
 
 // UnmarshalJSON - parses JSON data and creates new set with it.
@@ -138,14 +135,14 @@ func (set StringSet) MarshalJSON() ([]byte, error) {
 func (set *StringSet) UnmarshalJSON(data []byte) error {
 	var sl []string
 	var err error
-	if err = json.Unmarshal(data, &sl); err == nil {
+	if err = text_utils.JsonUnmarshalFromBytes(data, &sl); err == nil {
 		*set = make(StringSet)
 		for _, s := range sl {
 			set.Add(s)
 		}
 	} else {
 		var s string
-		if err = json.Unmarshal(data, &s); err == nil {
+		if err = text_utils.JsonUnmarshalFromBytes(data, &s); err == nil {
 			*set = make(StringSet)
 			set.Add(s)
 		}

@@ -4,22 +4,21 @@ import (
 	"context"
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"go-common/utils"
-	"go-common/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"net"
 	"time"
 )
 
 type SimpleUDPServer struct {
 	host       string
-	logger     utils.ILogger
+	logger     logger.ILogger
 	codecs     map[Codec]SimpleUDPHandle
 	packetConn net.PacketConn
 }
 
 // NewSimpleUDPServer 一个简单的udp server， 注意：只能针对单个包来解析，并不会合并包
 // 格式为 | 2 bytes codec | data | 一个包的长度不要超过1024
-func NewSimpleUDPServer(host string, logger utils.ILogger) *SimpleUDPServer {
+func NewSimpleUDPServer(host string, logger logger.ILogger) *SimpleUDPServer {
 	return &SimpleUDPServer{
 		host:   host,
 		logger: logger,

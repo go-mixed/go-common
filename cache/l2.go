@@ -1,16 +1,15 @@
 package cache
 
 import (
-	"go-common/utils"
-	"go-common/utils/core"
-	"go-common/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"time"
 )
 
 type L2Cache struct {
 	memCache *MemoryCache
 	cache    ICache
-	logger   utils.ILogger
+	logger   logger.ILogger
 }
 
 type L2Result struct {
@@ -29,7 +28,7 @@ type IL2Cache interface {
 
 func NewL2Cache(
 	cache ICache,
-	logger utils.ILogger,
+	logger logger.ILogger,
 ) *L2Cache {
 	return &L2Cache{
 		cache:    cache,

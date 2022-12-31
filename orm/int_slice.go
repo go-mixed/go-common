@@ -5,7 +5,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"github.com/pkg/errors"
-	"go-common/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

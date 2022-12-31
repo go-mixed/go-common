@@ -3,10 +3,9 @@ package cache
 import (
 	"context"
 	"github.com/pkg/errors"
-	"go-common/utils"
-	"go-common/utils/core"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 )
 
 type EtcdEventType int8
@@ -41,10 +40,10 @@ func (fn EtcdHandleFn) Handle(ctx context.Context, eventType EtcdEventType, preK
 
 type EtcdWatch struct {
 	etcd   *Etcd
-	logger utils.ILogger
+	logger logger.ILogger
 }
 
-func NewEtcdWatch(etcd *Etcd, logger utils.ILogger) *EtcdWatch {
+func NewEtcdWatch(etcd *Etcd, logger logger.ILogger) *EtcdWatch {
 	return &EtcdWatch{
 		etcd:   etcd,
 		logger: logger,
