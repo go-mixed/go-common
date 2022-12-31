@@ -1,9 +1,10 @@
-package cache
+package redis
 
 import (
 	"context"
 	"github.com/go-redis/redis/v9"
 	"github.com/pkg/errors"
+	"gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
@@ -13,7 +14,7 @@ import (
 )
 
 type Redis struct {
-	Cache
+	cache.Cache
 	IsPika      bool
 	RedisClient redis.UniversalClient
 }
@@ -328,7 +329,7 @@ func (c *Redis) pikaScanPrefix(keyPrefix string, result any) (utils.KVs, error) 
 		c.Logger.Debugf("[Redis]ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
 
-	return c.scanPrefix(keyPrefix, result, c.Range)
+	return c.ScanPrefixFn(keyPrefix, result, c.Range)
 }
 
 func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error) (int64, error) {
@@ -337,7 +338,7 @@ func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *utils
 		c.Logger.Debugf("[Redis]ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
 
-	return c.scanPrefixCallback(keyPrefix, callback, c.Range)
+	return c.ScanPrefixCallbackFn(keyPrefix, callback, c.Range)
 }
 
 func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result any) (string, utils.KVs, error) {
@@ -349,7 +350,7 @@ func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64
 		c.Logger.Debugf("[Redis]ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
 
-	return c.scanRange(keyStart, keyEnd, keyPrefix, limit, result, c.Range)
+	return c.ScanRangeFn(keyStart, keyEnd, keyPrefix, limit, result, c.Range)
 }
 
 func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error) (string, int64, error) {
@@ -361,7 +362,7 @@ func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix stri
 		c.Logger.Debugf("[Redis]ScanRangeCallback: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
 
-	return c.scanRangeCallback(keyStart, keyEnd, keyPrefix, limit, callback, c.Range)
+	return c.ScanRangeCallbackFn(keyStart, keyEnd, keyPrefix, limit, callback, c.Range)
 }
 
 func (c *Redis) Close() error {

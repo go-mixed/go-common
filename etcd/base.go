@@ -1,24 +1,24 @@
-package cache
+package etcd
 
 import (
 	"context"
-	"github.com/go-redis/redis/v9"
 	"github.com/pkg/errors"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 )
 
-func ConnectToRedis(options *redis.UniversalOptions, logger utils.ILogger, isPika bool) (*Redis, error) {
-
-	client := redis.NewUniversalClient(options)
-
-	_, err := client.Ping(context.TODO()).Result()
-
-	if err != nil {
-		return nil, err
+func NewEtcdCache(client *clientv3.Client, logger utils.ILogger) *Etcd {
+	c := &Etcd{
+		Cache: cache.Cache{
+			Ctx:    core.If(client.Ctx() != nil, client.Ctx(), context.Background()),
+			Logger: logger,
+		},
+		EtcdClient: client,
 	}
-
-	return NewRedisCache(client, logger, isPika), nil
+	c.L2Cache = cache.NewL2Cache(c, logger)
+	return c
 }
 
 func ConnectToEtcd(options *clientv3.Config, logger utils.ILogger) (*Etcd, error) {

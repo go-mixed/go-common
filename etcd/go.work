@@ -1,0 +1,10 @@
+go 1.19
+
+use (
+	.
+)
+
+replace (
+	gopkg.in/go-mixed/go-common.v1 => ../
+	gopkg.in/go-mixed/go-common.v1/cache.v1 => ../cache
+)

@@ -1,4 +1,4 @@
-package cache
+package etcd
 
 import (
 	"context"

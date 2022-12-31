@@ -9,7 +9,7 @@ import (
 
 type L2Cache struct {
 	memCache *MemoryCache
-	cache    ICache
+	cache    utils.IKV
 	logger   utils.ILogger
 }
 
@@ -18,17 +18,8 @@ type L2Result struct {
 	json []byte
 }
 
-type IL2Cache interface {
-	Get(key string, expire time.Duration, actual any) ([]byte, error)
-	MGet(keys []string, expire time.Duration, actual any) (utils.KVs, error)
-	Keys(keyPrefix string, expire time.Duration) ([]string, error)
-	Delete(keys ...string)
-
-	ScanPrefix(keyPrefix string, expire time.Duration, actual any) (utils.KVs, error)
-}
-
 func NewL2Cache(
-	cache ICache,
+	cache utils.IKV,
 	logger utils.ILogger,
 ) *L2Cache {
 	return &L2Cache{

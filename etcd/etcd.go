@@ -1,11 +1,12 @@
-package cache
+package etcd
 
 import (
 	"bytes"
 	"context"
 	"github.com/pkg/errors"
 	"go.etcd.io/etcd/api/v3/mvccpb"
-	"go.etcd.io/etcd/client/v3"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
@@ -14,7 +15,7 @@ import (
 )
 
 type Etcd struct {
-	Cache
+	cache.Cache
 	EtcdClient *clientv3.Client
 }
 
@@ -176,7 +177,7 @@ func (c *Etcd) ScanPrefix(keyPrefix string, result any) (utils.KVs, error) {
 		c.Logger.Debugf("[ETCD]ScanPrefix %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
 
-	return c.scanPrefix(keyPrefix, result, c.Range)
+	return c.ScanPrefixFn(keyPrefix, result, c.Range)
 }
 
 func (c *Etcd) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error) (int64, error) {
@@ -185,7 +186,7 @@ func (c *Etcd) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) 
 		c.Logger.Debugf("[ETCD]ScanPrefixCallback %s, %0.6f", keyPrefix, time.Since(now).Seconds())
 	}()
 
-	return c.scanPrefixCallback(keyPrefix, callback, c.Range)
+	return c.ScanPrefixCallbackFn(keyPrefix, callback, c.Range)
 }
 
 func (c *Etcd) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result any) (string, utils.KVs, error) {
@@ -193,7 +194,7 @@ func (c *Etcd) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64,
 	defer func() {
 		c.Logger.Debugf("[ETCD]ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
-	return c.scanRange(keyStart, keyEnd, keyPrefix, limit, result, c.Range)
+	return c.ScanRangeFn(keyStart, keyEnd, keyPrefix, limit, result, c.Range)
 }
 
 func (c *Etcd) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error) (string, int64, error) {
@@ -202,7 +203,7 @@ func (c *Etcd) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix strin
 		c.Logger.Debugf("[ETCD]ScanRangeCallback: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
 
-	return c.scanRangeCallback(keyStart, keyEnd, keyPrefix, limit, callback, c.Range)
+	return c.ScanRangeCallbackFn(keyStart, keyEnd, keyPrefix, limit, callback, c.Range)
 }
 
 func (c *Etcd) Close() error {
