@@ -15,8 +15,8 @@ type Bolt struct {
 	DB *bolt.DB
 
 	logger     utils.ILogger
-	decodeFunc func([]byte, any) error
-	encodeFunc func(any) ([]byte, error)
+	decodeFunc text_utils.DecoderFunc
+	encodeFunc text_utils.EncoderFunc
 }
 
 type BoltBucket struct {
@@ -41,12 +41,12 @@ func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 	}, nil
 }
 
-func (b *Bolt) SetEncodeFunc(encodeFunc func(any) ([]byte, error)) *Bolt {
+func (b *Bolt) SetEncodeFunc(encodeFunc text_utils.EncoderFunc) *Bolt {
 	b.encodeFunc = encodeFunc
 	return b
 }
 
-func (b *Bolt) SetDecodeFunc(decodeFunc func([]byte, any) error) *Bolt {
+func (b *Bolt) SetDecodeFunc(decodeFunc text_utils.DecoderFunc) *Bolt {
 	b.decodeFunc = decodeFunc
 	return b
 }
@@ -101,12 +101,15 @@ func (b *BoltBucket) Update(callback func(*bolt.Bucket) error) error {
 func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
-		if buf = bucket.Get([]byte(key)); buf != nil && !core.IsInterfaceNil(actual) {
-			if err := b.decodeFunc(buf, actual); err != nil {
+		var _buf []byte
+		if _buf = bucket.Get([]byte(key)); _buf != nil && !core.IsInterfaceNil(actual) {
+			if err := b.decodeFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
 		}
+
+		buf = core.CopyFrom(_buf) // GC 后_buf会被清空，必须Copy
 		return nil
 	})
 
@@ -153,10 +156,10 @@ func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 	err := b.View(func(bucket *bolt.Bucket) error {
 		c := bucket.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
-			kvs = kvs.Append(string(k), v)
+			kvs = kvs.Append(string(k), core.CopyFrom(v)) // GC 后v会被清空，必须Copy
 		}
 		if actual != nil && !core.IsInterfaceNil(actual) {
-			if err := text_utils.ListDecode(b.decodeFunc, kvs.Values(), actual); err != nil {
+			if err := text_utils.ListDecodeAny(b.decodeFunc, kvs.Values(), actual); err != nil {
 				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
@@ -253,10 +256,12 @@ func (b *BoltBucket) FindLte(key string, actual any) (utils.KV, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		_key := []byte(key)
+		var _buf []byte
+
 		cursor := bucket.Cursor()
-		_key, buf = cursor.Seek(_key)
+		_key, _buf = cursor.Seek(_key)
 		if !bytes.Equal(_key, []byte(key)) { // 没有找到等于的key, 会返回下一个符合要求的项
-			_key, buf = cursor.Prev()
+			_key, _buf = cursor.Prev()
 			if _key != nil {
 				key = string(_key)
 			} else {
@@ -264,13 +269,14 @@ func (b *BoltBucket) FindLte(key string, actual any) (utils.KV, error) {
 			}
 		}
 
-		if buf != nil && !core.IsInterfaceNil(actual) {
-			if err := b.decodeFunc(buf, actual); err != nil {
+		if _buf != nil && !core.IsInterfaceNil(actual) {
+			if err := b.decodeFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
 		}
 
+		buf = core.CopyFrom(_buf) // GC 后_buf会被清空，必须Copy
 		return nil
 	})
 
@@ -281,10 +287,11 @@ func (b *BoltBucket) FindLt(key string, actual any) (utils.KV, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		_key := []byte(key)
+		var _buf []byte
 		cursor := bucket.Cursor()
-		_key, buf = cursor.Seek(_key)
+		_key, _buf = cursor.Seek(_key)
 		if bytes.Compare(_key, []byte(key)) >= 0 { // 没有找到等于的key, 会返回下一个符合要求的项
-			_key, buf = cursor.Prev()
+			_key, _buf = cursor.Prev()
 			if _key != nil {
 				key = string(_key)
 			} else {
@@ -292,14 +299,15 @@ func (b *BoltBucket) FindLt(key string, actual any) (utils.KV, error) {
 			}
 		}
 
-		if buf != nil && !core.IsInterfaceNil(actual) {
-			err := b.decodeFunc(buf, actual)
+		if _buf != nil && !core.IsInterfaceNil(actual) {
+			err := b.decodeFunc(_buf, actual)
 			if err != nil {
 				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
 		}
 
+		buf = core.CopyFrom(_buf) // GC 后_buf会被清空，必须Copy
 		return nil
 	})
 
@@ -313,17 +321,19 @@ func (b *BoltBucket) FindGte(key string, actual any) (utils.KV, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		_key := []byte(key)
+		var _buf []byte
 		cursor := bucket.Cursor()
-		_key, buf = cursor.Seek(_key) // 如果没有找到key, 会返回下一项, 如果到了结尾 _key/buf为nil
+		_key, _buf = cursor.Seek(_key) // 如果没有找到key, 会返回下一项, 如果到了结尾 _key/buf为nil
 		key = string(_key)
 
-		if buf != nil && !core.IsInterfaceNil(actual) {
-			if err := b.decodeFunc(buf, actual); err != nil {
+		if _buf != nil && !core.IsInterfaceNil(actual) {
+			if err := b.decodeFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]FindGte data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
 		}
 
+		buf = core.CopyFrom(_buf) // GC 后_buf会被清空，必须Copy
 		return nil
 	})
 
@@ -378,11 +388,11 @@ func (b *BoltBucket) RevRange(keyStart, keyEnd string, keyPrefix string, limit i
 		}
 
 		for ; i < limit && k != nil && bytes.HasPrefix(k, _keyPrefix) && bytes.Compare(k, _keyEnd) > 0; k, v = cursor.Prev() {
-			kvs = kvs.Append(string(k), v)
+			kvs = kvs.Append(string(k), core.CopyFrom(v)) // GC 后v会被清空，必须Copy
 			i++
 		}
 		if i > 0 && i == limit {
-			_prevKey = k
+			_prevKey = core.CopyFrom(k) // GC 后k会被清空，必须Copy
 		}
 		return nil
 	}); err != nil {
@@ -426,7 +436,7 @@ func (b *BoltBucket) rangeCallback(fn func(callback func(*bolt.Bucket) error) er
 		} else { // 否则从开头开始
 			k, v = cursor.First()
 		}
-		realKeyStart = k
+		realKeyStart = core.CopyFrom(k) // GC 后k会被清空，必须Copy
 		for ; k != nil; k, v = cursor.Next() {
 			if keyPrefix != "" && !bytes.HasPrefix(k, _keyPrefix) { // 前缀不符
 				continue
@@ -435,7 +445,7 @@ func (b *BoltBucket) rangeCallback(fn func(callback func(*bolt.Bucket) error) er
 			}
 
 			i++
-			realKeyEnd = k
+			realKeyEnd = core.CopyFrom(k) // GC 后k会被清空，必须Copy
 
 			if err := callback(bucket, utils.NewKV(string(k), v)); err != nil {
 				//b.logger.Errorf("[Bolt]foreach \"%s\" of bucket: \"%s\" error: %s", k, b.bucket, err.Error())
@@ -453,6 +463,9 @@ func (b *BoltBucket) rangeCallback(fn func(callback func(*bolt.Bucket) error) er
 		return nil
 	})
 
-	b.logger.Debugf("[Bolt]foreach %d items of bucket: \"%s\", from \"%s\" to \"%s\"", i, b.bucket, realKeyStart, realKeyEnd)
+	if i > 0 { // realKeyStart和realKeyEnd为空时 会panic
+		b.logger.Debugf("[Bolt]foreach %d items of bucket: \"%s\", from \"%s\" to \"%s\"", i, b.bucket, realKeyStart, realKeyEnd)
+	}
+
 	return _nextKey, i, err
 }

@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"github.com/pkg/errors"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"reflect"
 	"strings"
@@ -122,41 +121,4 @@ func SubUntil(str string, untilStr string) (string, int) {
 	}
 
 	return str[0:i], i
-}
-
-// ListDecode 将多条数据list解码为数组to，to需要为slice类型，decodeFunc可以传入gob、json、yaml的decode函数
-func ListDecode(decodeFunc func([]byte, any) error, list [][]byte, to any) error {
-	toValue := reflect.ValueOf(to)
-	if toValue.Kind() == reflect.Ptr {
-		toValue = toValue.Elem()
-	} else {
-		return errors.Errorf("parameter \"to\" must be a ptr")
-	}
-
-	if toValue.Kind() != reflect.Slice {
-		return errors.Errorf("parameter \"to\" must be a slice ptr")
-	}
-
-	// []any 得到any的类型
-	typeOfV := toValue.Type().Elem()
-
-	newSlice := reflect.MakeSlice(reflect.SliceOf(typeOfV), 0, 0)
-
-	for _, _json := range list {
-		if _json == nil {
-			newSlice = reflect.Append(newSlice, reflect.Zero(typeOfV))
-			continue
-		}
-
-		newInstance := reflect.New(typeOfV).Elem()
-		// 传递newInstance的指针给 json.Unmarshal
-		if err := decodeFunc(_json, newInstance.Addr().Interface()); err != nil {
-			return err
-		}
-
-		newSlice = reflect.Append(newSlice, newInstance)
-	}
-
-	toValue.Set(newSlice)
-	return nil
 }

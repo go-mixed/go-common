@@ -7,6 +7,7 @@ import (
 	"gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 )
 
 func NewEtcdCache(client *clientv3.Client, logger utils.ILogger) *Etcd {
@@ -14,6 +15,9 @@ func NewEtcdCache(client *clientv3.Client, logger utils.ILogger) *Etcd {
 		Cache: cache.Cache{
 			Ctx:    core.If(client.Ctx() != nil, client.Ctx(), context.Background()),
 			Logger: logger,
+
+			EncodeFunc: text_utils.JsonMarshalToBytes,
+			DecodeFunc: text_utils.JsonUnmarshalFromBytes,
 		},
 		EtcdClient: client,
 	}

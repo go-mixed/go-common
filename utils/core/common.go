@@ -94,3 +94,9 @@ func NestAccess(from any, keys ...string) (any, error) {
 
 	return valueOf.Interface(), nil
 }
+
+func CopyFrom[T any](src []T) []T {
+	var dest []T = make([]T, len(src))
+	copy(dest, src)
+	return dest
+}

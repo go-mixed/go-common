@@ -105,8 +105,8 @@ func (c *Redis) Get(key string, result any) ([]byte, error) {
 	}
 
 	if !core.IsInterfaceNil(result) {
-		if err := text_utils.JsonUnmarshal(val, result); err != nil {
-			c.Logger.Errorf("[Redis]json unmarshal: %s of error: %s", val, err.Error())
+		if err := c.DecodeFunc([]byte(val), result); err != nil {
+			c.Logger.Errorf("[Redis]unmarshal: %s of error: %s", val, err.Error())
 			return []byte(val), err
 		}
 	}
@@ -136,8 +136,8 @@ func (c *Redis) MGet(keys []string, result any) (utils.KVs, error) {
 		}
 	}
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), result); err != nil {
-			c.Logger.Errorf("[Redis]json unmarshal: %v of error: %s", kvs.Values(), err.Error())
+		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), result); err != nil {
+			c.Logger.Errorf("[Redis]unmarshal: %v of error: %s", kvs.Values(), err.Error())
 			return nil, err
 		}
 	}

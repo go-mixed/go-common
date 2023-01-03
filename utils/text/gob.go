@@ -22,6 +22,6 @@ func GobDecode(buf []byte, v any) error {
 	return errors.WithStack(g.Decode(v))
 }
 
-func GobListDecode(buf [][]byte, v any) error {
+func GobListDecode[T any](buf [][]byte, v *[]T) error {
 	return ListDecode(GobDecode, buf, v)
 }

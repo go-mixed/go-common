@@ -12,7 +12,7 @@ import (
 // type User struct { Name string Age int}
 // var users []User
 // JsonListIntoSlicePtr([]string{"{\"Name\": \"a\", \"Age\": 20}", "{\"Name\": \"b\", \"Age\": 21}"}, &users)
-func JsonListUnmarshal(jsonList []string, to any) error {
+func JsonListUnmarshal[T any](jsonList []string, to *[]T) error {
 	var list [][]byte
 	for _, _j := range jsonList {
 		if _j == "" {
@@ -25,7 +25,7 @@ func JsonListUnmarshal(jsonList []string, to any) error {
 	return JsonListUnmarshalFromBytes(list, to)
 }
 
-func JsonListUnmarshalFromBytes(jsonList [][]byte, to any) error {
+func JsonListUnmarshalFromBytes[T any](jsonList [][]byte, to *[]T) error {
 	return ListDecode(JsonUnmarshalFromBytes, jsonList, to)
 }
 

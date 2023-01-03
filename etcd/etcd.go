@@ -92,8 +92,8 @@ func (c *Etcd) Get(key string, actual any) ([]byte, error) {
 
 	var val = response.Kvs[0].Value
 	if !core.IsInterfaceNil(actual) {
-		if err := text_utils.JsonUnmarshalFromBytes(val, actual); err != nil {
-			c.Logger.Errorf("[ETCD]json unmarshal: %s of error: %s", val, err.Error())
+		if err := c.DecodeFunc(val, actual); err != nil {
+			c.Logger.Errorf("[ETCD]unmarshal: %s of error: %s", val, err.Error())
 			return val, err
 		}
 	}
@@ -116,8 +116,8 @@ func (c *Etcd) MGet(keys []string, actual any) (utils.KVs, error) {
 	}
 
 	if !core.IsInterfaceNil(actual) && len(kvs) > 0 {
-		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), actual); err != nil {
-			c.Logger.Errorf("[ETCD]json unmarshal: %v of error: %s", kvs.Values(), err.Error())
+		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), actual); err != nil {
+			c.Logger.Errorf("[ETCD]unmarshal: %v of error: %s", kvs.Values(), err.Error())
 			return nil, err
 		}
 	}

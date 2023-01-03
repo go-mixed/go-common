@@ -1,6 +1,9 @@
 package utils
 
-import "time"
+import (
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
+	"time"
+)
 
 type KV struct {
 	Key   string
@@ -43,9 +46,9 @@ func NewKV(key string, value []byte) *KV {
 type IKV interface {
 	// L2 得到本Cache的二级缓存对象
 	L2() IMemKV
-	// Get 查询key的值, 并尝试将其JSON值导出到actual 如果无需导出, actual 传入nil
+	// Get 查询key的值, 并尝试将其值导出到actual 如果无需导出, actual 传入nil
 	Get(key string, actual any) ([]byte, error)
-	// MGet 查询多个keys, 返回所有符合要求K/V, 并尝试将JSON数据导出到actual 如果无需导出, actual 传入nil
+	// MGet 查询多个keys, 返回所有符合要求K/V, 并尝试将数据导出到actual 如果无需导出, actual 传入nil
 	// 例子:
 	// var result []User
 	// RedisGet(keys, &result)
@@ -58,7 +61,7 @@ type IKV interface {
 	// Range 在 keyStart~keyEnd中查找符合keyPrefix要求的KV, limit 为 0 表示不限数量
 	// 返回nextKey, kv列表, 错误
 	Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, KVs, error)
-	// ScanPrefix keyPrefix为前缀, 返回所有符合条件的K/V, 并尝试将JSON数据导出到actual 如果无需导出, actual 传入nil
+	// ScanPrefix keyPrefix为前缀, 返回所有符合条件的K/V, 并尝试将数据导出到actual 如果无需导出, actual 传入nil
 	// 注意: 不要在keyPrefix中或结尾加入*
 	// 例子:
 	// var result []User
@@ -71,7 +74,7 @@ type IKV interface {
 	// 注意: 即使cache中有大量的匹配项, 也不会被阻塞
 	ScanPrefixCallback(keyPrefix string, callback func(kv *KV) error) (int64, error)
 
-	// ScanRange 根据keyStart/keyEnd返回所有符合条件的K/V, 并尝试将JSON数据导出到actual 如果无需导出, actual 传入nil
+	// ScanRange 根据keyStart/keyEnd返回所有符合条件的K/V, 并尝试将数据导出到actual 如果无需导出, actual 传入nil
 	// 注意: 返回的结果会包含keyStart/keyEnd
 	// 如果keyPrefix不为空, 则在keyStart/keyEnd中筛选出符keyPrefix条件的项目
 	// 如果limit = 0 表示不限数量
@@ -92,6 +95,9 @@ type IKV interface {
 	Set(key string, val any, expiration time.Duration) error
 	SetNoExpiration(key string, val any) error
 	Del(key string) error
+
+	GetDecodeFunc() text_utils.DecoderFunc
+	GetEncodeFunc() text_utils.EncoderFunc
 }
 
 type IMemKV interface {

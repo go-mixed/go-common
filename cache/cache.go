@@ -11,6 +11,9 @@ type Cache struct {
 	Ctx     context.Context
 	Logger  utils.ILogger
 	L2Cache *L2Cache
+
+	DecodeFunc text_utils.DecoderFunc
+	EncodeFunc text_utils.EncoderFunc
 }
 
 func (c *Cache) L2() utils.IMemKV {
@@ -19,6 +22,16 @@ func (c *Cache) L2() utils.IMemKV {
 
 type RangeFunc func(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error)
 
+func (c *Cache) SetEncodeFunc(encodeFunc text_utils.EncoderFunc) *Cache {
+	c.EncodeFunc = encodeFunc
+	return c
+}
+
+func (c *Cache) SetDecodeFunc(decodeFunc text_utils.DecoderFunc) *Cache {
+	c.DecodeFunc = decodeFunc
+	return c
+}
+
 func (c *Cache) ScanRangeFn(keyStart, keyEnd string, keyPrefix string, limit int64, result any, rangeFunc RangeFunc) (string, utils.KVs, error) {
 	nextKey, kvs, err := rangeFunc(keyStart, keyEnd, keyPrefix, limit)
 	if err != nil {
@@ -26,7 +39,7 @@ func (c *Cache) ScanRangeFn(keyStart, keyEnd string, keyPrefix string, limit int
 	}
 
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), result); err != nil {
+		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), result); err != nil {
 			return "", nil, err
 		}
 	}
@@ -76,7 +89,7 @@ func (c *Cache) ScanPrefixFn(keyPrefix string, result any, rangeFunc RangeFunc) 
 	}
 
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err := text_utils.JsonListUnmarshalFromBytes(kvs.Values(), result); err != nil {
+		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), result); err != nil {
 			return nil, err
 		}
 	}
@@ -99,7 +112,7 @@ func (c *Cache) ScanPrefixCallbackFn(keyPrefix string, callback func(kv *utils.K
 
 		for _, kv := range _kvs {
 			read++
-			if err := callback(kv); err != nil {
+			if err = callback(kv); err != nil {
 				return read, err
 			}
 		}
@@ -108,4 +121,12 @@ func (c *Cache) ScanPrefixCallbackFn(keyPrefix string, callback func(kv *utils.K
 			return read, nil
 		}
 	}
+}
+
+func (c *Cache) GetDecodeFunc() text_utils.DecoderFunc {
+	return c.DecodeFunc
+}
+
+func (c *Cache) GetEncodeFunc() text_utils.EncoderFunc {
+	return c.EncodeFunc
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/go-redis/redis/v9"
 	"gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 )
 
 // NewRedisCache
@@ -16,6 +17,9 @@ func NewRedisCache(client redis.UniversalClient, logger utils.ILogger, isPika bo
 		Cache: cache.Cache{
 			Ctx:    context.Background(),
 			Logger: logger,
+
+			EncodeFunc: text_utils.JsonMarshalToBytes,
+			DecodeFunc: text_utils.JsonUnmarshalFromBytes,
 		},
 		RedisClient: client,
 		IsPika:      isPika,
