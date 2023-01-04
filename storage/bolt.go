@@ -25,6 +25,7 @@ type BoltBucket struct {
 }
 
 var ErrForEachBreak = errors.New("for each break")
+var ErrForEachQuit = errors.New("for each quit")
 
 func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 	db, err := bolt.Open(path, 0o664, &bolt.Options{Timeout: 1 * time.Second})

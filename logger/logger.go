@@ -37,8 +37,8 @@ type LoggerOptions struct {
 	ErrorFilePath string `json:"error_file_path" yaml:"error_file_path"`
 
 	FileEncoder     string `json:"file_encoder" yaml:"file_encoder"`
-	FileMinLevel    string `json:"file_min_level" yaml:"file_min_level"`
-	ConsoleMinLevel string `json:"console_min_level" yaml:"console_min_level"`
+	FileMinLevel    string `json:"file_level" yaml:"file_level"`
+	ConsoleMinLevel string `json:"console_level" yaml:"console_level"`
 }
 
 func DefaultLoggerOptions() LoggerOptions {
