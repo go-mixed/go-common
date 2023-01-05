@@ -98,6 +98,9 @@ type IKV interface {
 
 	GetDecodeFunc() text_utils.DecoderFunc
 	GetEncodeFunc() text_utils.EncoderFunc
+
+	// Batch 批量操作
+	Batch(callback func(ikv IKV) error) error
 }
 
 type IMemKV interface {

@@ -150,12 +150,7 @@ func (c *ConcurrencyList) RemoveElement(element *list.Element) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for e := c.elements.Front(); e != nil; e = e.Next() {
-		if element == e {
-			c.elements.Remove(e)
-			return
-		}
-	}
+	c.elements.Remove(element)
 }
 
 // Len 返回列表的长度

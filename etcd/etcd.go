@@ -19,6 +19,8 @@ type Etcd struct {
 	EtcdClient *clientv3.Client
 }
 
+var _ utils.IKV = (*Etcd)(nil)
+
 func (c *Etcd) SetNoExpiration(key string, val any) error {
 	var now = time.Now()
 	defer func() {
@@ -403,4 +405,16 @@ func (c *Etcd) TimeToLive(leaseID int64) (int64, error) {
 	}
 
 	return leaseResponse.TTL, nil
+}
+
+func (c *Etcd) Batch(callback func(ikv utils.IKV) error) error {
+	// Todo：Txn(context.TODO()).If(
+	// Compare(Value(k1), ">", v1),
+	// Compare(Version(k1), "=", 2)
+	//).Then(
+	// OpPut(k2,v2), OpPut(k3,v3)
+	//).Else(
+	// OpPut(k4,v4), OpPut(k5,v5)
+	//).Commit()
+	return callback(c)
 }

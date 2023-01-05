@@ -9,15 +9,23 @@ import (
 	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
+	"io"
 	"strings"
 	"time"
 )
 
+type iRedis interface {
+	redis.Cmdable
+	Do(ctx context.Context, args ...any) *redis.Cmd
+}
+
 type Redis struct {
 	cache.Cache
 	IsPika      bool
-	RedisClient redis.UniversalClient
+	RedisClient iRedis
 }
+
+var _ utils.IKV = (*Redis)(nil)
 
 func (c *Redis) WithContext(ctx context.Context) *Redis {
 	newRedis := *c
@@ -365,6 +373,19 @@ func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix stri
 	return c.ScanRangeCallbackFn(keyStart, keyEnd, keyPrefix, limit, callback, c.Range)
 }
 
+func (c *Redis) Batch(callback func(ikv utils.IKV) error) error {
+	_, err := c.RedisClient.Pipelined(c.Ctx, func(pipeliner redis.Pipeliner) error {
+		var newRedis Redis = *c
+		newRedis.RedisClient = pipeliner
+		return callback(&newRedis)
+	})
+	return err
+}
+
 func (c *Redis) Close() error {
-	return c.RedisClient.Close()
+	client, ok := c.RedisClient.(io.Closer)
+	if ok {
+		return client.Close()
+	}
+	return nil
 }
