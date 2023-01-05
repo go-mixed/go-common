@@ -407,7 +407,7 @@ func (c *Etcd) TimeToLive(leaseID int64) (int64, error) {
 	return leaseResponse.TTL, nil
 }
 
-func (c *Etcd) Batch(callback func(ikv utils.IKV) error) error {
+func (c *Etcd) Batch(callback utils.KVBatchFunc) error {
 	// Todo：Txn(context.TODO()).If(
 	// Compare(Value(k1), ">", v1),
 	// Compare(Version(k1), "=", 2)

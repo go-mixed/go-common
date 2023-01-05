@@ -43,6 +43,8 @@ func NewKV(key string, value []byte) *KV {
 	return &KV{Key: key, Value: value}
 }
 
+type KVBatchFunc func(client IKV) error
+
 type IKV interface {
 	// L2 得到本Cache的二级缓存对象
 	L2() IMemKV
@@ -100,7 +102,7 @@ type IKV interface {
 	GetEncodeFunc() text_utils.EncoderFunc
 
 	// Batch 批量操作
-	Batch(callback func(ikv IKV) error) error
+	Batch(callback KVBatchFunc) error
 }
 
 type IMemKV interface {

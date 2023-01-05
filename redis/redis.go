@@ -373,7 +373,7 @@ func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix stri
 	return c.ScanRangeCallbackFn(keyStart, keyEnd, keyPrefix, limit, callback, c.Range)
 }
 
-func (c *Redis) Batch(callback func(ikv utils.IKV) error) error {
+func (c *Redis) Batch(callback utils.KVBatchFunc) error {
 	_, err := c.RedisClient.Pipelined(c.Ctx, func(pipeliner redis.Pipeliner) error {
 		var newRedis Redis = *c
 		newRedis.RedisClient = pipeliner
