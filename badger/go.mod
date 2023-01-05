@@ -1,4 +1,4 @@
-module gopkg.in/go-mixed/go-common.v1/boltdb.v1
+module gopkg.in/go-mixed/go-common.v1/badger.v1
 
 go 1.19
 
