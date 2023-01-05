@@ -1,4 +1,4 @@
-module pebble
+module gopkg.in/go-mixed/go-common.v1/boltdb.v1
 
 go 1.19
 
