@@ -5,8 +5,8 @@ go 1.19
 require (
 	github.com/go-redis/redis/v9 v9.0.0-rc.2
 	github.com/pkg/errors v0.9.1
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231141723-5c750b54b7f1
-	gopkg.in/go-mixed/go-common.v1/cache.v1 v1.0.0-20221231141723-5c750b54b7f1
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20230105110439-3224019871f6
+	gopkg.in/go-mixed/go-common.v1/cache.v1 v1.0.0-20230105110439-3224019871f6
 )
 
 require (
@@ -17,5 +17,5 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	golang.org/x/net v0.4.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 )

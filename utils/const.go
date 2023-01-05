@@ -1,5 +1,7 @@
 package utils
 
+import "github.com/pkg/errors"
+
 // Result common result of response
 type Result struct {
 	Code     any     `json:"code"`
@@ -16,3 +18,6 @@ type SResult struct {
 	Duration float64 `json:"duration"`
 	At       int64   `json:"at"`
 }
+
+var ErrForEachBreak = errors.New("for each break")
+var ErrForEachQuit = errors.New("for each quit")

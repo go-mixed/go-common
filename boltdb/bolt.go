@@ -1,4 +1,4 @@
-package storage
+package boltdb
 
 import (
 	"bytes"
@@ -23,9 +23,6 @@ type BoltBucket struct {
 	*Bolt
 	bucket []byte
 }
-
-var ErrForEachBreak = errors.New("for each break")
-var ErrForEachQuit = errors.New("for each quit")
 
 func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 	db, err := bolt.Open(path, 0o664, &bolt.Options{Timeout: 1 * time.Second})
@@ -123,7 +120,7 @@ func (b *BoltBucket) ForEach(callback func(bucket *bolt.Bucket, kv *utils.KV) er
 	err := b.Update(func(bucket *bolt.Bucket) error {
 		return bucket.ForEach(func(k, v []byte) error {
 			i++
-			err := callback(bucket, utils.NewKV(string(k), v))
+			err := callback(bucket, utils.NewKV(string(k), core.CopyFrom(v)))
 			return errors.WithStack(err)
 		})
 	})
@@ -448,7 +445,7 @@ func (b *BoltBucket) rangeCallback(fn func(callback func(*bolt.Bucket) error) er
 			i++
 			realKeyEnd = core.CopyFrom(k) // GC 后k会被清空，必须Copy
 
-			if err := callback(bucket, utils.NewKV(string(k), v)); err != nil {
+			if err := callback(bucket, utils.NewKV(string(k), core.CopyFrom(v))); err != nil {
 				//b.logger.Errorf("[Bolt]foreach \"%s\" of bucket: \"%s\" error: %s", k, b.bucket, err.Error())
 				return err
 			}
