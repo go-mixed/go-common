@@ -98,6 +98,20 @@ func (b *BadgerBucket) Close() error {
 	return b.db.Close()
 }
 
+// View 只读操作
+func (b *BadgerBucket) View(callback func(txn *badger.Txn) error) error {
+	return b.db.View(func(txn *badger.Txn) error {
+		return errors.WithStack(callback(txn))
+	})
+}
+
+// Update 修改操作
+func (b *BadgerBucket) Update(callback func(txn *badger.Txn) error) error {
+	return b.db.Update(func(txn *badger.Txn) error {
+		return errors.WithStack(callback(txn))
+	})
+}
+
 func (b *BadgerBucket) Set(key string, val any) error {
 	buf, err := b.b.encodeFunc(val)
 	if err != nil {
