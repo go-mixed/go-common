@@ -174,38 +174,35 @@ func (b *BadgerBucket) Delete(key string) error {
 	})
 }
 
-func (b *BadgerBucket) getKV(item *badger.Item) ([]byte, []byte, error) {
-	key := core.CopyFrom(item.Key())
-	var val []byte
-	err := item.Value(func(v []byte) error {
+func (b *BadgerBucket) getKV(item *badger.Item) (key []byte, val []byte, err error) {
+	key = core.CopyFrom(item.Key())
+	err = item.Value(func(v []byte) error {
 		val = core.CopyFrom(v)
 		return nil
 	})
 	return key, val, err
 }
 
-func (b *BadgerBucket) ForEach(callback func(txn *badger.Txn, kv *utils.KV) error) (int64, error) {
-	_, n, err := b.rangeCallback(b.db.View, "", "", "", -1, func(txn *badger.Txn, kv *utils.KV) error {
+func (b *BadgerBucket) ForEach(callback func(txn *badger.Txn, kv *utils.KV) error) (count int64, err error) {
+	_, count, err = b.rangeCallback(b.db.View, "", "", "", -1, func(txn *badger.Txn, kv *utils.KV) error {
 		return callback(txn, kv)
 	})
-	return n, err
+	return count, err
 }
 
 // DeleteRange 删除范围keyStart（含）~keyEnd（不含）
-func (b *BadgerBucket) DeleteRange(keyStart string, keyEnd string, keyPrefix string) (int64, error) {
-	_, n, err := b.rangeCallback(b.db.Update, keyStart, keyEnd, keyPrefix, -1, func(txn *badger.Txn, kv *utils.KV) error {
+func (b *BadgerBucket) DeleteRange(keyStart string, keyEnd string, keyPrefix string) (deletedCount int64, err error) {
+	_, deletedCount, err = b.rangeCallback(b.db.Update, keyStart, keyEnd, keyPrefix, -1, func(txn *badger.Txn, kv *utils.KV) error {
 		return txn.Delete([]byte(kv.Key))
 	})
-	return n, err
+	return deletedCount, err
 }
 
 // Range 返回指定范围内的所有kv，从keyStart（含）到keyEnd（含），并符合前缀keyPrefix，以及数量在小于等于limit，limit为-1表示不限
 //
 //	返回：下一个key，符合要求的kvs，错误
-func (b *BadgerBucket) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error) {
-	kvs := utils.KVs{}
-
-	nextKey, _, err := b.rangeCallback(b.db.View, keyStart, keyEnd, keyPrefix, limit, func(txn *badger.Txn, kv *utils.KV) error {
+func (b *BadgerBucket) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (nextKey string, kvs utils.KVs, err error) {
+	nextKey, _, err = b.rangeCallback(b.db.View, keyStart, keyEnd, keyPrefix, limit, func(txn *badger.Txn, kv *utils.KV) error {
 		kvs = append(kvs, kv)
 		return nil
 	})
@@ -214,31 +211,29 @@ func (b *BadgerBucket) Range(keyStart, keyEnd string, keyPrefix string, limit in
 }
 
 // RangeCallback 按范围执行回调：从keyStart（含）循环到keyEnd（含），并且匹配前缀keyPrefix，以及数量小于等于limit
-// keyStart为空表示第一个key，keyEnd为空表示最后一个key，keyPrefix为空表示不筛选前缀，limit为-1表示数量不限
-func (b *BadgerBucket) RangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(txn *badger.Txn, kv *utils.KV) error) (string, int64, error) {
+// keyStart、keyEnd为空表示从头遍历或遍历到结尾；keyPrefix为空表示前缀不限；limit为-1表示不限制数量
+func (b *BadgerBucket) RangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(txn *badger.Txn, kv *utils.KV) error) (nextKey string, count int64, err error) {
 	return b.rangeCallback(b.db.Update, keyStart, keyEnd, keyPrefix, limit, callback)
 }
 
-// keyStart为空表示第一个key，keyEnd为空表示最后一个key，keyPrefix为空表示不筛选前缀，limit为-1表示数量不限
+// keyStart、keyEnd为空表示从头遍历或遍历到结尾；keyPrefix为空表示前缀不限；limit为-1表示不限制数量
 // fn为b.View、b.Update、b.Batch，callback为每一次循环的回调
-func (b *BadgerBucket) rangeCallback(fn func(func(txn *badger.Txn) error) error, keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(txn *badger.Txn, kv *utils.KV) error) (string, int64, error) {
+func (b *BadgerBucket) rangeCallback(fn func(func(txn *badger.Txn) error) error, keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(txn *badger.Txn, kv *utils.KV) error) (nextKey string, count int64, err error) {
 	if limit == 0 {
 		return "", 0, nil
 	}
 	_keyPrefix := []byte(keyPrefix)
 	_keyStart := []byte(keyStart)
 	_keyEnd := []byte(keyEnd)
-	var i int64 = 0
 
 	var realKeyStart []byte
 	var realKeyEnd []byte
-	var _nextKey string
 
 	if keyStart != "" && keyEnd != "" && strings.Compare(keyStart, keyEnd) > 0 {
-		return _nextKey, i, errors.Errorf("[Badger]range error, \"keyStart\" must less than \"keyEnd\" if they both defined")
+		return "", 0, errors.Errorf("[Badger]range error, \"keyStart\" must less than \"keyEnd\" if they both defined")
 	}
 
-	err := fn(func(txn *badger.Txn) error {
+	err = fn(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
@@ -249,53 +244,52 @@ func (b *BadgerBucket) rangeCallback(fn func(func(txn *badger.Txn) error) error,
 		}
 		// 获取真实开始的key
 		if it.Valid() {
-			realKeyStart, _, _ = b.getKV(it.Item())
+			realKeyStart = core.CopyFrom(it.Item().Key())
 		}
 
 		var key []byte
 		var val []byte
-		var err error
+		var err1 error
 
-		for ; ; it.Next() {
-			if it.Valid() {
-				key, val, err = b.getKV(it.Item())
-			} else { // 到达末尾
-				key = nil // 保证下面的_nextKey取到正确的值
-				val = nil
+		for ; it.Valid(); it.Next() {
+			// 超过limit
+			if limit > 0 && count >= limit {
 				break
 			}
-			if err != nil {
-				return errors.WithStack(err)
+
+			key, val, err1 = b.getKV(it.Item())
+			if err1 != nil {
+				return errors.WithStack(err1)
 			} else if keyPrefix != "" && !bytes.HasPrefix(key, _keyPrefix) { // 前缀不符
 				continue
 			} else if keyEnd != "" && bytes.Compare(key, _keyEnd) > 0 { // 超过keyEnd
 				break
 			}
 
-			i++
+			count++
 			realKeyEnd = core.CopyFrom(key) // GC 后key会被清空，必须Copy
 
-			if err = callback(txn, utils.NewKV(string(key), core.CopyFrom(val))); err != nil {
-				//b.logger.Errorf("[Bolt]foreach \"%s\" of bucket: \"%s\" error: %s", k, b.bucket, err.Error())
-				return err
+			// callback
+			if err1 = callback(txn, utils.NewKV(string(key), core.CopyFrom(val))); err1 != nil {
+				//b.logger.Errorf("[Bolt]foreach \"%s\" of bucket: \"%s\" error: %s", k, b.bucket, err1.Error())
+				return err1
 			}
 			//b.logger.Debugf("[Badger]foreach \"%s\" of bucket: \"%s\"", k, b.bucket)
-
-			// 超过limit
-			if limit > 0 && i >= limit {
-				break
-			}
 		}
-		_nextKey = string(key)
+		// - callback返回错误，nextKey等同调用callback的key
+		// - 抵达结尾，nextKey为空
+		if it.Valid() {
+			nextKey = string(it.Item().Key())
+		}
 
 		return nil
 	})
 
-	if i > 0 { // realKeyStart和realKeyEnd为空时 会panic
-		b.b.logger.Debugf("[Badger]foreach %d items of bucket: \"%s\", from \"%s\" to \"%s\"", i, b.bucket, realKeyStart, realKeyEnd)
+	if count > 0 { // realKeyStart和realKeyEnd为空时 会panic
+		b.b.logger.Debugf("[Badger]foreach %d items of bucket: \"%s\", from \"%s\" to \"%s\"", count, b.bucket, realKeyStart, realKeyEnd)
 	}
 
-	return _nextKey, i, err
+	return nextKey, count, err
 }
 
 func (b *BadgerBucket) Count() int64 {

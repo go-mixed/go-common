@@ -75,7 +75,7 @@ func (c *Redis) Del(key string) error {
 
 	_, err := c.RedisClient.Del(c.Ctx, key).Result()
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	return nil
@@ -87,9 +87,14 @@ func (c *Redis) Set(key string, val any, expiration time.Duration) error {
 		c.Logger.Debugf("[Redis]Set %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
-	_, err := c.RedisClient.Set(c.Ctx, key, text_utils.ToString(val, true), expiration).Result()
+	buf, err := c.EncoderFunc(val)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
+	}
+
+	_, err = c.RedisClient.Set(c.Ctx, key, buf, expiration).Result()
+	if err != nil {
+		return errors.WithStack(err)
 	}
 
 	return nil
@@ -106,16 +111,16 @@ func (c *Redis) Get(key string, result any) ([]byte, error) {
 		return nil, nil
 	} else if err != nil {
 		c.Logger.Debugf("[Redis]error of key %s", key, err.Error())
-		return nil, err
+		return nil, errors.WithStack(err)
 	} else if val == "" { // 返回为空数据也不正确
 		c.Logger.Debugf("[Redis]empty value of key %s", key)
 		return nil, nil
 	}
 
 	if !core.IsInterfaceNil(result) {
-		if err := c.DecodeFunc([]byte(val), result); err != nil {
+		if err = c.DecoderFunc([]byte(val), result); err != nil {
 			c.Logger.Errorf("[Redis]unmarshal: %s of error: %s", val, err.Error())
-			return []byte(val), err
+			return []byte(val), errors.WithStack(err)
 		}
 	}
 	return []byte(val), nil
@@ -130,7 +135,7 @@ func (c *Redis) MGet(keys []string, result any) (utils.KVs, error) {
 	if err == redis.Nil {
 		return nil, nil
 	} else if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	} else if len(val) == 0 { // 一个数据都没找到
 		return nil, nil
 	}
@@ -144,14 +149,15 @@ func (c *Redis) MGet(keys []string, result any) (utils.KVs, error) {
 		}
 	}
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), result); err != nil {
+		if err = text_utils.ListDecodeAny(c.DecoderFunc, kvs.Values(), result); err != nil {
 			c.Logger.Errorf("[Redis]unmarshal: %v of error: %s", kvs.Values(), err.Error())
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 	}
 	return kvs, nil
 }
 
+// Keys 返回所有前缀的Keys
 func (c *Redis) Keys(keyPrefix string) ([]string, error) {
 	var now = time.Now()
 	defer func() {
@@ -162,15 +168,16 @@ func (c *Redis) Keys(keyPrefix string) ([]string, error) {
 	if err == redis.Nil { // 无此数据
 		return nil, nil
 	} else if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return val, nil
 }
 
-func (c *Redis) ScanPrefix(keyPrefix string, result any) (utils.KVs, error) {
+// ScanPrefix 前缀遍历数据，并将数据导出到actual
+func (c *Redis) ScanPrefix(keyPrefix string, actual any) (utils.KVs, error) {
 	if c.IsPika {
-		return c.pikaScanPrefix(keyPrefix, result)
+		return c.pikaScanPrefix(keyPrefix, actual)
 	}
 	// 以下是redis中的实现
 	var now = time.Now()
@@ -205,9 +212,10 @@ func (c *Redis) ScanPrefix(keyPrefix string, result any) (utils.KVs, error) {
 		}
 	}
 
-	return c.MGet(keys, result)
+	return c.MGet(keys, actual)
 }
 
+// ScanPrefixCallback 前缀遍历数据，每条数据callback，返回错误则停止遍历
 func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error) (int64, error) {
 	if c.IsPika {
 		return c.pikaScanPrefixCallback(keyPrefix, callback)
@@ -229,7 +237,7 @@ func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV)
 		var _keys []string
 		_keys, cursor, err = c.Scan(keyPrefix, cursor, 10)
 		if err != nil {
-			return read, err
+			return read, errors.WithStack(err)
 		}
 		if cursor == 0 {
 			return read, nil
@@ -247,13 +255,13 @@ func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV)
 		if len(keys) > 0 {
 			kvs, err := c.MGet(keys, nil)
 			if err != nil {
-				return read, err
+				return read, errors.WithStack(err)
 			}
 			for _, kv := range kvs {
 				read++
 
-				if err := callback(kv); err != nil {
-					return read, err
+				if err = callback(kv); err != nil {
+					return read, errors.WithStack(err)
 				}
 			}
 		}
@@ -262,27 +270,32 @@ func (c *Redis) ScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV)
 
 // Scan redis原生函数(pika也支持), 根据的keyPattern表达式, 以及游标和页码 返回所有匹配的keys
 // 注意 redis在遍历scan时非常慢
-func (c *Redis) Scan(keyPattern string, cursor uint64, count int64) ([]string, uint64, error) {
+func (c *Redis) Scan(keyPattern string, cursor uint64, count int64) (keys []string, _cursor uint64, err error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[Redis]scan %s, cursor %d, count %d, %0.6f", keyPattern, cursor, count, time.Since(now).Seconds())
 	}()
 
-	var err error
-	var keys []string
 	keys, cursor, err = c.RedisClient.Scan(c.Ctx, cursor, keyPattern, count).Result()
 	if err == redis.Nil { // 无此数据
 		return nil, 0, nil
 	} else if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.WithStack(err)
 	}
 	return keys, cursor, err
 }
 
-func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error) {
+// Range 返回在keyStart（含）~keyEnd（含）中遍历符合keyPrefix要求的KV
+//
+//	keyStart、keyEnd为空表示从头遍历或遍历到结尾；keyPrefix为空表示不限制前缀；limit为-1表示不限制数量
+func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (nextKey string, kvs utils.KVs, _ error) {
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}
+	if limit == 0 {
+		return "", nil, nil
+	}
+
 	params := []any{
 		"pkscanrange", "string_with_value", keyStart, keyEnd,
 	}
@@ -299,17 +312,19 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 	if err == redis.Nil {
 		return "", nil, nil
 	} else if err != nil {
-		return "", nil, err
+		return "", nil, errors.WithStack(err)
 	}
 
 	res, ok := _res.([]any)
 	if !ok || len(res) <= 1 {
 		return "", nil, nil
 	}
-	nextKey, ok := res[0].(string)
+
+	nextKey, ok = res[0].(string)
 	if !ok {
 		return "", nil, errors.Errorf("scan range returns an invalid next-key")
 	}
+
 	_kv, ok := res[1].([]any)
 	if !ok {
 		return "", nil, errors.Errorf("scan range returns an invalid k/v")
@@ -318,7 +333,6 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 		return nextKey, nil, nil
 	}
 	// build the kvs
-	kvs := utils.KVs{}
 	for i := 0; i < len(_kv); i += 2 {
 		k := _kv[i].(string)
 		v := _kv[i+1].(string)
@@ -331,6 +345,7 @@ func (c *Redis) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (s
 	return nextKey, kvs, nil
 }
 
+// pika 前缀遍历返回所有kv
 func (c *Redis) pikaScanPrefix(keyPrefix string, result any) (utils.KVs, error) {
 	var now = time.Now()
 	defer func() {
@@ -340,6 +355,7 @@ func (c *Redis) pikaScanPrefix(keyPrefix string, result any) (utils.KVs, error) 
 	return c.ScanPrefixFn(keyPrefix, result, c.Range)
 }
 
+// pika 前缀匹配遍历，遍历调用callback，返回错误则停止遍历
 func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *utils.KV) error) (int64, error) {
 	var now = time.Now()
 	defer func() {
@@ -349,7 +365,10 @@ func (c *Redis) pikaScanPrefixCallback(keyPrefix string, callback func(kv *utils
 	return c.ScanPrefixCallbackFn(keyPrefix, callback, c.Range)
 }
 
-func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, result any) (string, utils.KVs, error) {
+// ScanRange 遍历指定条件的数据，并导出到actual，不导出传入nil
+//
+//	keyStart、keyEnd为空表示从头遍历或遍历到结尾；keyPrefix为空表示前缀不限；limit为-1表示不限制数量
+func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64, actual any) (nextKey string, kvs utils.KVs, err error) {
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}
@@ -358,10 +377,13 @@ func (c *Redis) ScanRange(keyStart, keyEnd string, keyPrefix string, limit int64
 		c.Logger.Debugf("[Redis]ScanRange: keyStart: \"%s\", keyEnd: \"%s\", keyPrefix: \"%s\", limit: \"%d\", %0.6f", keyStart, keyEnd, keyPrefix, limit, time.Since(now).Seconds())
 	}()
 
-	return c.ScanRangeFn(keyStart, keyEnd, keyPrefix, limit, result, c.Range)
+	return c.ScanRangeFn(keyStart, keyEnd, keyPrefix, limit, actual, c.Range)
 }
 
-func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error) (string, int64, error) {
+// ScanRangeCallback 遍历指定条件的数据，每条数据callback，返回错误则停止遍历
+//
+//	keyStart、keyEnd为空表示从头遍历或遍历到结尾；keyPrefix为空表示前缀不限；limit为-1表示不限制数量
+func (c *Redis) ScanRangeCallback(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error) (nextKey string, count int64, err error) {
 	if !c.IsPika {
 		panic("only use this method in pika")
 	}

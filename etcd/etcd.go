@@ -27,9 +27,14 @@ func (c *Etcd) SetNoExpiration(key string, val any) error {
 		c.Logger.Debugf("[ETCD]Set %s, %0.6f", key, time.Since(now).Seconds())
 	}()
 
-	_, err := c.EtcdClient.Put(c.Ctx, key, text_utils.ToString(val, true))
+	buf, err := c.EncoderFunc(val)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
+	}
+
+	_, err = c.EtcdClient.Put(c.Ctx, key, string(buf))
+	if err != nil {
+		return errors.WithStack(err)
 	}
 
 	return nil
@@ -43,7 +48,7 @@ func (c *Etcd) Del(key string) error {
 
 	_, err := c.EtcdClient.Delete(c.Ctx, key)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	return nil
@@ -63,12 +68,17 @@ func (c *Etcd) Set(key string, val any, expiration time.Duration) error {
 	lease := clientv3.NewLease(c.EtcdClient)
 	response, err := lease.Grant(c.Ctx, ttl)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
-	_, err = c.EtcdClient.Put(c.Ctx, key, text_utils.ToString(val, true), clientv3.WithLease(response.ID))
+	buf, err := c.EncoderFunc(val)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
+	}
+
+	_, err = c.EtcdClient.Put(c.Ctx, key, string(buf), clientv3.WithLease(response.ID))
+	if err != nil {
+		return errors.WithStack(err)
 	}
 
 	return nil
@@ -83,7 +93,7 @@ func (c *Etcd) Get(key string, actual any) ([]byte, error) {
 	response, err := kv.Get(c.Ctx, key, clientv3.WithLimit(1))
 	if err != nil {
 		c.Logger.Debugf("[ETCD]error of key %s", key, err.Error())
-		return nil, err
+		return nil, errors.WithStack(err)
 	} else if len(response.Kvs) == 0 {
 		c.Logger.Debugf("[ETCD]key not exists: %s", key)
 		return nil, nil
@@ -94,22 +104,21 @@ func (c *Etcd) Get(key string, actual any) ([]byte, error) {
 
 	var val = response.Kvs[0].Value
 	if !core.IsInterfaceNil(actual) {
-		if err := c.DecodeFunc(val, actual); err != nil {
+		if err = c.DecoderFunc(val, actual); err != nil {
 			c.Logger.Errorf("[ETCD]unmarshal: %s of error: %s", val, err.Error())
-			return val, err
+			return val, errors.WithStack(err)
 		}
 	}
 	return val, nil
 }
 
-func (c *Etcd) MGet(keys []string, actual any) (utils.KVs, error) {
+func (c *Etcd) MGet(keys []string, actual any) (kvs utils.KVs, _ error) {
 	kv := clientv3.NewKV(c.EtcdClient)
 
-	kvs := utils.KVs{}
 	for _, key := range keys {
 		response, err := kv.Get(c.Ctx, key, clientv3.WithLimit(1))
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		} else if len(response.Kvs) == 0 {
 			kvs = kvs.Append(key, nil)
 		} else {
@@ -118,16 +127,16 @@ func (c *Etcd) MGet(keys []string, actual any) (utils.KVs, error) {
 	}
 
 	if !core.IsInterfaceNil(actual) && len(kvs) > 0 {
-		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), actual); err != nil {
+		if err := text_utils.ListDecodeAny(c.DecoderFunc, kvs.Values(), actual); err != nil {
 			c.Logger.Errorf("[ETCD]unmarshal: %v of error: %s", kvs.Values(), err.Error())
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 	}
 
 	return kvs, nil
 }
 
-func (c *Etcd) Keys(keyPrefix string) ([]string, error) {
+func (c *Etcd) Keys(keyPrefix string) (keys []string, _ error) {
 	var now = time.Now()
 	defer func() {
 		c.Logger.Debugf("[ETCD]Keys %s, %0.6f", keyPrefix, time.Since(now).Seconds())
@@ -135,9 +144,8 @@ func (c *Etcd) Keys(keyPrefix string) ([]string, error) {
 	kv := clientv3.NewKV(c.EtcdClient)
 	response, err := kv.Get(c.Ctx, keyPrefix, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	var keys []string
 	for i := range response.Kvs {
 		keys = append(keys, string(response.Kvs[i].Key))
 	}
@@ -145,14 +153,17 @@ func (c *Etcd) Keys(keyPrefix string) ([]string, error) {
 	return keys, nil
 }
 
-func (c *Etcd) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error) {
-	kv := clientv3.NewKV(c.EtcdClient)
+// Range 如果设置了keyPrefix，得到的结果可能会比limit小
+//
+//	由于etcd的body限制，limit必须传递，和redis有区别的是，limit<=0不返回数据
+func (c *Etcd) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (nextKey string, kvs utils.KVs, _ error) {
+	if limit <= 0 {
+		return
+	}
 
-	kvs := utils.KVs{}
-
-	response, err := kv.Get(c.Ctx, keyStart, clientv3.WithFromKey(), clientv3.WithRange(keyEnd), clientv3.WithLimit(limit+1)) // 多取1个是为了返回最后一个为nextKey
+	response, err := clientv3.NewKV(c.EtcdClient).Get(c.Ctx, keyStart, clientv3.WithFromKey(), clientv3.WithRange(keyEnd), clientv3.WithLimit(limit+1)) // 多取1个是为了返回最后一个为nextKey
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.WithStack(err)
 	} else if len(response.Kvs) == 0 {
 		return "", nil, nil
 	}
@@ -166,7 +177,7 @@ func (c *Etcd) Range(keyStart, keyEnd string, keyPrefix string, limit int64) (st
 	}
 
 	// 总数不足limit个 则说明已经没nextKey
-	if int64(len(kvs)) < limit {
+	if int64(len(kvs)) <= limit {
 		return "", kvs, nil
 	} else {
 		return string(response.Kvs[limit].Key), kvs, nil // 取第limit+1个作为nextKey
@@ -354,7 +365,7 @@ func (c *Etcd) Watch(keyPrefix string, minRev int64, opts ...clientv3.OpOption) 
 // RangeResponse 得到keyStart~keyEnd范围内，并且符合keyPrefix的数据, limit <= 0则表示不限制数量
 // keyPrefix为空 表示无前缀要求
 func (c *Etcd) RangeResponse(keyStart string, keyEnd string, keyPrefix string, limit int64, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
-	if limit < 0 {
+	if limit <= 0 {
 		limit = 0
 	}
 
@@ -401,7 +412,7 @@ func (c *Etcd) Lease(leaseID int64) (*clientv3.LeaseTimeToLiveResponse, error) {
 func (c *Etcd) TimeToLive(leaseID int64) (int64, error) {
 	leaseResponse, err := c.Lease(leaseID)
 	if err != nil {
-		return -1, err
+		return -1, errors.WithStack(err)
 	}
 
 	return leaseResponse.TTL, nil

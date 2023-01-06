@@ -17,13 +17,12 @@ func NewRedisCache(client redis.UniversalClient, logger utils.ILogger, isPika bo
 		Cache: cache.Cache{
 			Ctx:    context.Background(),
 			Logger: logger,
-
-			EncodeFunc: text_utils.JsonMarshalToBytes,
-			DecodeFunc: text_utils.JsonUnmarshalFromBytes,
 		},
 		RedisClient: client,
 		IsPika:      isPika,
 	}
+	c.SetEncoderFunc(text_utils.JsonMarshalToBytes)
+	c.SetDecoderFunc(text_utils.JsonUnmarshalFromBytes)
 	c.L2Cache = cache.NewL2Cache(c, logger)
 	return c
 }

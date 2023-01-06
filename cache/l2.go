@@ -35,7 +35,7 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual any) ([]byte, err
 
 	_val, ok := val.([]byte)
 	if ok && _val != nil && !core.IsInterfaceNil(actual) {
-		if err = l.cache.GetDecodeFunc()(_val, actual); err != nil {
+		if err = l.cache.DecoderFunc(_val, actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %s of error: %s", val, err.Error())
 			return _val, err
 		}
@@ -68,7 +68,7 @@ func (l *L2Cache) MGet(keys []string, expire time.Duration, actual any) (utils.K
 	//}
 	//_res, ok := res.(utils.KVs)
 	if /*ok &&*/ len(_res) > 0 && !core.IsInterfaceNil(actual) {
-		if err := text_utils.ListDecodeAny(l.cache.GetDecodeFunc(), _res.Values(), actual); err != nil {
+		if err := text_utils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
 		}
@@ -98,7 +98,7 @@ func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual any)
 	}
 	_res, ok := res.(utils.KVs)
 	if ok && len(_res) > 0 && !core.IsInterfaceNil(actual) {
-		if err = text_utils.ListDecodeAny(l.cache.GetDecodeFunc(), _res.Values(), actual); err != nil {
+		if err = text_utils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
 		}

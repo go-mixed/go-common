@@ -12,34 +12,45 @@ type Cache struct {
 	Logger  utils.ILogger
 	L2Cache *L2Cache
 
-	DecodeFunc text_utils.DecoderFunc
-	EncodeFunc text_utils.EncoderFunc
+	decoderFunc text_utils.DecoderFunc
+	encoderFunc text_utils.EncoderFunc
 }
 
 func (c *Cache) L2() utils.IMemKV {
 	return c.L2Cache
 }
 
-type RangeFunc func(keyStart, keyEnd string, keyPrefix string, limit int64) (string, utils.KVs, error)
+type RangeFunc func(keyStart, keyEnd string, keyPrefix string, limit int64) (nextKey string, kvs utils.KVs, err error)
 
-func (c *Cache) SetEncodeFunc(encodeFunc text_utils.EncoderFunc) *Cache {
-	c.EncodeFunc = encodeFunc
+func (c *Cache) SetEncoderFunc(encodeFunc text_utils.EncoderFunc) *Cache {
+	c.encoderFunc = encodeFunc
 	return c
 }
 
-func (c *Cache) SetDecodeFunc(decodeFunc text_utils.DecoderFunc) *Cache {
-	c.DecodeFunc = decodeFunc
+func (c *Cache) EncoderFunc(v any) ([]byte, error) {
+	return c.encoderFunc(v)
+}
+
+func (c *Cache) SetDecoderFunc(decodeFunc text_utils.DecoderFunc) *Cache {
+	c.decoderFunc = decodeFunc
 	return c
 }
 
-func (c *Cache) ScanRangeFn(keyStart, keyEnd string, keyPrefix string, limit int64, result any, rangeFunc RangeFunc) (string, utils.KVs, error) {
-	nextKey, kvs, err := rangeFunc(keyStart, keyEnd, keyPrefix, limit)
+func (c *Cache) DecoderFunc(buf []byte, actual any) error {
+	return c.decoderFunc(buf, actual)
+}
+
+// ScanRangeFn 遍历指定条件的数据，并导出到actual
+//
+//	keyStart、keyEnd为空表示从头遍历或遍历到结尾；keyPrefix为空表示前缀不限；limit为-1表示不限制数量
+func (c *Cache) ScanRangeFn(keyStart, keyEnd string, keyPrefix string, limit int64, result any, rangeFunc RangeFunc) (nextKey string, kvs utils.KVs, err error) {
+	nextKey, kvs, err = rangeFunc(keyStart, keyEnd, keyPrefix, limit)
 	if err != nil {
 		return nextKey, kvs, err
 	}
 
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), result); err != nil {
+		if err = text_utils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
 			return "", nil, err
 		}
 	}
@@ -47,18 +58,21 @@ func (c *Cache) ScanRangeFn(keyStart, keyEnd string, keyPrefix string, limit int
 	return nextKey, kvs, nil
 }
 
-func (c *Cache) ScanRangeCallbackFn(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error, rangeFunc RangeFunc) (string, int64, error) {
-	nextKey, kvs, err := rangeFunc(keyStart, keyEnd, keyPrefix, limit)
+// ScanRangeCallbackFn 遍历指定条件的数据，每条数据callback，返回错误则跳出遍历
+//
+//	keyStart、keyEnd为空表示从头遍历或遍历到结尾；keyPrefix为空表示前缀不限；limit为-1表示不限制数量
+func (c *Cache) ScanRangeCallbackFn(keyStart string, keyEnd string, keyPrefix string, limit int64, callback func(kv *utils.KV) error, rangeFunc RangeFunc) (nextKey string, count int64, err error) {
+	var kvs utils.KVs
+	nextKey, kvs, err = rangeFunc(keyStart, keyEnd, keyPrefix, limit)
 	if err != nil {
 		return nextKey, 0, err
 	}
 
-	var read int64 = 0
 	for _, kv := range kvs {
 		if err != nil { // 出错的下一个key
-			return kv.Key, read, err
+			return kv.Key, count, err
 		}
-		read++
+		count++
 
 		if err = callback(kv); err != nil {
 			//遇到错误时, continue, 根据上面err的判断, 方法会return错误后下一个key, 也就是nextKey
@@ -66,7 +80,7 @@ func (c *Cache) ScanRangeCallbackFn(keyStart string, keyEnd string, keyPrefix st
 		}
 	}
 
-	return nextKey, read, err
+	return nextKey, count, err
 }
 
 func (c *Cache) ScanPrefixFn(keyPrefix string, result any, rangeFunc RangeFunc) (utils.KVs, error) {
@@ -77,6 +91,7 @@ func (c *Cache) ScanPrefixFn(keyPrefix string, result any, rangeFunc RangeFunc) 
 	var nextKey = keyStart
 	var err error
 	var _kvs utils.KVs
+
 	for {
 		nextKey, _kvs, err = rangeFunc(nextKey, keyEnd, keyPrefix, 10)
 		if err != nil {
@@ -89,7 +104,7 @@ func (c *Cache) ScanPrefixFn(keyPrefix string, result any, rangeFunc RangeFunc) 
 	}
 
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err := text_utils.ListDecodeAny(c.DecodeFunc, kvs.Values(), result); err != nil {
+		if err = text_utils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
 			return nil, err
 		}
 	}
@@ -97,36 +112,26 @@ func (c *Cache) ScanPrefixFn(keyPrefix string, result any, rangeFunc RangeFunc) 
 	return kvs, nil
 }
 
-func (c *Cache) ScanPrefixCallbackFn(keyPrefix string, callback func(kv *utils.KV) error, rangeFunc RangeFunc) (int64, error) {
+func (c *Cache) ScanPrefixCallbackFn(keyPrefix string, callback func(kv *utils.KV) error, rangeFunc RangeFunc) (count int64, err error) {
 	var keyStart = keyPrefix
 	var keyEnd = utils.GetPrefixRangeEnd(keyPrefix)
 	var nextKey = keyStart
-	var err error
 	var _kvs utils.KVs
-	var read int64
 	for {
 		nextKey, _kvs, err = rangeFunc(nextKey, keyEnd, keyPrefix, 10)
 		if err != nil {
-			return read, err
+			return count, err
 		}
 
 		for _, kv := range _kvs {
-			read++
+			count++
 			if err = callback(kv); err != nil {
-				return read, err
+				return count, err
 			}
 		}
 
 		if nextKey == "" {
-			return read, nil
+			return count, nil
 		}
 	}
-}
-
-func (c *Cache) GetDecodeFunc() text_utils.DecoderFunc {
-	return c.DecodeFunc
-}
-
-func (c *Cache) GetEncodeFunc() text_utils.EncoderFunc {
-	return c.EncodeFunc
 }

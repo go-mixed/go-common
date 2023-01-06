@@ -15,12 +15,11 @@ func NewEtcdCache(client *clientv3.Client, logger utils.ILogger) *Etcd {
 		Cache: cache.Cache{
 			Ctx:    core.If(client.Ctx() != nil, client.Ctx(), context.Background()),
 			Logger: logger,
-
-			EncodeFunc: text_utils.JsonMarshalToBytes,
-			DecodeFunc: text_utils.JsonUnmarshalFromBytes,
 		},
 		EtcdClient: client,
 	}
+	c.SetEncoderFunc(text_utils.JsonMarshalToBytes)
+	c.SetDecoderFunc(text_utils.JsonUnmarshalFromBytes)
 	c.L2Cache = cache.NewL2Cache(c, logger)
 	return c
 }
