@@ -14,10 +14,10 @@ import (
 )
 
 type Badger struct {
-	baseDir    string
-	logger     utils.ILogger
-	decodeFunc text_utils.DecoderFunc
-	encodeFunc text_utils.EncoderFunc
+	baseDir     string
+	logger      utils.ILogger
+	decoderFunc text_utils.DecoderFunc
+	encoderFunc text_utils.EncoderFunc
 
 	buckets sync.Map
 	options badger.Options
@@ -29,45 +29,69 @@ type BadgerBucket struct {
 	db     *badger.DB
 }
 
-func NewBadger(path string, logger utils.ILogger, writeSync bool) *Badger {
+func NewBadger(path string, logger utils.ILogger, workInMemory bool) *Badger {
 	return &Badger{
-		baseDir:    path,
-		logger:     logger,
-		encodeFunc: text_utils.JsonMarshalToBytes,
-		decodeFunc: text_utils.JsonUnmarshalFromBytes,
+		baseDir:     path,
+		logger:      logger,
+		encoderFunc: text_utils.JsonMarshalToBytes,
+		decoderFunc: text_utils.JsonUnmarshalFromBytes,
 
 		buckets: sync.Map{},
-		options: badger.DefaultOptions("").WithLogger(iLogger{logger}).WithLoggingLevel(badger.DEBUG).WithSyncWrites(writeSync),
+		options: badger.DefaultOptions("").WithLogger(iLogger{logger}).WithInMemory(workInMemory),
 	}
 }
 
-func (p *Badger) SetEncodeFunc(encodeFunc text_utils.EncoderFunc) *Badger {
-	p.encodeFunc = encodeFunc
-	return p
+func (b *Badger) SetEncoderFunc(encoderFunc text_utils.EncoderFunc) *Badger {
+	b.encoderFunc = encoderFunc
+	return b
 }
 
-func (p *Badger) SetDecodeFunc(decodeFunc text_utils.DecoderFunc) *Badger {
-	p.decodeFunc = decodeFunc
-	return p
+func (b *Badger) EncoderFunc(v any) ([]byte, error) {
+	return b.encoderFunc(v)
 }
 
-func (p *Badger) Bucket(name string) *BadgerBucket {
-	bucket, ok := p.buckets.Load(name)
+func (b *Badger) SetDecoderFunc(decoderFunc text_utils.DecoderFunc) *Badger {
+	b.decoderFunc = decoderFunc
+	return b
+}
+
+func (b *Badger) DecoderFunc(buf []byte, actual any) error {
+	return b.decoderFunc(buf, actual)
+}
+
+func (b *Badger) GC() {
+	var err error
+	b.buckets.Range(func(key, value any) bool {
+	again:
+		if err = multierr.Append(err, value.(*BadgerBucket).db.RunValueLogGC(0.7)); err == nil {
+			goto again
+		}
+
+		return true
+	})
+}
+
+func (b *Badger) Bucket(name string) *BadgerBucket {
+	bucket, ok := b.buckets.Load(name)
 	if !ok {
-		dir := filepath.Join(p.baseDir, name)
-		db, err := badger.Open(p.options.WithDir(dir).WithValueDir(dir))
+		dir := filepath.Join(b.baseDir, name)
+		options := b.options
+		if !options.InMemory {
+			options = options.WithDir(dir).WithValueDir(dir)
+		}
+		db, err := badger.Open(options)
 		if err != nil {
 			panic(err)
 		}
-		bucket = &BadgerBucket{bucket: name, b: p, db: db}
-		p.buckets.Store(name, bucket)
+		bucket = &BadgerBucket{bucket: name, b: b, db: db}
+		b.buckets.Store(name, bucket)
 	}
 
 	return bucket.(*BadgerBucket)
 }
 
-func (p *Badger) BucketNotCreate(name string) *BadgerBucket {
-	bucket, ok := p.buckets.Load(name)
+func (b *Badger) BucketNotCreate(name string) *BadgerBucket {
+	bucket, ok := b.buckets.Load(name)
 	if ok {
 		return bucket.(*BadgerBucket)
 	}
@@ -75,18 +99,18 @@ func (p *Badger) BucketNotCreate(name string) *BadgerBucket {
 	return nil
 }
 
-func (p *Badger) DeleteBucket(name string) error {
+func (b *Badger) DeleteBucket(name string) error {
 	var err error
-	if bucket := p.BucketNotCreate(name); bucket != nil {
+	if bucket := b.BucketNotCreate(name); bucket != nil {
 		err = bucket.db.Close()
-		p.buckets.Delete(name)
+		b.buckets.Delete(name)
 	}
 	return err
 }
 
-func (p *Badger) Close() error {
+func (b *Badger) Close() error {
 	var err error
-	p.buckets.Range(func(key, value any) bool {
+	b.buckets.Range(func(key, value any) bool {
 		err = multierr.Append(err, value.(*BadgerBucket).Close())
 		return true
 	})
@@ -113,7 +137,7 @@ func (b *BadgerBucket) Update(callback func(txn *badger.Txn) error) error {
 }
 
 func (b *BadgerBucket) Set(key string, val any) error {
-	buf, err := b.b.encodeFunc(val)
+	buf, err := b.b.EncoderFunc(val)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -136,9 +160,9 @@ func (b *BadgerBucket) Get(key string, actual any) ([]byte, error) {
 		return nil, err
 	}
 
-	if err := b.b.decodeFunc(buf, actual); err != nil {
+	if err := b.b.DecoderFunc(buf, actual); err != nil {
 		b.b.logger.Errorf("[Badger]Get data and decode error: %s", err.Error())
-		return nil, errors.WithStack(err)
+		return buf, errors.WithStack(err)
 	}
 
 	return buf, nil
@@ -220,6 +244,8 @@ func (b *BadgerBucket) rangeCallback(fn func(func(txn *badger.Txn) error) error,
 
 		if keyStart != "" {
 			it.Seek(_keyStart)
+		} else {
+			it.Rewind()
 		}
 		// 获取真实开始的key
 		if it.Valid() {
@@ -233,8 +259,8 @@ func (b *BadgerBucket) rangeCallback(fn func(func(txn *badger.Txn) error) error,
 		for ; ; it.Next() {
 			if it.Valid() {
 				key, val, err = b.getKV(it.Item())
-			} else {
-				key = nil // 下面的_nextKey取到正确的值
+			} else { // 到达末尾
+				key = nil // 保证下面的_nextKey取到正确的值
 				val = nil
 				break
 			}
@@ -279,6 +305,7 @@ func (b *BadgerBucket) Count() int64 {
 		options.PrefetchValues = false
 
 		it := txn.NewIterator(options)
+		it.Rewind()
 		defer it.Close()
 		for ; it.Valid(); it.Next() {
 

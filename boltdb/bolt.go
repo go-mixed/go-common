@@ -14,9 +14,9 @@ import (
 type Bolt struct {
 	DB *bolt.DB
 
-	logger     utils.ILogger
-	decodeFunc text_utils.DecoderFunc
-	encodeFunc text_utils.EncoderFunc
+	logger      utils.ILogger
+	decoderFunc text_utils.DecoderFunc
+	encoderFunc text_utils.EncoderFunc
 }
 
 type BoltBucket struct {
@@ -34,19 +34,27 @@ func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 		DB:     db,
 		logger: logger,
 
-		encodeFunc: text_utils.JsonMarshalToBytes,
-		decodeFunc: text_utils.JsonUnmarshalFromBytes,
+		encoderFunc: text_utils.JsonMarshalToBytes,
+		decoderFunc: text_utils.JsonUnmarshalFromBytes,
 	}, nil
 }
 
-func (b *Bolt) SetEncodeFunc(encodeFunc text_utils.EncoderFunc) *Bolt {
-	b.encodeFunc = encodeFunc
+func (b *Bolt) SetEncoderFunc(encoderFunc text_utils.EncoderFunc) *Bolt {
+	b.encoderFunc = encoderFunc
 	return b
 }
 
-func (b *Bolt) SetDecodeFunc(decodeFunc text_utils.DecoderFunc) *Bolt {
-	b.decodeFunc = decodeFunc
+func (b *Bolt) EncoderFunc(v any) ([]byte, error) {
+	return b.encoderFunc(v)
+}
+
+func (b *Bolt) SetDecoderFunc(decoderFunc text_utils.DecoderFunc) *Bolt {
+	b.decoderFunc = decoderFunc
 	return b
+}
+
+func (b *Bolt) DecoderFunc(buf []byte, actual any) error {
+	return b.decoderFunc(buf, actual)
 }
 
 func (b *Bolt) Bucket(bucket string) *BoltBucket {
@@ -101,7 +109,7 @@ func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 	err := b.View(func(bucket *bolt.Bucket) error {
 		var _buf []byte
 		if _buf = bucket.Get([]byte(key)); _buf != nil && !core.IsInterfaceNil(actual) {
-			if err := b.decodeFunc(_buf, actual); err != nil {
+			if err := b.DecoderFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
@@ -157,7 +165,7 @@ func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 			kvs = kvs.Append(string(k), core.CopyFrom(v)) // GC 后v会被清空，必须Copy
 		}
 		if actual != nil && !core.IsInterfaceNil(actual) {
-			if err := text_utils.ListDecodeAny(b.decodeFunc, kvs.Values(), actual); err != nil {
+			if err := text_utils.ListDecodeAny(b.DecoderFunc, kvs.Values(), actual); err != nil {
 				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
@@ -169,7 +177,7 @@ func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 
 func (b *BoltBucket) Set(key string, value any) error {
 	return b.Update(func(bucket *bolt.Bucket) error {
-		buf, err := b.encodeFunc(value)
+		buf, err := b.EncoderFunc(value)
 		if err != nil {
 			return errors.WithMessagef(err, "[Bolt]Set data and encode error")
 		}
@@ -268,7 +276,7 @@ func (b *BoltBucket) FindLte(key string, actual any) (utils.KV, error) {
 		}
 
 		if _buf != nil && !core.IsInterfaceNil(actual) {
-			if err := b.decodeFunc(_buf, actual); err != nil {
+			if err := b.DecoderFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
@@ -298,7 +306,7 @@ func (b *BoltBucket) FindLt(key string, actual any) (utils.KV, error) {
 		}
 
 		if _buf != nil && !core.IsInterfaceNil(actual) {
-			err := b.decodeFunc(_buf, actual)
+			err := b.DecoderFunc(_buf, actual)
 			if err != nil {
 				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
 				return errors.WithStack(err)
@@ -325,7 +333,7 @@ func (b *BoltBucket) FindGte(key string, actual any) (utils.KV, error) {
 		key = string(_key)
 
 		if _buf != nil && !core.IsInterfaceNil(actual) {
-			if err := b.decodeFunc(_buf, actual); err != nil {
+			if err := b.DecoderFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]FindGte data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}
