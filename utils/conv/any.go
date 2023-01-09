@@ -1,7 +1,6 @@
 package conv
 
 import (
-	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"strings"
 )
 
@@ -157,6 +156,10 @@ func AnyToBool(val any) bool {
 	return b
 }
 
+type Stringer interface {
+	String() string
+}
+
 func AnyToString(val any) string {
 	if val == nil {
 		return ""
@@ -179,8 +182,8 @@ func AnyToString(val any) string {
 		s = val.(string)
 	case []byte:
 		s = string(val.([]byte))
-	case text_utils.Stringer:
-		return val.(text_utils.Stringer).String()
+	case Stringer:
+		return val.(Stringer).String()
 	default:
 
 	}
@@ -210,8 +213,8 @@ func AnyToBytes(val any) []byte {
 		s = []byte(val.(string))
 	case []byte:
 		s = val.([]byte)
-	case text_utils.Stringer:
-		return []byte(val.(text_utils.Stringer).String())
+	case Stringer:
+		return []byte(val.(Stringer).String())
 	default:
 
 	}
