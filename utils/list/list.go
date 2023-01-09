@@ -37,7 +37,10 @@ func StrIndexOf(slice []string, findMe string, ignoreCase bool) int {
 	})
 }
 
-// ToInterfaces 将any 转为 []any, 因为不能直接slice.([]any) 此函数使用场景可以参照 SortDomains
+// ToInterfaces 将any 转为 []any, 因为不能直接slice.([]any)
+//
+//	注意：在1.18之后允许转换
+//	 此函数使用场景可以参照 SortDomains
 func ToInterfaces(src any) []any {
 	s := reflect.ValueOf(src)
 	if s.Kind() == reflect.Ptr {

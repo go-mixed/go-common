@@ -6,8 +6,16 @@ import (
 	"fmt"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"reflect"
+	"regexp"
 	"strings"
 )
+
+var cCommentRegexp = regexp.MustCompile(`(?s)//.*?\n|/\\*.*?\\*/`)
+
+// RemoveComments remove the c-style comments
+func RemoveComments(s string) string {
+	return cCommentRegexp.ReplaceAllString(s, "")
+}
 
 // WildcardMatchSimple - finds whether the text matches/satisfies the pattern string.
 // supports only '*' wildcard in the pattern.
@@ -34,7 +42,7 @@ func WildcardMatch(pattern, name string) (matched bool) {
 	if pattern == "*" {
 		return true
 	}
-	// Does extended wildcard '*' and '?' match.
+	// Does extend wildcard '*' and '?' match.
 	return deepWildcardMatchRune([]rune(name), []rune(pattern), false)
 }
 

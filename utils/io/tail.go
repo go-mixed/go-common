@@ -8,35 +8,35 @@ import (
 
 // Tail returns slice of last n strings from file in path
 func Tail(path string, n int) ([]string, error) {
-	tail, _, err := tail(path, n, true)
-	return tail, err
+	t, _, err := tail(path, n, true)
+	return t, err
 }
 
 // TailReverse returns reversed slice of last n strings from file
 func TailReverse(path string, n int) ([]string, error) {
-	tail, _, err := tail(path, n, false)
-	return tail, err
+	t, _, err := tail(path, n, false)
+	return t, err
 }
 
 // TailBytes returns bytes of last n strings from file
 func TailBytes(path string, n int) ([]byte, error) {
-	_, tail, err := tail(path, n, true)
-	return tail, err
+	_, t, err := tail(path, n, true)
+	return t, err
 }
 
 // TailBytesReverse returns bytes of last n string from file in reversed order
 func TailBytesReverse(path string, n int) ([]byte, error) {
-	_, tail, err := tail(path, n, false)
-	return tail, err
+	_, t, err := tail(path, n, false)
+	return t, err
 }
 
 // Ftail writes bytes of last n strings from file path and returns number of written bytes
 func Ftail(w io.Writer, path string, n int) (int, error) {
-	_, tail, err := tail(path, n, true)
+	_, t, err := tail(path, n, true)
 	if err != nil {
 		return 0, err
 	}
-	return w.Write(tail)
+	return w.Write(t)
 }
 
 func tail(path string, n int, keepOrder bool) (tail []string, tailBytes []byte, err error) {

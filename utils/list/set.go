@@ -3,52 +3,59 @@ package list_utils
 import (
 	"fmt"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
-	"sort"
 )
 
-// StringSet - uses map as set of strings.
-type StringSet map[string]struct{}
+// Set - uses map as set of strings.
+type Set[T comparable] map[T]struct{}
 
-// ToSlice - returns StringSet as string slice.
-func (set StringSet) ToSlice() []string {
-	keys := make([]string, 0, len(set))
-	for k := range set {
+// NewSet - creates new string set.
+func NewSet[T comparable](sl ...T) Set[T] {
+	set := make(Set[T])
+	for _, k := range sl {
+		set.Add(k)
+	}
+	return set
+}
+
+// ToSlice - returns Set as string slice.
+func (s Set[T]) ToSlice() []T {
+	keys := make([]T, 0, len(s))
+	for k := range s {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
 	return keys
 }
 
 // IsEmpty - returns whether the set is empty or not.
-func (set StringSet) IsEmpty() bool {
-	return len(set) == 0
+func (s Set[T]) IsEmpty() bool {
+	return len(s) == 0
 }
 
 // Add - adds string to the set.
-func (set StringSet) Add(s string) {
-	set[s] = struct{}{}
+func (s Set[T]) Add(item T) {
+	s[item] = struct{}{}
 }
 
 // Remove - removes string in the set.  It does nothing if string does not exist in the set.
-func (set StringSet) Remove(s string) {
-	delete(set, s)
+func (s Set[T]) Remove(item T) {
+	delete(s, item)
 }
 
 // Contains - checks if string is in the set.
-func (set StringSet) Contains(s string) bool {
-	_, ok := set[s]
+func (s Set[T]) Contains(item T) bool {
+	_, ok := s[item]
 	return ok
 }
 
-// FuncMatch - returns new set containing each value who passes match function.
+// Match - returns new set containing each value who passes match function.
 // A 'matchFn' should accept element in a set as first argument and
 // 'matchString' as second argument.  The function can do any logic to
 // compare both the arguments and should return true to accept element in
 // a set to include in output set else the element is ignored.
-func (set StringSet) FuncMatch(matchFn func(string, string) bool, matchString string) StringSet {
-	nset := NewStringSet()
-	for k := range set {
-		if matchFn(k, matchString) {
+func (s Set[T]) Match(item T, matchFn func(T, T) bool) Set[T] {
+	nset := NewSet[T]()
+	for k := range s {
+		if matchFn(k, item) {
 			nset.Add(k)
 		}
 	}
@@ -59,24 +66,24 @@ func (set StringSet) FuncMatch(matchFn func(string, string) bool, matchString st
 // A 'applyFn' should accept element in a set as a argument and return
 // a processed string.  The function can do any logic to return a processed
 // string.
-func (set StringSet) ApplyFunc(applyFn func(string) string) StringSet {
-	nset := NewStringSet()
-	for k := range set {
+func (s Set[T]) ApplyFunc(applyFn func(T) T) Set[T] {
+	nset := NewSet[T]()
+	for k := range s {
 		nset.Add(applyFn(k))
 	}
 	return nset
 }
 
 // Equals - checks whether given set is equal to current set or not.
-func (set StringSet) Equals(sset StringSet) bool {
-	// If length of set is not equal to length of given set, the
-	// set is not equal to given set.
-	if len(set) != len(sset) {
+func (s Set[T]) Equals(sset Set[T]) bool {
+	// If length of s is not equal to length of given s, the
+	// s is not equal to given s.
+	if len(s) != len(sset) {
 		return false
 	}
 
-	// As both sets are equal in length, check each elements are equal.
-	for k := range set {
+	// As both sets are equal in length, check each element are equal.
+	for k := range s {
 		if _, ok := sset[k]; !ok {
 			return false
 		}
@@ -86,9 +93,9 @@ func (set StringSet) Equals(sset StringSet) bool {
 }
 
 // Intersection - returns the intersection with given set as new set.
-func (set StringSet) Intersection(sset StringSet) StringSet {
-	nset := NewStringSet()
-	for k := range set {
+func (s Set[T]) Intersection(sset Set[T]) Set[T] {
+	nset := NewSet[T]()
+	for k := range s {
 		if _, ok := sset[k]; ok {
 			nset.Add(k)
 		}
@@ -98,9 +105,9 @@ func (set StringSet) Intersection(sset StringSet) StringSet {
 }
 
 // Difference - returns the difference with given set as new set.
-func (set StringSet) Difference(sset StringSet) StringSet {
-	nset := NewStringSet()
-	for k := range set {
+func (s Set[T]) Difference(sset Set[T]) Set[T] {
+	nset := NewSet[T]()
+	for k := range s {
 		if _, ok := sset[k]; !ok {
 			nset.Add(k)
 		}
@@ -110,9 +117,9 @@ func (set StringSet) Difference(sset StringSet) StringSet {
 }
 
 // Union - returns the union with given set as new set.
-func (set StringSet) Union(sset StringSet) StringSet {
-	nset := NewStringSet()
-	for k := range set {
+func (s Set[T]) Union(sset Set[T]) Set[T] {
+	nset := NewSet[T]()
+	for k := range s {
 		nset.Add(k)
 	}
 
@@ -124,27 +131,20 @@ func (set StringSet) Union(sset StringSet) StringSet {
 }
 
 // MarshalJSON - converts to JSON data.
-func (set StringSet) MarshalJSON() ([]byte, error) {
-	return text_utils.JsonMarshalToBytes(set.ToSlice())
+func (s Set[T]) MarshalJSON() ([]byte, error) {
+	return text_utils.JsonMarshalToBytes(s.ToSlice())
 }
 
 // UnmarshalJSON - parses JSON data and creates new set with it.
 // If 'data' contains JSON string array, the set contains each string.
 // If 'data' contains JSON string, the set contains the string as one element.
 // If 'data' contains Other JSON types, JSON parse error is returned.
-func (set *StringSet) UnmarshalJSON(data []byte) error {
-	var sl []string
-	var err error
-	if err = text_utils.JsonUnmarshalFromBytes(data, &sl); err == nil {
-		*set = make(StringSet)
-		for _, s := range sl {
-			set.Add(s)
-		}
-	} else {
-		var s string
-		if err = text_utils.JsonUnmarshalFromBytes(data, &s); err == nil {
-			*set = make(StringSet)
-			set.Add(s)
+func (s Set[T]) UnmarshalJSON(data []byte) error {
+	var sl []T
+	err := text_utils.JsonUnmarshalFromBytes(data, &sl)
+	if err == nil {
+		for _, item := range sl {
+			s.Add(item)
 		}
 	}
 
@@ -152,28 +152,14 @@ func (set *StringSet) UnmarshalJSON(data []byte) error {
 }
 
 // String - returns printable string of the set.
-func (set StringSet) String() string {
-	return fmt.Sprintf("%s", set.ToSlice())
+func (s Set[T]) String() string {
+	return fmt.Sprintf("%s", s.ToSlice())
 }
 
-// NewStringSet - creates new string set.
-func NewStringSet() StringSet {
-	return make(StringSet)
-}
-
-// CreateStringSet - creates new string set with given string values.
-func CreateStringSet(sl ...string) StringSet {
-	set := make(StringSet)
-	for _, k := range sl {
-		set.Add(k)
-	}
-	return set
-}
-
-// CopyStringSet - returns copy of given set.
-func CopyStringSet(set StringSet) StringSet {
-	nset := NewStringSet()
-	for k, v := range set {
+// Clone - returns copy of given set.
+func (s Set[T]) Clone() Set[T] {
+	nset := NewSet[T]()
+	for k, v := range s {
 		nset[k] = v
 	}
 	return nset
