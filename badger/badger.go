@@ -234,7 +234,9 @@ func (b *BadgerBucket) rangeCallback(fn func(func(txn *badger.Txn) error) error,
 	}
 
 	err = fn(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		options := badger.DefaultIteratorOptions
+		options.PrefetchSize = 10
+		it := txn.NewIterator(options)
 		defer it.Close()
 
 		if keyStart != "" {
