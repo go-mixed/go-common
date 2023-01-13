@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/mattn/go-shellwords"
 	"github.com/pkg/errors"
 	"io"
 	"os"
@@ -46,6 +45,8 @@ type ShellCommand []string
 //	env := map[string]string{"ENV": "VALUE"}
 type EnvVars map[string]string
 
+type CommandOption func(*Command)
+
 // NewCommand creates a new command
 // You can add option with variadic option argument
 // Default timeout is set to 30 minutes
@@ -61,7 +62,7 @@ type EnvVars map[string]string
 //
 //	c := cmd.NewCommand("echo hello", cmd.WithStandardStreams)
 //	c.Execute()
-func NewCommand(path string, args []string, options ...func(*Command)) *Command {
+func NewCommand(path string, args []string, options ...CommandOption) *Command {
 	c := &Command{
 		Path:     path,
 		Args:     args,
@@ -119,7 +120,7 @@ func WithCustomStderr(writers ...io.Writer) func(c *Command) {
 // Example:
 //
 //	cmd.NewCommand("sleep 10;", cmd.WithTimeout(500))
-func WithTimeout(t time.Duration) func(c *Command) {
+func WithTimeout(t time.Duration) CommandOption {
 	return func(c *Command) {
 		c.Timeout = t
 	}
@@ -131,7 +132,7 @@ func WithoutTimeout(c *Command) {
 }
 
 // WithWorkingDir sets the current working directory
-func WithWorkingDir(dir string) func(c *Command) {
+func WithWorkingDir(dir string) CommandOption {
 	return func(c *Command) {
 		c.WorkingDir = dir
 	}
@@ -139,7 +140,7 @@ func WithWorkingDir(dir string) func(c *Command) {
 
 // WithInheritedEnvironment uses the env from the current process and
 // allow to add more variables.
-func WithInheritedEnvironment(env EnvVars) func(c *Command) {
+func WithInheritedEnvironment(env EnvVars) CommandOption {
 	return func(c *Command) {
 		c.Env = os.Environ()
 
@@ -150,7 +151,7 @@ func WithInheritedEnvironment(env EnvVars) func(c *Command) {
 }
 
 // WithEnvironmentVariables sets environment variables for the executed command
-func WithEnvironmentVariables(env EnvVars) func(c *Command) {
+func WithEnvironmentVariables(env EnvVars) CommandOption {
 	return func(c *Command) {
 		for key, value := range env {
 			c.AddEnv(key, value)
@@ -161,7 +162,7 @@ func WithEnvironmentVariables(env EnvVars) func(c *Command) {
 // WithPrivilegedInDocker will prepend `"nsenter", "-t", "1", "-m", "-u", "-n", "-i"` to command
 //
 //	only work on linux/darwin, ignore it on Windows
-func WithPrivilegedInDocker(enabled bool) func(c *Command) {
+func WithPrivilegedInDocker(enabled bool) CommandOption {
 	return func(c *Command) {
 		c.privilegedInDocker = enabled
 	}
@@ -295,19 +296,4 @@ func (c *Command) getExitCode(err error) {
 func (c *Command) String() string {
 	cmd := c.buildCommandContext(context.TODO())
 	return cmd.String()
-}
-
-func (c *Command) buildCommandContext(ctx context.Context) *exec.Cmd {
-	prefix := getCommandPrefix(c)
-	var shell ShellCommand
-	// 將原c.Path字符串解析為ShellCommand
-	if newCommand, err := shellwords.Parse(c.Path); err != nil {
-		shell = append(prefix, c.Path) // 無法解析，保持原樣
-	} else {
-		shell = append(prefix, newCommand...)
-	}
-	// 添加原args到指令末尾
-	shell = append(shell, c.Args...)
-
-	return exec.CommandContext(ctx, shell[0], shell[1:]...)
 }
