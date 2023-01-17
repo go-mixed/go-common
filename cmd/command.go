@@ -35,8 +35,6 @@ type Command struct {
 	privilegedInDocker bool
 }
 
-type ShellCommand []string
-
 // EnvVars represents a map where the key is the name of the env variable
 // and the value is the value of the variable
 //
