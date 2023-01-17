@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/mattn/go-shellwords"
 	"os/exec"
 )
 
