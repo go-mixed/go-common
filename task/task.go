@@ -106,6 +106,7 @@ func (t *Task) listenStopSignal(ctx context.Context) {
 		case <-exitSign:
 			t.Stop()
 		}
+		signal.Stop(exitSign)
 	}()
 }
 
