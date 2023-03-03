@@ -23,8 +23,10 @@ type Task struct {
 	// 无缓冲，保证run函数中for循环在无数据时阻塞、有数据时触发继续
 	hasJobs chan struct{}
 
-	stopCtx        context.Context
-	stopCancel     context.CancelFunc
+	// 所有正在运行的job任务的控制总线
+	busCtx    context.Context
+	busCancel context.CancelFunc
+	// 强制退出
 	shutdownCtx    context.Context
 	shutdownCancel context.CancelFunc
 }
@@ -41,8 +43,8 @@ func NewTask(concurrentCount int) *Task {
 		hasJobs:     make(chan struct{}),
 		doneHandler: func(j Job, err error) {},
 
-		stopCtx:        context.Background(),
-		stopCancel:     func() {},
+		busCtx:         context.Background(),
+		busCancel:      func() {},
 		shutdownCtx:    context.Background(),
 		shutdownCancel: func() {},
 	}
@@ -114,12 +116,12 @@ func (t *Task) listenStopSignal(ctx context.Context) {
 }
 
 func (t *Task) run(exitOnJobFinish bool) {
-	t.stopCtx, t.stopCancel = context.WithCancel(context.Background())
+	t.busCtx, t.busCancel = context.WithCancel(context.Background())
 	t.shutdownCtx, t.shutdownCancel = context.WithCancel(context.Background())
-	defer t.stopCancel() // 防止泄漏
+	defer t.busCancel() // 防止泄漏
 	defer t.shutdownCancel()
 	// ctrl+c
-	t.listenStopSignal(t.stopCtx)
+	t.listenStopSignal(t.busCtx)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1) // 先加1，可以在jobs运行过程中不会被因减为0而出现Wait的错误
@@ -127,7 +129,7 @@ func (t *Task) run(exitOnJobFinish bool) {
 for1:
 	for {
 		select {
-		case <-t.stopCtx.Done(): //全局退出
+		case <-t.busCtx.Done(): //全局退出
 			break for1
 		default:
 		}
@@ -142,7 +144,7 @@ for1:
 			case t.queue <- struct{}{}:
 				wg.Add(1)
 				go t.handle(wg, job) // 异步运行
-			case <-t.stopCtx.Done(): // 全局退出
+			case <-t.busCtx.Done(): // 全局退出
 				break for1
 			}
 
@@ -156,7 +158,7 @@ for1:
 			break
 		} else { // 没有job了，阻塞等待
 			select {
-			case <-t.stopCtx.Done(): //全局退出
+			case <-t.busCtx.Done(): //全局退出
 				break for1
 			case <-t.hasJobs: // 阻塞等待有新的任务进来
 			}
@@ -171,23 +173,32 @@ for1:
 }
 
 // Stop 停止任务池（需异步调用），但是RunXXX会等待任务运行完毕
-//
-//	（如果Job任务不自动退出，RunXX永远不会退出）
+// 如果Job任务没有监听ctx完成自行退出，则RunXX永远不会退出。可以尝试使用Shutdown强制退出
 func (t *Task) Stop() {
-	t.stopCancel()
+	t.busCancel()
+}
+
+// ShutdownNow 停止任务池（需要异步调用）并立即让RunXX退出。
+// 鉴于golang的协程的特性，需要Job任务监听ctx完成自行退出，不然Job会继续执行
+func (t *Task) ShutdownNow() {
+	t.busCancel()
+	t.shutdownCancel()
 }
 
 // Shutdown 停止任务池（需异步调用）并尝试在waitTimeout时间内等待任务完成。
-// 如果任务在waitTimeout时间内都未完成，RunXXX会立即退出
+// 如果任务在waitTimeout时间内都未完成，RunXXX会立即退出。
+// 鉴于golang的协程的特性，需要Job任务监听ctx完成自己退出，不然Job会继续执行
 //
-//	0 表示RunXX 立即退出
+//	0 表示立即退出RunXX，等效于ShutdownNow
 func (t *Task) Shutdown(waitTimeout time.Duration) {
-	t.stopCancel()
+	t.busCancel()
 
-	if waitTimeout >= 0 {
+	if waitTimeout > 0 {
 		time.AfterFunc(waitTimeout, func() {
 			t.shutdownCancel()
 		})
+	} else {
+		t.shutdownCancel()
 	}
 }
 
@@ -204,7 +215,7 @@ func (t *Task) triggerJobDone(wg *sync.WaitGroup, job Job, err error) {
 
 // 真正执行job的函数，注意：超时后只是归还了队列，Job.Callback如果不监听ctx，则可能还在运行（泄漏）
 func (t *Task) handle(wg *sync.WaitGroup, job Job) {
-	var jobCtx = t.stopCtx
+	var jobCtx = t.busCtx
 	var jobCancel context.CancelFunc
 	var err error
 
@@ -232,7 +243,7 @@ func (t *Task) handle(wg *sync.WaitGroup, job Job) {
 	// 超时
 	if job.Timeout > 0 {
 		// 新建子超时context，控制job的退出
-		jobCtx, jobCancel = context.WithTimeout(t.stopCtx, job.Timeout)
+		jobCtx, jobCancel = context.WithTimeout(t.busCtx, job.Timeout)
 		defer jobCancel()
 		// timeout后强制让出队列，但是本任务可能会继续运行
 		timer := time.AfterFunc(job.Timeout, func() {
