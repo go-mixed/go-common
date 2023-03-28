@@ -3,32 +3,37 @@ package task
 import (
 	"container/list"
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
 
-type JobDoneHandler func(j Job, err error)
+type JobDoneHandler func(j *Job)
+
+type action uint8
+
+const (
+	produceAction action = iota
+	workerQuitAction
+	stoppingAction
+	quitAfterDoneAction
+	quitImmediatelyAction
+)
 
 type Task struct {
-	jobs        *list.List
+	pool        sync.Pool
 	mu          sync.Mutex
 	doneHandler JobDoneHandler
 
-	// 有缓冲的队列，保证只会同时运行concurrentCount个任务
-	queue chan struct{}
-	// 无缓冲，保证run函数中for循环在无数据时阻塞、有数据时触发继续
-	hasJobs chan struct{}
+	jobs *list.List
+	// 触发器，触发一次动整个Task动一下，无缓存
+	actions chan action
 
-	// 所有正在运行的job任务的控制总线
-	busCtx    context.Context
-	busCancel context.CancelFunc
-	// 强制退出
-	shutdownCtx    context.Context
-	shutdownCancel context.CancelFunc
+	runningCount   atomic.Int32
+	maxWorkerCount int32
 }
 
 // NewTask 创建一个任务池，支持任务池服务，和一次性运行池
@@ -37,19 +42,19 @@ type Task struct {
 //     - Shutdown会让RunXX立即退出，但是此时Job任务是否退出是不确定的。
 //
 // 2. Job任务从队列中取出后，本程序会确保已经开始运行。绝对不会出现在关闭任务池时这种临界点时，任务即没有跑，又不在原队列中（比如：Job任务取了放在chan中就会出现这种情况）
-func NewTask(concurrentCount int) *Task {
-	return &Task{
-		jobs:        list.New(),
-		mu:          sync.Mutex{},
-		queue:       make(chan struct{}, concurrentCount),
-		hasJobs:     make(chan struct{}),
-		doneHandler: func(j Job, err error) {},
-
-		busCtx:         context.Background(),
-		busCancel:      func() {},
-		shutdownCtx:    context.Background(),
-		shutdownCancel: func() {},
+func NewTask(maxWorkerCount int) *Task {
+	t := &Task{
+		pool:           sync.Pool{},
+		jobs:           list.New(),
+		actions:        make(chan action, maxWorkerCount),
+		mu:             sync.Mutex{},
+		maxWorkerCount: int32(maxWorkerCount),
+		doneHandler:    func(j *Job) {},
 	}
+	t.pool.New = func() any {
+		return createWorker(t)
+	}
+	return t
 }
 
 func (t *Task) SetJobDoneHandler(fn JobDoneHandler) *Task {
@@ -61,36 +66,47 @@ func (t *Task) SetJobDoneHandler(fn JobDoneHandler) *Task {
 func (t *Task) Submit(callbacks ...func(ctx context.Context)) *Task {
 	t.mu.Lock()
 	for _, callback := range callbacks {
-		t.submit(Job{Callback: callback, State: Prepare})
+		t.submit(&Job{Callback: callback, State: Prepare})
 	}
 	t.mu.Unlock()
 
+	t.tryTriggerAction(produceAction)
 	return t
 }
 
 // SubmitWithTimeout 添加一个有时间限制的任务，如果任务超时，会调用errorHandler
 func (t *Task) SubmitWithTimeout(callback func(ctx context.Context), timeout time.Duration) *Task {
 	t.mu.Lock()
-	t.submit(Job{Callback: callback, Timeout: timeout, State: Prepare})
+	t.submit(&Job{Callback: callback, Timeout: timeout, State: Prepare})
 	t.mu.Unlock()
 
+	t.tryTriggerAction(produceAction)
 	return t
 }
 
-func (t *Task) submit(j Job) {
+func (t *Task) submit(j *Job) {
 	t.jobs.PushBack(j)
+}
 
-	// 当jobs为空的时候，有新任务就会塞一次数据进去，让run中for不再阻塞
+func (t *Task) triggerAction(action action) {
+	t.actions <- action
+}
+
+func (t *Task) tryTriggerAction(action action) {
 	select {
-	case t.hasJobs <- struct{}{}:
+	case t.actions <- action:
 	default:
-	}
 
+	}
 }
 
 // RunOnce 运行jobs中的任务（需先添加job）直到所有jobs完成、或主动 Stop、Ctrl+C
 // 不能同时运行RunOnce，RunServe
 func (t *Task) RunOnce() {
+	// 没有任务
+	if t.jobs.Len() <= 0 {
+		return
+	}
 	t.run(true)
 }
 
@@ -118,74 +134,59 @@ func (t *Task) listenStopSignal(ctx context.Context) {
 }
 
 // 真正运行的方法
-func (t *Task) run(exitOnJobFinish bool) {
-	t.busCtx, t.busCancel = context.WithCancel(context.Background())
-	t.shutdownCtx, t.shutdownCancel = context.WithCancel(context.Background())
-	defer t.busCancel() // 防止泄漏
-	defer t.shutdownCancel()
+func (t *Task) run(exitOnFinish bool) {
+	stoppingCtx, stoppingCtxCancel := context.WithCancel(context.Background())
+	defer stoppingCtxCancel()
 	// ctrl+c
-	t.listenStopSignal(t.busCtx)
+	t.listenStopSignal(stoppingCtx)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(1) // 先加1，可以在jobs运行过程中不会被因减为0而出现Wait的错误
+	wg.Add(1)
 
 for1:
-	for {
-		select {
-		case <-t.busCtx.Done(): //全局退出
+	for act := range t.actions {
+		switch act {
+		case stoppingAction: // 仅仅调用stoppingCtx
+			stoppingCtxCancel()
+		case quitAfterDoneAction: // 等待当前任务运行结束之后退出
 			break for1
-		default:
-		}
-		t.mu.Lock()
-		el := t.jobs.Front()
-		t.mu.Unlock()
-
-		if el != nil {
-			job := el.Value.(Job)
-			select {
-			// 控制同时运行的数量
-			case t.queue <- struct{}{}:
-				wg.Add(1)
-				go t.handle(wg, job) // 异步运行
-			case <-t.busCtx.Done(): // 全局退出
+		case quitImmediatelyAction: // 不等待当前任务运行结束，立即退出
+			return
+		case workerQuitAction:
+			wg.Done()                                        // worker wg -1
+			if t.runningCount.Add(-1) <= 0 && exitOnFinish { // 运行完毕就结束
 				break for1
 			}
-
-			// 任务取出了 绝对运行（异步）了才从列表里面移除
-			// 其它情况会跳出for
-			t.mu.Lock()
-			t.jobs.Remove(el)
-			t.mu.Unlock()
-
-		} else if exitOnJobFinish { // 完成即退出
-			break
-		} else { // 没有job了，阻塞等待
+		case produceAction:
 			select {
-			case <-t.busCtx.Done(): //全局退出
+			case <-stoppingCtx.Done():
 				break for1
-			case <-t.hasJobs: // 阻塞等待有新的任务进来
+			default:
+				if t.runningCount.Load() < t.maxWorkerCount {
+					w := t.pool.Get().(*worker)
+					wg.Add(1)             // worker wg +1
+					t.runningCount.Add(1) // running +1
+					go w.run(stoppingCtx)
+				}
 			}
 		}
 	}
 
-	// for 运行完时-1
 	wg.Done()
-
-	// 等待任务完成
 	wg.Wait()
 }
 
 // Stop 停止任务池（需异步调用），但是RunXX仍然会等待任务运行结束
 // 如果Job任务没有监听ctx完成自行退出，则RunXX永远不会退出。可以尝试使用Shutdown强制退出
 func (t *Task) Stop() {
-	t.busCancel()
+	t.triggerAction(stoppingAction)
+	t.triggerAction(quitAfterDoneAction)
 }
 
 // ShutdownNow 停止任务池（需要异步调用）并立即让RunXX退出。
 // 鉴于golang的协程的特性，需要Job任务监听ctx完成自行退出，不然Job会继续执行
 func (t *Task) ShutdownNow() {
-	t.busCancel()
-	t.shutdownCancel()
+	t.Shutdown(0)
 }
 
 // Shutdown 停止任务池（需异步调用）并尝试在waitTimeout时间内等待任务完成。
@@ -194,79 +195,18 @@ func (t *Task) ShutdownNow() {
 //
 //	0 表示立即退出RunXX，等效于ShutdownNow
 func (t *Task) Shutdown(waitTimeout time.Duration) {
-	t.busCancel()
-
+	t.triggerAction(stoppingAction)
 	if waitTimeout > 0 {
 		time.AfterFunc(waitTimeout, func() {
-			t.shutdownCancel()
+			t.triggerAction(quitImmediatelyAction)
 		})
 	} else {
-		t.shutdownCancel()
+		t.triggerAction(quitImmediatelyAction)
 	}
-}
-
-// 归还队列，触发任务完成
-func (t *Task) triggerJobDone(wg *sync.WaitGroup, job Job, err error) {
-	// 运行完毕则让出队列（保持并发数量的基础）
-	<-t.queue
-	// 减少wg（run依赖wg来等待所有任务完成）
-	wg.Done()
-	job.FinishAt = time.Now()
-
-	t.doneHandler(job, err)
-}
-
-// 真正执行job的函数，注意：超时后只是归还了队列，Job.Callback如果不监听ctx.Done()，Job会在脱离管控下继续执行
-func (t *Task) handle(wg *sync.WaitGroup, job Job) {
-	var jobCtx = t.busCtx
-	var jobCancel context.CancelFunc
-	var err error
-
-	// 用于超时
-	var quiteCh = make(chan struct{})
-	defer close(quiteCh)
-
-	go func() {
-		// 当quiteCh触发时（正常退出或超时），或者shutdown时，都会立即归还队列
-		select {
-		case <-t.shutdownCtx.Done():
-		case <-quiteCh:
-		}
-		t.triggerJobDone(wg, job, err)
-	}()
-
-	// 采集错误
-	defer func() {
-		if err1 := recover(); err1 != nil { // panic
-			job.State = Panic
-			err = fmt.Errorf("[Task]job exection panic: %v", err1)
-		}
-	}()
-
-	// 已配置超时参数
-	if job.Timeout > 0 {
-		// 新建子context，控制job的退出
-		jobCtx, jobCancel = context.WithTimeout(t.busCtx, job.Timeout)
-		defer jobCancel()
-		// timeout后强制让出队列
-		timer := time.AfterFunc(job.Timeout, func() {
-			job.State = Timeout
-			err = context.DeadlineExceeded
-			quiteCh <- struct{}{} // 超时让出
-		})
-		// 如果任务在规定时间内结束，则停用timer
-		defer timer.Stop()
-	}
-
-	job.State = Running
-	job.RunAt = time.Now()
-	// 真正执行函数
-	job.Callback(jobCtx)
-	job.State = Done
 }
 
 func (t *Task) RunningCount() int {
-	return len(t.queue)
+	return int(t.runningCount.Load())
 }
 
 // RemainJobs 剩余没执行完的任务

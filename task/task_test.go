@@ -18,9 +18,9 @@ func compareDuration(expect time.Duration, real time.Duration) error {
 func TestTask(t *testing.T) {
 	task := NewTask(2)
 	now := time.Now()
-	task.SetJobDoneHandler(func(j Job, err error) {
-		if err != nil {
-			t.Logf("panic error: %v", err)
+	task.SetJobDoneHandler(func(j *Job) {
+		if j.Error != nil {
+			t.Logf("panic error: %v", j.Error)
 		}
 	})
 
