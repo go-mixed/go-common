@@ -32,9 +32,11 @@ type Task struct {
 }
 
 // NewTask 创建一个任务池，支持任务池服务，和一次性运行池
-//  1. 当任务池Stop关闭后，RunXX仍然等待正在运行的任务跑完后退出；Shutdown则会让Run立即推出，但是此时Job任务是否退出不确定。
+//  1. 两种关闭方式：
+//     - Stop：RunXX仍然等待正在运行的Job任务运行结束后退出；
+//     - Shutdown会让RunXX立即退出，但是此时Job任务是否退出是不确定的。
 //
-// 2. Job任务从队列中取出后，确保已经开始运行。绝对不会出现在关闭任务池时这种临界点时，这个任务即没有跑，又不在原队列中（比如：Job任务取了放在chan中就会出现这种情况）
+// 2. Job任务从队列中取出后，本程序会确保已经开始运行。绝对不会出现在关闭任务池时这种临界点时，任务即没有跑，又不在原队列中（比如：Job任务取了放在chan中就会出现这种情况）
 func NewTask(concurrentCount int) *Task {
 	return &Task{
 		jobs:        list.New(),
@@ -86,13 +88,13 @@ func (t *Task) submit(j Job) {
 
 }
 
-// RunOnce 运行jobs中的任务（需添加job）直到所有jobs完成、或 Stop、Ctrl+C
+// RunOnce 运行jobs中的任务（需先添加job）直到所有jobs完成、或主动 Stop、Ctrl+C
 // 不能同时运行RunOnce，RunServe
 func (t *Task) RunOnce() {
 	t.run(true)
 }
 
-// RunServe 持续服务，可随时 Submit Job，注意 RunServe会一直阻塞直到 Stop、Ctrl+C
+// RunServe 持续服务，可随时 Submit Job，注意 RunServe会一直阻塞直到主动 Stop、Ctrl+C
 // 不能同时运行RunOnce，RunServe
 func (t *Task) RunServe() {
 	t.run(false)
@@ -115,6 +117,7 @@ func (t *Task) listenStopSignal(ctx context.Context) {
 	}()
 }
 
+// 真正运行的方法
 func (t *Task) run(exitOnJobFinish bool) {
 	t.busCtx, t.busCancel = context.WithCancel(context.Background())
 	t.shutdownCtx, t.shutdownCancel = context.WithCancel(context.Background())
@@ -172,7 +175,7 @@ for1:
 	wg.Wait()
 }
 
-// Stop 停止任务池（需异步调用），但是RunXXX会等待任务运行完毕
+// Stop 停止任务池（需异步调用），但是RunXX仍然会等待任务运行结束
 // 如果Job任务没有监听ctx完成自行退出，则RunXX永远不会退出。可以尝试使用Shutdown强制退出
 func (t *Task) Stop() {
 	t.busCancel()
@@ -187,7 +190,7 @@ func (t *Task) ShutdownNow() {
 
 // Shutdown 停止任务池（需异步调用）并尝试在waitTimeout时间内等待任务完成。
 // 如果任务在waitTimeout时间内都未完成，RunXXX会立即退出。
-// 鉴于golang的协程的特性，需要Job任务监听ctx完成自己退出，不然Job会继续执行
+// 鉴于golang的协程的特性，需要Job.Callback需监听ctx并退出，不然Job会在脱离管控下继续执行
 //
 //	0 表示立即退出RunXX，等效于ShutdownNow
 func (t *Task) Shutdown(waitTimeout time.Duration) {
@@ -213,7 +216,7 @@ func (t *Task) triggerJobDone(wg *sync.WaitGroup, job Job, err error) {
 	t.doneHandler(job, err)
 }
 
-// 真正执行job的函数，注意：超时后只是归还了队列，Job.Callback如果不监听ctx，则可能还在运行（泄漏）
+// 真正执行job的函数，注意：超时后只是归还了队列，Job.Callback如果不监听ctx.Done()，Job会在脱离管控下继续执行
 func (t *Task) handle(wg *sync.WaitGroup, job Job) {
 	var jobCtx = t.busCtx
 	var jobCancel context.CancelFunc
@@ -224,7 +227,7 @@ func (t *Task) handle(wg *sync.WaitGroup, job Job) {
 	defer close(quiteCh)
 
 	go func() {
-		// 当quiteCh触发时（正常退出或超时），或者shutdown时，都会立即归还队列，Job.Callback可能还在运行（泄漏）
+		// 当quiteCh触发时（正常退出或超时），或者shutdown时，都会立即归还队列
 		select {
 		case <-t.shutdownCtx.Done():
 		case <-quiteCh:
@@ -240,16 +243,16 @@ func (t *Task) handle(wg *sync.WaitGroup, job Job) {
 		}
 	}()
 
-	// 超时
+	// 已配置超时参数
 	if job.Timeout > 0 {
-		// 新建子超时context，控制job的退出
+		// 新建子context，控制job的退出
 		jobCtx, jobCancel = context.WithTimeout(t.busCtx, job.Timeout)
 		defer jobCancel()
-		// timeout后强制让出队列，但是本任务可能会继续运行
+		// timeout后强制让出队列
 		timer := time.AfterFunc(job.Timeout, func() {
 			job.State = Timeout
 			err = context.DeadlineExceeded
-			quiteCh <- struct{}{} // 超时退出
+			quiteCh <- struct{}{} // 超时让出
 		})
 		// 如果任务在规定时间内结束，则停用timer
 		defer timer.Stop()
