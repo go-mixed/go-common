@@ -14,7 +14,7 @@ import (
 type JobDoneHandler func(j Job, err error)
 
 type Task struct {
-	jobs        list.List
+	jobs        *list.List
 	mu          sync.Mutex
 	doneHandler JobDoneHandler
 
@@ -37,7 +37,7 @@ type Task struct {
 // 2. Job任务从队列中取出后，确保已经开始运行。绝对不会出现在关闭任务池时这种临界点时，这个任务即没有跑，又不在原队列中（比如：Job任务取了放在chan中就会出现这种情况）
 func NewTask(concurrentCount int) *Task {
 	return &Task{
-		jobs:        list.List{},
+		jobs:        list.New(),
 		mu:          sync.Mutex{},
 		queue:       make(chan struct{}, concurrentCount),
 		hasJobs:     make(chan struct{}),
