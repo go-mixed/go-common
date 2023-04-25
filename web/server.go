@@ -21,14 +21,6 @@ import (
 	"time"
 )
 
-type Certificate struct {
-	CertFile string `json:"cert"`
-	KeyFile  string `json:"key"`
-
-	certFileInfo os.FileInfo
-	keyFileInfo  os.FileInfo
-}
-
 type DomainConfig struct {
 	domain  string
 	handler http.Handler
@@ -72,16 +64,6 @@ func NewHttpServer(httpServerOptions *HttpServerOptions) *HttpServer {
 	}
 	s.middleware = NewMiddlewarePipeline(s.controllerHandlerFunc())
 	return s
-}
-
-func NewCertificate(certFile, keyFile string) *Certificate {
-	if certFile == "" || keyFile == "" {
-		return nil
-	}
-	return &Certificate{
-		CertFile: certFile,
-		KeyFile:  keyFile,
-	}
 }
 
 func DefaultServerOptions(host string) *HttpServerOptions {

@@ -17,7 +17,14 @@ type GinOptions struct {
 	StaticFiles      map[string]string
 }
 
-func DefaultGinOptions(debug, registerPprof bool) *GinOptions {
+func ApiGinOptions(debug, registerPprof bool) *GinOptions {
+	return &GinOptions{
+		Debug:         debug,
+		RegisterPprof: registerPprof,
+	}
+}
+
+func WebsiteGinOptions(debug, registerPprof bool) *GinOptions {
 	currentDir := io_utils.GetCurrentDir()
 	return &GinOptions{
 		Debug:            debug,
