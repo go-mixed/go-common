@@ -10,16 +10,19 @@ import (
 )
 
 type Controller struct {
-	Context *gin.Context
+	ctx *gin.Context
 }
 
 type IController interface {
-	SuccessResponse(code, data any)
+	withContext(ctx *gin.Context) IController
+	ApiResponse(code, data any)
 	ErrorResponse(err error, data any)
 }
 
+var _ IController = &Controller{}
+
 func (c *Controller) JsonCheck(d any) error {
-	if err := c.Context.ShouldBindJSON(&d); err != nil {
+	if err := c.ctx.ShouldBindJSON(&d); err != nil {
 		if err == io.EOF {
 			return errors.Errorf("empty body, must be a json")
 		}
@@ -28,15 +31,21 @@ func (c *Controller) JsonCheck(d any) error {
 	return nil
 }
 
+func (c *Controller) withContext(ctx *gin.Context) IController {
+	return &Controller{
+		ctx: ctx,
+	}
+}
+
 // ErrorResponse default error response
 func (c *Controller) ErrorResponse(err error, data any) {
 
-	duration := time.Now().Sub(c.Context.GetTime("request_at"))
+	duration := time.Now().Sub(c.ctx.GetTime("request_at"))
 
 	_err := c.EnsureErrorResponse(err)
 
-	c.Context.Abort()
-	c.Context.JSON(_err.GetStatusCode(), utils.Result{
+	c.ctx.Abort()
+	c.ctx.JSON(_err.GetStatusCode(), utils.Result{
 		Code:     _err.GetCode(),
 		Message:  _err.GetMessage(),
 		Data:     data,
@@ -45,12 +54,12 @@ func (c *Controller) ErrorResponse(err error, data any) {
 	})
 }
 
-// SuccessResponse default success response
-func (c *Controller) SuccessResponse(code, data any) {
+// ApiResponse default success response
+func (c *Controller) ApiResponse(code, data any) {
 
-	duration := time.Now().Sub(c.Context.GetTime("request_at"))
+	duration := time.Now().Sub(c.ctx.GetTime("request_at"))
 
-	c.Context.JSON(200, utils.Result{
+	c.ctx.JSON(200, utils.Result{
 		Code:     code,
 		Message:  "",
 		Data:     data,
@@ -72,5 +81,5 @@ func (c *Controller) EnsureErrorResponse(err error) IResponseException {
 }
 
 func (c *Controller) DiscardBody() error {
-	return DiscardBody(c.Context)
+	return DiscardBody(c.ctx)
 }

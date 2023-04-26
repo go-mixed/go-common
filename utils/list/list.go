@@ -37,6 +37,16 @@ func StrIndexOf(slice []string, findMe string, ignoreCase bool) int {
 	})
 }
 
+func SliceRemove[T comparable](slice []T, removeMe T) []T {
+	var result []T
+	for i := 0; i < len(slice); i++ {
+		if slice[i] != removeMe {
+			result = append(result, slice[i])
+		}
+	}
+	return result
+}
+
 // ToInterfaces 将any 转为 []any, 因为不能直接slice.([]any)
 //
 //	注意：在1.18之后允许转换

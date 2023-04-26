@@ -154,15 +154,18 @@ func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Ha
 //	    next.ServeHTTP(w, r) // 先运行controller
 //	    w.Write(...)
 //	    }
-func (c *HttpServer) Use(fn ...Middleware) {
+func (c *HttpServer) Use(fn ...Middleware) *HttpServer {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.middleware.Push(fn...)
+
+	return c
 }
 
-func (c *HttpServer) SetLogger(logger utils.ILogger) {
+func (c *HttpServer) SetLogger(logger utils.ILogger) *HttpServer {
 	c.logger = logger
+	return c
 }
 
 func (c *HttpServer) AddCertificate(certs ...*Certificate) error {
@@ -183,7 +186,7 @@ func (c *HttpServer) AddCertificate(certs ...*Certificate) error {
 	return nil
 }
 
-func (c *HttpServer) RemoveDomainHandler(domain string) {
+func (c *HttpServer) RemoveDomainHandler(domain string) *HttpServer {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -191,14 +194,16 @@ func (c *HttpServer) RemoveDomainHandler(domain string) {
 	for i, domainConfig := range c.orderedDomainConfigs {
 		if domainConfig.domain == domain {
 			c.orderedDomainConfigs = append(c.orderedDomainConfigs[0:i], c.orderedDomainConfigs[i+1:]...)
-			return
+			return c
 		}
 	}
+	return c
 }
 
 // ClearDomainCache 清理域名的匹配结果
-func (c *HttpServer) ClearDomainCache() {
+func (c *HttpServer) ClearDomainCache() *HttpServer {
 	c.domainCache.Purge()
+	return c
 }
 
 // SetDefaultServeHandler 设置默认的ServeHandler, 即添加一个通配符*的域名
