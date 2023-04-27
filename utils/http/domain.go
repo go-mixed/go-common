@@ -63,12 +63,14 @@ func (d Domains) IsEmpty() bool {
 	return len(d) == 0
 }
 
+// ToLower returns a new slice
 func (d Domains) ToLower() Domains {
 	// copy to a new slice
 	_d := append(Domains(nil), d...)
 	return _d.AsLower()
 }
 
+// AsLower modifies self
 func (d Domains) AsLower() Domains {
 	// modify self
 	for k, v := range d {

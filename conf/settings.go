@@ -43,6 +43,8 @@ func validateSettings(v any) error {
 	validate.RegisterTagNameFunc(func(field reflect.StructField) string {
 		if tag, ok := field.Tag.Lookup("json"); ok && tag != "" {
 			return strings.SplitN(tag, ",", 2)[0]
+		} else if tag, ok = field.Tag.Lookup("yaml"); ok && tag != "" {
+			return strings.SplitN(tag, ",", 2)[0]
 		}
 		return field.Name
 	})
@@ -65,12 +67,12 @@ func validateSettings(v any) error {
 				buff.WriteString("\n")
 			}
 			return errors.New(buff.String())
+		} else {
+			return err
 		}
 	} else {
 		return err
 	}
-
-	return nil
 }
 
 func WriteSettings(v any, filename string) error {

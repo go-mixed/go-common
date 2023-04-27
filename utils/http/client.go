@@ -1,23 +1,13 @@
 package http_utils
 
 import (
-	"crypto/tls"
 	"net/http"
 	"time"
 )
 
-func BuildDefaultHttpClient(timeout time.Duration) *http.Client {
-
-	transport := &http.Transport{
-		MaxIdleConns:        10,
-		MaxIdleConnsPerHost: 5,
-		IdleConnTimeout:     5 * time.Second,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: false},
-	}
-
+func DefaultHttpClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: transport,
+		Transport: NewHttpTransport(DefaultTransportOptions()),
 	}
-
 }

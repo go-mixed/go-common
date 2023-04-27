@@ -25,7 +25,7 @@ type Logger struct {
 	fileEncoder    zapcore.Encoder
 	fileWriters    *sync.Map // filename: io.Writer 如果filename在本列表中存在，需要先关闭，再重新打开
 
-	buildOnce sync.Once
+	buildOnce *sync.Once
 }
 
 // NewLogger 新建一个独立的logger
@@ -50,7 +50,7 @@ func NewLogger(options LoggerOptions) (*Logger, error) {
 		fileEncoder:    makeEncoder(core.If(options.FileEncoder != "", options.FileEncoder, os.Getenv(ZapFileEncoder))),
 
 		fileWriters: &sync.Map{},
-		buildOnce:   sync.Once{},
+		buildOnce:   &sync.Once{},
 	}
 
 	logger.options = []zap.Option{
@@ -118,12 +118,16 @@ func (log *Logger) getLogger() *zap.Logger {
 		return log.logger
 	}
 
-	log.buildOnce.Do(func() {
-		log.logger = zap.New(
-			log.buildZapCores().With(log.fields), // 附加的fields
-			log.options...,                       // 附加的options
-		)
-	})
+	if log.buildOnce != nil {
+		log.buildOnce.Do(func() {
+			log.logger = zap.New(
+				log.buildZapCores().With(log.fields), // 附加的fields
+				log.options...,                       // 附加的options
+			)
+		})
+
+		log.buildOnce = nil // GC
+	}
 
 	return log.logger
 }
@@ -167,7 +171,11 @@ func (log *Logger) getFileWriter(filename string) zapcore.WriteSyncer {
 
 func (log *Logger) ZapLogger() *zap.Logger {
 	// 返回给外部使用的zap logger, 需要减少一层的frame
-	return log.getLogger().WithOptions(zap.AddCallerSkip(-1))
+	return log.AddCallerSkip(-1).getLogger()
+}
+
+func (log *Logger) AddCallerSkip(skip int) *Logger {
+	return log.WithOptions(zap.AddCallerSkip(skip))
 }
 
 func (log *Logger) clone() *Logger {
@@ -184,6 +192,6 @@ func (log *Logger) clone() *Logger {
 		fileEncoder:    log.fileEncoder,
 
 		fileWriters: log.fileWriters,
-		buildOnce:   sync.Once{},
+		buildOnce:   &sync.Once{},
 	}
 }

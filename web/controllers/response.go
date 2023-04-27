@@ -2,11 +2,11 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"io"
-	"io/ioutil"
 )
 
 type IResponseException interface {
@@ -63,7 +63,7 @@ func (e *ResponseException) SetMessage(message string) {
 
 // ParseResult 读取JSON内容解析为 Result, 并且解析 Result.Data 为 outData
 func ParseResult(j []byte, outData any) (*utils.Result, error) {
-	result := &utils.Result{}
+	result := &utils.Result{Code: 0}
 	if err := text_utils.JsonUnmarshalFromBytes(j, result); err != nil {
 		return nil, err
 	}
@@ -79,11 +79,16 @@ func ParseResult(j []byte, outData any) (*utils.Result, error) {
 }
 
 // ParseResultFromReader 从reader中读取JSON内容并解析为 Result, 并且解析 Result.Data 为 outData
-// 会关闭reader
+//
+//	返回的 Result.Data是JSON原文，传入outData参数将对Result.Data进行解析
+//	会关闭reader
 func ParseResultFromReader(reader io.ReadCloser, outData any) (*utils.Result, error) {
+	if reader == nil {
+		return nil, errors.Errorf("reader is nil")
+	}
 	defer reader.Close()
 
-	j, err := ioutil.ReadAll(reader)
+	j, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}

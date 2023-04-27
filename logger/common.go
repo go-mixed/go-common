@@ -6,11 +6,11 @@ import (
 	"strings"
 )
 
-type Option = zap.Option
-
-const ZapConsoleLevel = "ZAP_CONSOLE_LOG_LEVEL"
-const ZapFileLevel = "ZAP_LOG_LEVEL"
-const ZapFileEncoder = "ZAP_LOG_ENCODER"
+const (
+	ZapConsoleLevel = "ZAP_CONSOLE_LOG_LEVEL"
+	ZapFileLevel    = "ZAP_LOG_LEVEL"
+	ZapFileEncoder  = "ZAP_LOG_ENCODER"
+)
 
 func errorLevelFn(level zapcore.Level) bool {
 	return level >= zap.ErrorLevel
@@ -18,7 +18,7 @@ func errorLevelFn(level zapcore.Level) bool {
 
 // 默认是INFO
 func toZapLevel(level string) zapcore.Level {
-	minLevel := zapcore.DebugLevel
+	minLevel := zap.DebugLevel
 	envLevel := strings.ToLower(level)
 	if envLevel == "disabled" {
 		return zap.ErrorLevel // 设置为ERROR会跳过DEBUG、INFO、WARN

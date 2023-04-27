@@ -2,6 +2,7 @@ package logger
 
 import (
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -23,7 +24,7 @@ func (c *zapCores) toSlice() []zapcore.Core {
 	}
 }
 
-func (c *zapCores) With(fields []zapcore.Field) zapcore.Core {
+func (c *zapCores) With(fields []zap.Field) zapcore.Core {
 	return &zapCores{
 		c.ConsoleNormalLevelCore.With(fields),
 		c.ConsoleErrorLevelCore.With(fields),
