@@ -11,10 +11,6 @@ import (
 	"sync"
 )
 
-const ZapConsoleLevel = "ZAP_CONSOLE_LOG_LEVEL"
-const ZapFileLevel = "ZAP_LOG_LEVEL"
-const ZapFileEncoder = "ZAP_LOG_ENCODER"
-
 type Logger struct {
 	logger  *zap.Logger
 	fields  []zapcore.Field

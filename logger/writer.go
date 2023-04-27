@@ -30,13 +30,38 @@ func (log *Logger) Named(s string) *Logger {
 	return log
 }
 
-func (log *Logger) With(fields ...zap.Field) *Logger {
+// 解析fields，支持以下两种格式，可以混合使用，遇到不对称的的情况，会忽略该key
+//  1. zap.Field
+//  2. [key, value, ...]，key必须是string，value可以是任意类型
+//     eg: "key1", "value1", zap.String("key2", "value2"), "key3", "value3", ...
+func (log *Logger) parseFields(fields []any) []zap.Field {
+	result := make([]zap.Field, 0, len(fields)/2)
+	for i := 0; i < len(fields); {
+		switch k := fields[i].(type) {
+		case zap.Field:
+			result = append(result, k)
+			i++
+		case string:
+			if i+1 >= len(fields) { // 最后一个key没有value，忽略
+				break
+			}
+			result = append(result, zap.Any(k, fields[i+1]))
+			i += 2
+		default: // 不识别的类型，忽略
+			i++
+		}
+	}
+
+	return result
+}
+
+func (log *Logger) With(fields ...any) *Logger {
 	_l := log.clone()
-	_l.fields = append(_l.fields, fields...)
+	_l.fields = append(_l.fields, log.parseFields(fields)...)
 	return _l
 }
 
-func (log *Logger) WithOptions(options ...zap.Option) *Logger {
+func (log *Logger) WithOptions(options ...Option) *Logger {
 	_l := log.clone()
 	_l.options = append(_l.options, options...)
 	return _l
@@ -58,32 +83,32 @@ func (log *Logger) Check(lvl zapcore.Level, msg string) *zapcore.CheckedEntry {
 
 // Log logs a message at the specified level. The message includes any fields
 // passed at the log site, as well as any fields accumulated on the logger.
-func (log *Logger) Log(lvl zapcore.Level, msg string, fields ...zap.Field) {
-	log.getLogger().Log(lvl, msg, fields...)
+func (log *Logger) Log(lvl zapcore.Level, msg string, fields ...any) {
+	log.getLogger().Log(lvl, msg, log.parseFields(fields)...)
 }
 
 // Debug logs a message at DebugLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
-func (log *Logger) Debug(msg string, fields ...zap.Field) {
-	log.getLogger().Debug(msg, fields...)
+func (log *Logger) Debug(msg string, fields ...any) {
+	log.getLogger().Debug(msg, log.parseFields(fields)...)
 }
 
 // Info logs a message at InfoLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
-func (log *Logger) Info(msg string, fields ...zap.Field) {
-	log.getLogger().Info(msg, fields...)
+func (log *Logger) Info(msg string, fields ...any) {
+	log.getLogger().Info(msg, log.parseFields(fields)...)
 }
 
 // Warn logs a message at WarnLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
-func (log *Logger) Warn(msg string, fields ...zap.Field) {
-	log.getLogger().Warn(msg, fields...)
+func (log *Logger) Warn(msg string, fields ...any) {
+	log.getLogger().Warn(msg, log.parseFields(fields)...)
 }
 
 // Error logs a message at ErrorLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
-func (log *Logger) Error(msg string, fields ...zap.Field) {
-	log.getLogger().Error(msg, fields...)
+func (log *Logger) Error(msg string, fields ...any) {
+	log.getLogger().Error(msg, log.parseFields(fields)...)
 }
 
 // DPanic logs a message at DPanicLevel. The message includes any fields
@@ -92,16 +117,16 @@ func (log *Logger) Error(msg string, fields ...zap.Field) {
 // If the logger is in development mode, it then panics (DPanic means
 // "development panic"). This is useful for catching errors that are
 // recoverable, but shouldn't ever happen.
-func (log *Logger) DPanic(msg string, fields ...zap.Field) {
-	log.getLogger().DPanic(msg, fields...)
+func (log *Logger) DPanic(msg string, fields ...any) {
+	log.getLogger().DPanic(msg, log.parseFields(fields)...)
 }
 
 // Panic logs a message at PanicLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 //
 // The logger then panics, even if logging at PanicLevel is disabled.
-func (log *Logger) Panic(msg string, fields ...zap.Field) {
-	log.getLogger().Panic(msg, fields...)
+func (log *Logger) Panic(msg string, fields ...any) {
+	log.getLogger().Panic(msg, log.parseFields(fields)...)
 }
 
 // Fatal logs a message at FatalLevel. The message includes any fields passed
@@ -109,8 +134,8 @@ func (log *Logger) Panic(msg string, fields ...zap.Field) {
 //
 // The logger then calls os.Exit(1), even if logging at FatalLevel is
 // disabled.
-func (log *Logger) Fatal(msg string, fields ...zap.Field) {
-	log.getLogger().Fatal(msg, fields...)
+func (log *Logger) Fatal(msg string, fields ...any) {
+	log.getLogger().Fatal(msg, log.parseFields(fields)...)
 }
 
 // Sync calls the underlying Core's Sync method, flushing any buffered log

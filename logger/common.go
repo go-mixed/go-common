@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+type Option = zap.Option
+
+const ZapConsoleLevel = "ZAP_CONSOLE_LOG_LEVEL"
+const ZapFileLevel = "ZAP_LOG_LEVEL"
+const ZapFileEncoder = "ZAP_LOG_ENCODER"
+
 func errorLevelFn(level zapcore.Level) bool {
 	return level >= zap.ErrorLevel
 }
