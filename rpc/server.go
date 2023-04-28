@@ -87,7 +87,7 @@ func (s *Server) runNormal(ctx context.Context) error {
 
 func (s *Server) runHttp(ctx context.Context) error {
 
-	server := http_utils.NewHttpServer(s.address, s.logger)
+	server := httpUtils.NewHttpServer(s.address, s.logger)
 
 	s.logger.Infof("start rpc-server(via http) on [%s]%s", s.network, s.address)
 

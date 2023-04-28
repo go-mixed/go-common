@@ -16,7 +16,7 @@ type LoggerOptions struct {
 
 func DefaultLoggerOptions() LoggerOptions {
 	return LoggerOptions{
-		FilePath:      filepath.Join(io_utils.GetCurrentDir(), "logs", "app.log"),
+		FilePath:      filepath.Join(ioUtils.GetCurrentDir(), "logs", "app.log"),
 		ErrorFilePath: "",
 
 		FileEncoder:     "console",

@@ -1,4 +1,4 @@
-package io_utils
+package ioUtils
 
 import (
 	"github.com/pkg/errors"

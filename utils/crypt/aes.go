@@ -1,4 +1,4 @@
-package utils_encode
+package encryptUtils
 
 import (
 	"bytes"

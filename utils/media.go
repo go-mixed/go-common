@@ -27,7 +27,7 @@ func IsVideo(file string) bool {
 	}
 	ext := strings.ToLower(segments[len(segments)-1])
 
-	return list_utils.StrIndexOf(VideoExtensions, ext, false) >= 0
+	return listUtils.StrIndexOf(VideoExtensions, ext, false) >= 0
 }
 
 var ImageExtensions = []string{
@@ -48,5 +48,5 @@ func IsImage(file string) bool {
 		return false
 	}
 	ext := strings.ToLower(segments[len(segments)-1])
-	return list_utils.StrIndexOf(ImageExtensions, ext, false) >= 0
+	return listUtils.StrIndexOf(ImageExtensions, ext, false) >= 0
 }

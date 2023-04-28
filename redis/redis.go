@@ -149,7 +149,7 @@ func (c *Redis) MGet(keys []string, result any) (utils.KVs, error) {
 		}
 	}
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err = text_utils.ListDecodeAny(c.DecoderFunc, kvs.Values(), result); err != nil {
+		if err = textUtils.ListDecodeAny(c.DecoderFunc, kvs.Values(), result); err != nil {
 			c.Logger.Errorf("[Redis]unmarshal: %v of error: %s", kvs.Values(), err.Error())
 			return nil, errors.WithStack(err)
 		}

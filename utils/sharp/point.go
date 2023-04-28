@@ -1,4 +1,4 @@
-package sharp_utils
+package sharpUtils
 
 type Point struct {
 	X uint

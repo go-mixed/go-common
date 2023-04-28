@@ -35,7 +35,7 @@ func cleanSockFile(unixSockFile string) string {
 			return unixSockFile
 		}
 		if strings.HasPrefix(abs, "/mnt/") { // 重定向/tmp目录
-			unixSockFile = filepath.Join(os.TempDir(), text_utils.Md5(abs)+".sock")
+			unixSockFile = filepath.Join(os.TempDir(), textUtils.Md5(abs)+".sock")
 		}
 	}
 
@@ -45,7 +45,7 @@ func cleanSockFile(unixSockFile string) string {
 func GetUdsFile(file string) string {
 	p := os.Getenv("RUN_DIRECTORY")
 	if p == "" {
-		p = filepath.Join(io_utils.GetCurrentDir(), "run")
+		p = filepath.Join(ioUtils.GetCurrentDir(), "run")
 	}
 	return filepath.Join(p, file+".sock")
 }

@@ -1,4 +1,4 @@
-package sharp_utils
+package sharpUtils
 
 type Rectangle struct {
 	Point0 Point
@@ -8,9 +8,9 @@ type Rectangle struct {
 }
 
 func NewRectangle(x, y, w, h uint) Rectangle {
-	return Rectangle{NewPoint(x, y), NewPoint(x + w, y), NewPoint(x, y + h), NewPoint(x + w, y + h)}
+	return Rectangle{NewPoint(x, y), NewPoint(x+w, y), NewPoint(x, y+h), NewPoint(x+w, y+h)}
 }
 
 func NewRectangle2(pos Point, size Size) Rectangle {
-	return NewRectangle(pos.X , pos.Y, size.Width, size.Height)
+	return NewRectangle(pos.X, pos.Y, size.Width, size.Height)
 }

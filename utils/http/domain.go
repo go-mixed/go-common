@@ -1,4 +1,4 @@
-package http_utils
+package httpUtils
 
 import (
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
@@ -97,7 +97,7 @@ func (d Domains) Sort() Domains {
 func (d Domains) Match(domain string) (bool, string) {
 	domain = strings.ToLower(domain)
 	for _, _d := range d {
-		if text_utils.WildcardMatch(_d, domain) {
+		if textUtils.WildcardMatch(_d, domain) {
 			return true, _d
 		}
 	}

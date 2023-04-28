@@ -48,8 +48,8 @@ func NewMySqlORM(dbOptions *DBOptions, zapLogger *zap.Logger) (*gorm.DB, error) 
 
 	_db.SetMaxIdleConns(dbOptions.MaxIdleConns)
 	_db.SetMaxOpenConns(dbOptions.MaxOpenConns)
-	_db.SetConnMaxIdleTime(dbOptions.MaxIdleTime.ToDuration())
-	_db.SetConnMaxLifetime(dbOptions.MaxLifeTime.ToDuration())
+	_db.SetConnMaxIdleTime(dbOptions.MaxIdleTime)
+	_db.SetConnMaxLifetime(dbOptions.MaxLifeTime)
 
 	return db, err
 }

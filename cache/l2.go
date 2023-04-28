@@ -68,7 +68,7 @@ func (l *L2Cache) MGet(keys []string, expire time.Duration, actual any) (utils.K
 	//}
 	//_res, ok := res.(utils.KVs)
 	if /*ok &&*/ len(_res) > 0 && !core.IsInterfaceNil(actual) {
-		if err := text_utils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
+		if err := textUtils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
 		}
@@ -98,7 +98,7 @@ func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual any)
 	}
 	_res, ok := res.(utils.KVs)
 	if ok && len(_res) > 0 && !core.IsInterfaceNil(actual) {
-		if err = text_utils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
+		if err = textUtils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
 		}

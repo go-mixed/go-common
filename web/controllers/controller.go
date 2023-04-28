@@ -15,7 +15,7 @@ type Controller struct {
 
 type IController interface {
 	withContext(ctx *gin.Context) IController
-	ApiResponse(code, data any)
+	ApiResponse(code int, data any)
 	ErrorResponse(err error, data any)
 }
 
@@ -55,7 +55,7 @@ func (c *Controller) ErrorResponse(err error, data any) {
 }
 
 // ApiResponse default success response
-func (c *Controller) ApiResponse(code, data any) {
+func (c *Controller) ApiResponse(code int, data any) {
 
 	duration := time.Now().Sub(c.ctx.GetTime("request_at"))
 

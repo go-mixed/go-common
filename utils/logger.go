@@ -36,6 +36,19 @@ type DefaultLogger struct {
 	Level     int
 }
 
+var globalILogger ILogger
+
+func GetGlobalILogger() ILogger {
+	if globalILogger != nil {
+		return globalILogger
+	}
+	return NewDefaultLogger()
+}
+
+func SetGlobalILogger(logger ILogger) {
+	globalILogger = logger
+}
+
 func NewDefaultLogger() ILogger {
 	return &DefaultLogger{
 		stdOutLog: log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile|log.Lmsgprefix),

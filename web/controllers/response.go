@@ -11,8 +11,8 @@ import (
 
 type IResponseException interface {
 	error
-	GetCode() any
-	SetCode(any)
+	GetCode() int
+	SetCode(int)
 	GetStatusCode() int
 	SetStatusCode(int)
 	GetMessage() string
@@ -20,12 +20,14 @@ type IResponseException interface {
 }
 
 type ResponseException struct {
-	Code       any
+	Code       int
 	StatusCode int
 	Message    string
 }
 
-func NewResponseException(code any, statusCode int, message string) IResponseException {
+var _ IResponseException = (*ResponseException)(nil)
+
+func NewResponseException(code int, statusCode int, message string) IResponseException {
 	return &ResponseException{
 		Code:       code,
 		StatusCode: statusCode,
@@ -33,11 +35,11 @@ func NewResponseException(code any, statusCode int, message string) IResponseExc
 	}
 }
 
-func (e *ResponseException) GetCode() any {
+func (e *ResponseException) GetCode() int {
 	return e.Code
 }
 
-func (e *ResponseException) SetCode(code any) {
+func (e *ResponseException) SetCode(code int) {
 	e.Code = code
 }
 
@@ -64,15 +66,20 @@ func (e *ResponseException) SetMessage(message string) {
 // ParseResult 读取JSON内容解析为 Result, 并且解析 Result.Data 为 outData
 func ParseResult(j []byte, outData any) (*utils.Result, error) {
 	result := &utils.Result{Code: 0}
-	if err := text_utils.JsonUnmarshalFromBytes(j, result); err != nil {
+	if err := textUtils.JsonUnmarshalFromBytes(j, result); err != nil {
 		return nil, err
 	}
 
 	if !core.IsInterfaceNil(outData) && !core.IsInterfaceNil(result.Data) {
-		d, _ := text_utils.JsonMarshalToBytes(result.Data)
-		if err := text_utils.JsonUnmarshalFromBytes(d, outData); err != nil {
+		d, _ := textUtils.JsonMarshalToBytes(result.Data)
+		if err := textUtils.JsonUnmarshalFromBytes(d, outData); err != nil {
 			return result, err
 		}
+	}
+
+	// 如果返回的code不为0，那么返回错误
+	if result.Code != 0 {
+		return result, errors.Errorf("code: %v, message: %s", result.Code, result.Message)
 	}
 
 	return result, nil
@@ -90,7 +97,7 @@ func ParseResultFromReader(reader io.ReadCloser, outData any) (*utils.Result, er
 
 	j, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return ParseResult(j, outData)

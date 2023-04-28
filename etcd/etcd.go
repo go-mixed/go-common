@@ -127,7 +127,7 @@ func (c *Etcd) MGet(keys []string, actual any) (kvs utils.KVs, _ error) {
 	}
 
 	if !core.IsInterfaceNil(actual) && len(kvs) > 0 {
-		if err := text_utils.ListDecodeAny(c.DecoderFunc, kvs.Values(), actual); err != nil {
+		if err := textUtils.ListDecodeAny(c.DecoderFunc, kvs.Values(), actual); err != nil {
 			c.Logger.Errorf("[ETCD]unmarshal: %v of error: %s", kvs.Values(), err.Error())
 			return nil, errors.WithStack(err)
 		}

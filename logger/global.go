@@ -12,13 +12,6 @@ func GetGlobalLogger() *Logger {
 	return globalLogger
 }
 
-func GetILogger() utils.ILogger {
-	if globalLogger != nil {
-		return globalLogger.ILogger()
-	}
-	return utils.NewDefaultLogger()
-}
-
 // BuildGlobalLogger 新建全局用的Logger
 // errorFilename 非空时表示将ERROR以上的日志写入到此文件中
 func BuildGlobalLogger(filename string, errorFilename string) (*Logger, error) {
@@ -31,5 +24,6 @@ func BuildGlobalLogger(filename string, errorFilename string) (*Logger, error) {
 		return nil, err
 	}
 	SetGlobalLogger(logger)
+	utils.SetGlobalILogger(logger.ILogger())
 	return logger, nil
 }

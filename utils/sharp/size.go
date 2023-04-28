@@ -1,4 +1,4 @@
-package sharp_utils
+package sharpUtils
 
 import "math"
 
@@ -60,7 +60,7 @@ func (s Size) ResizeWithAspectRatio(targetSize Size) Size {
 
 	scale := math.Max(scaleX, scaleY)
 
-	return NewSizeFromFloat(float64(s.Width) / scale, float64(s.Height) / scale)
+	return NewSizeFromFloat(float64(s.Width)/scale, float64(s.Height)/scale)
 }
 
 func (s Size) Reverse() Size {

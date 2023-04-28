@@ -1,4 +1,4 @@
-package ip
+package ipUtils
 
 import (
 	"fmt"
@@ -44,7 +44,7 @@ func (r *Ranger) AddIP(n *net.IPNet, value any) {
 		r.Data[bit] = make(map[string]string)
 		r.addBit(bit)
 	}
-	v, _ := text_utils.JsonMarshal(value)
+	v, _ := textUtils.JsonMarshal(value)
 	r.Data[bit][n.IP.String()] = v
 }
 
@@ -128,7 +128,7 @@ func (r *Ranger) Contains(n *net.IPNet, v any) bool {
 	for _, i := range r.Bits {
 		_ip := r.getIpByMask(n.IP.String(), i)
 		if d, ok := r.Data[i][_ip]; ok {
-			_ = text_utils.JsonUnmarshal(d, v)
+			_ = textUtils.JsonUnmarshal(d, v)
 			return true
 		}
 		if _mask < i {

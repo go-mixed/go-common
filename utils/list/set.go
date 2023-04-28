@@ -1,4 +1,4 @@
-package list_utils
+package listUtils
 
 import (
 	"fmt"
@@ -132,7 +132,7 @@ func (s Set[T]) Union(sset Set[T]) Set[T] {
 
 // MarshalJSON - converts to JSON data.
 func (s Set[T]) MarshalJSON() ([]byte, error) {
-	return text_utils.JsonMarshalToBytes(s.ToSlice())
+	return textUtils.JsonMarshalToBytes(s.ToSlice())
 }
 
 // UnmarshalJSON - parses JSON data and creates new set with it.
@@ -141,7 +141,7 @@ func (s Set[T]) MarshalJSON() ([]byte, error) {
 // If 'data' contains Other JSON types, JSON parse error is returned.
 func (s Set[T]) UnmarshalJSON(data []byte) error {
 	var sl []T
-	err := text_utils.JsonUnmarshalFromBytes(data, &sl)
+	err := textUtils.JsonUnmarshalFromBytes(data, &sl)
 	if err == nil {
 		for _, item := range sl {
 			s.Add(item)

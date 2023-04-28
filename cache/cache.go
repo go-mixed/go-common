@@ -12,8 +12,8 @@ type Cache struct {
 	Logger  utils.ILogger
 	L2Cache *L2Cache
 
-	decoderFunc text_utils.DecoderFunc
-	encoderFunc text_utils.EncoderFunc
+	decoderFunc textUtils.DecoderFunc
+	encoderFunc textUtils.EncoderFunc
 }
 
 func (c *Cache) L2() utils.IMemKV {
@@ -22,7 +22,7 @@ func (c *Cache) L2() utils.IMemKV {
 
 type RangeFunc func(keyStart, keyEnd string, keyPrefix string, limit int64) (nextKey string, kvs utils.KVs, err error)
 
-func (c *Cache) SetEncoderFunc(encodeFunc text_utils.EncoderFunc) *Cache {
+func (c *Cache) SetEncoderFunc(encodeFunc textUtils.EncoderFunc) *Cache {
 	c.encoderFunc = encodeFunc
 	return c
 }
@@ -31,7 +31,7 @@ func (c *Cache) EncoderFunc(v any) ([]byte, error) {
 	return c.encoderFunc(v)
 }
 
-func (c *Cache) SetDecoderFunc(decodeFunc text_utils.DecoderFunc) *Cache {
+func (c *Cache) SetDecoderFunc(decodeFunc textUtils.DecoderFunc) *Cache {
 	c.decoderFunc = decodeFunc
 	return c
 }
@@ -50,7 +50,7 @@ func (c *Cache) ScanRangeFn(keyStart, keyEnd string, keyPrefix string, limit int
 	}
 
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err = text_utils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
+		if err = textUtils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
 			return "", nil, err
 		}
 	}
@@ -104,7 +104,7 @@ func (c *Cache) ScanPrefixFn(keyPrefix string, result any, rangeFunc RangeFunc) 
 	}
 
 	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
-		if err = text_utils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
+		if err = textUtils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
 			return nil, err
 		}
 	}

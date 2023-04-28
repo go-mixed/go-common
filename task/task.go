@@ -3,6 +3,7 @@ package task
 import (
 	"container/list"
 	"context"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"os"
 	"os/signal"
 	"sync"
@@ -16,7 +17,7 @@ type JobDoneHandler func(j *Job)
 type action uint8
 
 const (
-	produceAction action = iota
+	workerStartAction action = iota
 	workerQuitAction
 	stoppingAction
 	quitAfterDoneAction
@@ -33,7 +34,8 @@ type Task struct {
 	actions chan action
 
 	runningCount   atomic.Int32
-	maxWorkerCount int32
+	maxWorkerCount int
+	logger         utils.ILogger
 }
 
 // NewTask 创建一个任务池，支持任务池服务，和一次性运行池
@@ -48,13 +50,25 @@ func NewTask(maxWorkerCount int) *Task {
 		jobs:           list.New(),
 		actions:        make(chan action, maxWorkerCount),
 		mu:             sync.Mutex{},
-		maxWorkerCount: int32(maxWorkerCount),
+		maxWorkerCount: maxWorkerCount,
 		doneHandler:    func(j *Job) {},
+		logger:         utils.NewDefaultLogger(),
 	}
 	t.pool.New = func() any {
 		return createWorker(t)
 	}
 	return t
+}
+
+func (t *Task) SetMaxWorkerCount(maxWorkerCount int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.maxWorkerCount = maxWorkerCount
+}
+
+func (t *Task) SetLogger(logger utils.ILogger) {
+	t.logger = logger
 }
 
 func (t *Task) SetJobDoneHandler(fn JobDoneHandler) *Task {
@@ -70,7 +84,7 @@ func (t *Task) Submit(callbacks ...func(ctx context.Context)) *Task {
 	}
 	t.mu.Unlock()
 
-	t.tryTriggerAction(produceAction)
+	t.tryTriggerAction(workerStartAction)
 	return t
 }
 
@@ -80,7 +94,7 @@ func (t *Task) SubmitWithTimeout(callback func(ctx context.Context), timeout tim
 	t.submit(&Job{Callback: callback, Timeout: timeout, State: Prepare})
 	t.mu.Unlock()
 
-	t.tryTriggerAction(produceAction)
+	t.tryTriggerAction(workerStartAction)
 	return t
 }
 
@@ -157,17 +171,15 @@ for1:
 			if t.runningCount.Add(-1) <= 0 && exitOnFinish { // 运行完毕就结束
 				break for1
 			}
-		case produceAction:
-			select {
-			case <-stoppingCtx.Done():
-				break for1
-			default:
-				if t.runningCount.Load() < t.maxWorkerCount {
-					w := t.pool.Get().(*worker)
-					wg.Add(1)             // worker wg +1
-					t.runningCount.Add(1) // running +1
-					go w.run(stoppingCtx)
-				}
+		case workerStartAction:
+			if int(t.runningCount.Load()) < t.maxWorkerCount {
+				w := t.pool.Get().(*worker)
+				wg.Add(1)
+
+				// worker wg +1
+				workerID := t.runningCount.Add(1) // running +1
+				w.SetID(int(workerID))
+				go w.run(stoppingCtx)
 			}
 		}
 	}

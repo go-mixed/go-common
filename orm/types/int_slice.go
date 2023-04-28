@@ -1,4 +1,4 @@
-package orm
+package types
 
 import (
 	"context"
@@ -31,7 +31,7 @@ func (m *Int64Slice) Scan(value any) error {
 	}
 
 	var metadata Int64Slice
-	if err := text_utils.JsonUnmarshalFromBytes(ba, &metadata); err != nil {
+	if err := textUtils.JsonUnmarshalFromBytes(ba, &metadata); err != nil {
 		return err
 	}
 
@@ -43,7 +43,7 @@ func (m Int64Slice) Value() (driver.Value, error) {
 	if len(m) == 0 {
 		return nil, nil
 	}
-	return text_utils.JsonMarshalToBytes(m)
+	return textUtils.JsonMarshalToBytes(m)
 }
 
 // GormDataType gorm common data type
@@ -57,13 +57,13 @@ func (m Int64Slice) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 	t := ([]int64)(m)
-	return text_utils.JsonMarshalToBytes(t)
+	return textUtils.JsonMarshalToBytes(t)
 }
 
 // UnmarshalJSON to deserialize []byte
 func (m *Int64Slice) UnmarshalJSON(b []byte) error {
 	var t []int64
-	err := text_utils.JsonUnmarshalFromBytes(b, &t)
+	err := textUtils.JsonUnmarshalFromBytes(b, &t)
 	*m = t
 	return err
 }

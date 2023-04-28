@@ -16,8 +16,8 @@ import (
 type Badger struct {
 	baseDir     string
 	logger      utils.ILogger
-	decoderFunc text_utils.DecoderFunc
-	encoderFunc text_utils.EncoderFunc
+	decoderFunc textUtils.DecoderFunc
+	encoderFunc textUtils.EncoderFunc
 
 	buckets sync.Map
 	options badger.Options
@@ -33,15 +33,15 @@ func NewBadger(path string, logger utils.ILogger, workInMemory bool) *Badger {
 	return &Badger{
 		baseDir:     path,
 		logger:      logger,
-		encoderFunc: text_utils.JsonMarshalToBytes,
-		decoderFunc: text_utils.JsonUnmarshalFromBytes,
+		encoderFunc: textUtils.JsonMarshalToBytes,
+		decoderFunc: textUtils.JsonUnmarshalFromBytes,
 
 		buckets: sync.Map{},
 		options: badger.DefaultOptions("").WithLogger(iLogger{logger}).WithInMemory(workInMemory),
 	}
 }
 
-func (b *Badger) SetEncoderFunc(encoderFunc text_utils.EncoderFunc) *Badger {
+func (b *Badger) SetEncoderFunc(encoderFunc textUtils.EncoderFunc) *Badger {
 	b.encoderFunc = encoderFunc
 	return b
 }
@@ -50,7 +50,7 @@ func (b *Badger) EncoderFunc(v any) ([]byte, error) {
 	return b.encoderFunc(v)
 }
 
-func (b *Badger) SetDecoderFunc(decoderFunc text_utils.DecoderFunc) *Badger {
+func (b *Badger) SetDecoderFunc(decoderFunc textUtils.DecoderFunc) *Badger {
 	b.decoderFunc = decoderFunc
 	return b
 }

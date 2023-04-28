@@ -1,4 +1,4 @@
-package http_utils
+package httpUtils
 
 import (
 	"context"
@@ -47,6 +47,9 @@ type TransportOptions struct {
 	WriteBufferSize int `yaml:"write_buffer_size" validate:"min=0"`
 	// 读取的缓冲大小，0表示自动
 	ReadBufferSize int `yaml:"read_buffer_size" validate:"min=0"`
+
+	Hosts map[string]string `yaml:"hosts"`
+	Dns   []string          `yaml:"dns"`
 }
 
 type Transport struct {
@@ -81,6 +84,9 @@ func DefaultTransportOptions() TransportOptions {
 		MaxResponseHeaderBytes: 0,
 		WriteBufferSize:        0,
 		ReadBufferSize:         0,
+
+		Hosts: map[string]string{},
+		Dns:   []string{},
 	}
 }
 
@@ -106,6 +112,9 @@ func NewHttpTransport(options TransportOptions) *Transport {
 	return t
 }
 
+// SetOptions 重设Transport的配置
+//
+//	注意：options中hosts和dns的值如果不为nil，会覆盖原有的设置
 func (t *Transport) SetOptions(options TransportOptions) *Transport {
 	t.options = options
 	t.ForceAttemptHTTP2 = options.ForceAttemptHTTP2
@@ -121,6 +130,12 @@ func (t *Transport) SetOptions(options TransportOptions) *Transport {
 	t.MaxResponseHeaderBytes = options.MaxResponseHeaderBytes
 	t.WriteBufferSize = options.WriteBufferSize
 	t.ReadBufferSize = options.ReadBufferSize
+	if options.Hosts != nil {
+		t.SetHosts(options.Hosts)
+	}
+	if options.Dns != nil {
+		t.SetDns(options.Dns)
+	}
 	return t
 }
 

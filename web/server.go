@@ -108,7 +108,7 @@ func (c *HttpServer) ContainsCert(cert *Certificate) bool {
 // AddServeHandler 添加域名, serveHTTP, 证书
 // 可以使用 AddCertificate 传递证书
 // 注意: 如果有传递证书，证书DNS Name必须包含所传递的domains（此函数并不检查），不然，需要分多次添加
-func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Handler, cert *Certificate) error {
+func (c *HttpServer) AddServeHandler(domains httpUtils.Domains, handler http.Handler, cert *Certificate) error {
 	if err := c.AddCertificate(cert); err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (c *HttpServer) AddServeHandler(domains http_utils.Domains, handler http.Ha
 	}
 
 	// 按照域名的特有方式进行排序
-	http_utils.SortDomains(domainConfigs, func(v *DomainConfig) string {
+	httpUtils.SortDomains(domainConfigs, func(v *DomainConfig) string {
 		return v.domain
 	})
 
@@ -264,7 +264,7 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 
 func (c *HttpServer) controllerHandlerFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		domain := http_utils.DomainFromRequestHost(r.Host)
+		domain := httpUtils.DomainFromRequestHost(r.Host)
 		if domainConfig := c.MatchDomain(domain); domainConfig != nil {
 			domainConfig.handler.ServeHTTP(w, r)
 		}

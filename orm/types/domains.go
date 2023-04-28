@@ -1,4 +1,4 @@
-package orm
+package types
 
 import (
 	"context"
@@ -15,14 +15,14 @@ import (
 )
 
 // Domains 重写http_utils.Domains 为orm.Domains
-type Domains http_utils.Domains
+type Domains httpUtils.Domains
 
 // Value return json value, implement driver.Valuer interface
 func (d Domains) Value() (driver.Value, error) {
 	if d == nil {
 		return nil, nil
 	}
-	return text_utils.JsonMarshal(d)
+	return textUtils.JsonMarshal(d)
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
@@ -41,7 +41,7 @@ func (d *Domains) Scan(val any) error {
 		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", val))
 	}
 	t := Domains{}
-	err := text_utils.JsonUnmarshalFromBytes(ba, &t)
+	err := textUtils.JsonUnmarshalFromBytes(ba, &t)
 	*d = t
 	return err
 }
@@ -52,13 +52,13 @@ func (d Domains) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 	t := ([]string)(d)
-	return text_utils.JsonMarshalToBytes(t)
+	return textUtils.JsonMarshalToBytes(t)
 }
 
 // UnmarshalJSON to deserialize []byte
 func (d *Domains) UnmarshalJSON(b []byte) error {
 	var t []string
-	err := text_utils.JsonUnmarshalFromBytes(b, &t)
+	err := textUtils.JsonUnmarshalFromBytes(b, &t)
 	*d = t
 	return err
 }

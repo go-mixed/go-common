@@ -1,4 +1,4 @@
-package http_utils
+package httpUtils
 
 import (
 	"bytes"
@@ -89,7 +89,7 @@ func ValuesToJson(values *url.Values) []byte {
 		_values[key] = core.IfT(len(val) <= 1, val[0], val)
 	}
 
-	buf, err := text_utils.JsonMarshalToBytes(_values)
+	buf, err := textUtils.JsonMarshalToBytes(_values)
 
 	if err != nil {
 		return nil
@@ -108,7 +108,7 @@ func MapToUrlValues(data map[string]any, includeFields []string) url.Values {
 
 	for _, k := range includeFields {
 		v := data[k]
-		values.Add(k, text_utils.ToString(v, true))
+		values.Add(k, textUtils.ToString(v, true))
 	}
 	return values
 }

@@ -1,4 +1,4 @@
-package time_utils
+package timeUtils
 
 import (
 	"sync/atomic"

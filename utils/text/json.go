@@ -1,4 +1,4 @@
-package text_utils
+package textUtils
 
 import (
 	jsoniter "github.com/json-iterator/go"

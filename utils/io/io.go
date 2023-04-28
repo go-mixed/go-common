@@ -1,4 +1,4 @@
-package io_utils
+package ioUtils
 
 import (
 	"bytes"

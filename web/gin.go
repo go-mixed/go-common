@@ -25,7 +25,7 @@ func ApiGinOptions(debug, registerPprof bool) *GinOptions {
 }
 
 func WebsiteGinOptions(debug, registerPprof bool) *GinOptions {
-	currentDir := io_utils.GetCurrentDir()
+	currentDir := ioUtils.GetCurrentDir()
 	return &GinOptions{
 		Debug:            debug,
 		RegisterPprof:    registerPprof,

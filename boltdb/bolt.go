@@ -15,8 +15,8 @@ type Bolt struct {
 	DB *bolt.DB
 
 	logger      utils.ILogger
-	decoderFunc text_utils.DecoderFunc
-	encoderFunc text_utils.EncoderFunc
+	decoderFunc textUtils.DecoderFunc
+	encoderFunc textUtils.EncoderFunc
 }
 
 type BoltBucket struct {
@@ -34,12 +34,12 @@ func NewBolt(path string, logger utils.ILogger) (*Bolt, error) {
 		DB:     db,
 		logger: logger,
 
-		encoderFunc: text_utils.JsonMarshalToBytes,
-		decoderFunc: text_utils.JsonUnmarshalFromBytes,
+		encoderFunc: textUtils.JsonMarshalToBytes,
+		decoderFunc: textUtils.JsonUnmarshalFromBytes,
 	}, nil
 }
 
-func (b *Bolt) SetEncoderFunc(encoderFunc text_utils.EncoderFunc) *Bolt {
+func (b *Bolt) SetEncoderFunc(encoderFunc textUtils.EncoderFunc) *Bolt {
 	b.encoderFunc = encoderFunc
 	return b
 }
@@ -48,7 +48,7 @@ func (b *Bolt) EncoderFunc(v any) ([]byte, error) {
 	return b.encoderFunc(v)
 }
 
-func (b *Bolt) SetDecoderFunc(decoderFunc text_utils.DecoderFunc) *Bolt {
+func (b *Bolt) SetDecoderFunc(decoderFunc textUtils.DecoderFunc) *Bolt {
 	b.decoderFunc = decoderFunc
 	return b
 }
@@ -163,7 +163,7 @@ func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 			kvs = kvs.Append(string(k), core.CopyFrom(v)) // GC 后v会被清空，必须Copy
 		}
 		if actual != nil && !core.IsInterfaceNil(actual) {
-			if err := text_utils.ListDecodeAny(b.DecoderFunc, kvs.Values(), actual); err != nil {
+			if err := textUtils.ListDecodeAny(b.DecoderFunc, kvs.Values(), actual); err != nil {
 				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
 				return errors.WithStack(err)
 			}

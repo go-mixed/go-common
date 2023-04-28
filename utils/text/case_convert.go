@@ -1,4 +1,4 @@
-package text_utils
+package textUtils
 
 import "strings"
 

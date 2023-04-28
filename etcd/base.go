@@ -18,8 +18,8 @@ func NewEtcdCache(client *clientv3.Client, logger utils.ILogger) *Etcd {
 		},
 		EtcdClient: client,
 	}
-	c.SetEncoderFunc(text_utils.JsonMarshalToBytes)
-	c.SetDecoderFunc(text_utils.JsonUnmarshalFromBytes)
+	c.SetEncoderFunc(textUtils.JsonMarshalToBytes)
+	c.SetDecoderFunc(textUtils.JsonUnmarshalFromBytes)
 	c.L2Cache = cache.NewL2Cache(c, logger)
 	return c
 }
