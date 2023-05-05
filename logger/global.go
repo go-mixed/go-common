@@ -24,6 +24,6 @@ func BuildGlobalLogger(filename string, errorFilename string) (*Logger, error) {
 		return nil, err
 	}
 	SetGlobalLogger(logger)
-	utils.SetGlobalILogger(logger.ILogger())
+	utils.SetGlobalILogger(logger.ToILogger())
 	return logger, nil
 }

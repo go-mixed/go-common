@@ -23,6 +23,8 @@ type MultipartFileReader struct {
 	checksums []byte
 }
 
+var _ io.ReadSeekCloser = (*MultipartFileReader)(nil)
+
 // NewMultipartFileReader 多个文件分块组成一个文件的reader
 // 注意, 如果在读取中修改了某分片文件的长度, 最终读取得到的数据可能不符合预期
 // eg: 偏移值从30开始, 读取100长度

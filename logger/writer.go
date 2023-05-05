@@ -7,6 +7,7 @@ import (
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"io"
+	"log"
 )
 
 // ToWriter 生成一个io.Writer，其它程序可以直接使用Write方法写入日志。
@@ -19,11 +20,16 @@ func (log *Logger) ToWriter(level zapcore.Level) io.Writer {
 	}
 }
 
-// ILogger wraps the Logger to provide a more ergonomic, but slightly slower,
-// API. Sugaring a Logger is quite inexpensive, so it's reasonable for a
+// ToStdLog 生成一个标准库的log.Logger，其它程序可以直接使用Print、Printf、Println方法写入日志。
+func (log *Logger) ToStdLog() *log.Logger {
+	return zap.NewStdLog(log.ZapLogger())
+}
+
+// ToILogger wraps the utils.ILogger to provide a more ergonomic, but slightly slower,
+// API. Sugaring an utils.ILogger is quite inexpensive, so it's reasonable for a
 // single application to use both Loggers and SugaredLoggers, converting
 // between them on the boundaries of performance-sensitive code.
-func (log *Logger) ILogger() utils.ILogger {
+func (log *Logger) ToILogger() utils.ILogger {
 	return log.ZapLogger().Sugar()
 }
 

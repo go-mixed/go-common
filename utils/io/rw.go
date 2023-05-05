@@ -10,6 +10,9 @@ type wrapperReader struct {
 	fn func(p []byte) (n int, err error)
 }
 
+var _ io.Writer = (*wrapperWriter)(nil)
+var _ io.Reader = (*wrapperReader)(nil)
+
 func NewWrapperWriter(fn func(p []byte) (n int, err error)) io.Writer {
 	return &wrapperWriter{fn: fn}
 }
