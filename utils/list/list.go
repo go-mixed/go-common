@@ -2,6 +2,7 @@ package listUtils
 
 import (
 	"github.com/pkg/errors"
+	"golang.org/x/exp/constraints"
 	"reflect"
 	"strings"
 )
@@ -45,6 +46,36 @@ func SliceRemove[T comparable](slice []T, removeMe T) []T {
 		}
 	}
 	return result
+}
+
+// Min 返回slice中最小的值
+func Min[T constraints.Ordered](s ...T) T {
+	if len(s) == 0 {
+		var zero T
+		return zero
+	}
+	m := s[0]
+	for _, v := range s {
+		if m > v {
+			m = v
+		}
+	}
+	return m
+}
+
+// Max 返回slice中最大的值
+func Max[T constraints.Ordered](s ...T) T {
+	if len(s) == 0 {
+		var zero T
+		return zero
+	}
+	m := s[0]
+	for _, v := range s {
+		if m < v {
+			m = v
+		}
+	}
+	return m
 }
 
 // ToInterfaces 将any 转为 []any, 因为不能直接slice.([]any)

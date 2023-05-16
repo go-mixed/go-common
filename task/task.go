@@ -4,6 +4,8 @@ import (
 	"container/list"
 	"context"
 	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/chan"
+	"gopkg.in/go-mixed/go-common.v1/utils/list"
 	"os"
 	"os/signal"
 	"sync"
@@ -31,7 +33,7 @@ type Task struct {
 
 	jobs *list.List
 	// 触发器，触发一次动整个Task动一下，无缓存
-	actions chan action
+	actions *chanUtils.UnboundedChan[action]
 
 	runningCount   atomic.Int32
 	maxWorkerCount int
@@ -48,7 +50,7 @@ func NewTask(maxWorkerCount int) *Task {
 	t := &Task{
 		pool:           sync.Pool{},
 		jobs:           list.New(),
-		actions:        make(chan action, maxWorkerCount),
+		actions:        chanUtils.NewUnboundedChan[action](maxWorkerCount),
 		mu:             sync.Mutex{},
 		maxWorkerCount: maxWorkerCount,
 		doneHandler:    func(j *Job) {},
@@ -84,7 +86,12 @@ func (t *Task) Submit(callbacks ...func(ctx context.Context)) *Task {
 	}
 	t.mu.Unlock()
 
-	t.tryTriggerAction(workerStartAction)
+	// 触发多次动作，让空闲worker开始工作
+	n := listUtils.Min(len(callbacks), t.IdleWorkerCount())
+	for i := 0; i < n; i++ {
+		t.triggerAction(workerStartAction)
+	}
+
 	return t
 }
 
@@ -94,7 +101,8 @@ func (t *Task) SubmitWithTimeout(callback func(ctx context.Context), timeout tim
 	t.submit(&Job{Callback: callback, Timeout: timeout, State: Prepare})
 	t.mu.Unlock()
 
-	t.tryTriggerAction(workerStartAction)
+	// 触发一次动作，让空闲worker开始工作
+	t.triggerAction(workerStartAction)
 	return t
 }
 
@@ -103,19 +111,12 @@ func (t *Task) submit(j *Job) {
 }
 
 func (t *Task) triggerAction(action action) {
-	t.actions <- action
-}
-
-func (t *Task) tryTriggerAction(action action) {
-	select {
-	case t.actions <- action:
-	default:
-
-	}
+	t.actions.In <- action
 }
 
 // RunOnce 运行jobs中的任务（需先添加job）直到所有jobs完成、或主动 Stop、Ctrl+C
-// 不能同时运行RunOnce，RunServe
+//
+//	RunOnce 和 RunServe 是互斥的，不同同时运行
 func (t *Task) RunOnce() {
 	// 没有任务
 	if t.jobs.Len() <= 0 {
@@ -125,7 +126,7 @@ func (t *Task) RunOnce() {
 }
 
 // RunServe 持续服务，可随时 Submit Job，注意 RunServe会一直阻塞直到主动 Stop、Ctrl+C
-// 不能同时运行RunOnce，RunServe
+// RunOnce 和 RunServe 是互斥的，不同同时运行
 func (t *Task) RunServe() {
 	t.run(false)
 }
@@ -158,7 +159,7 @@ func (t *Task) run(exitOnFinish bool) {
 	wg.Add(1)
 
 for1:
-	for act := range t.actions {
+	for act := range t.actions.Out {
 		switch act {
 		case stoppingAction: // 仅仅调用stoppingCtx
 			stoppingCtxCancel()
@@ -172,6 +173,7 @@ for1:
 				break for1
 			}
 		case workerStartAction:
+			// 只有worker不足时才会创建新的worker
 			if int(t.runningCount.Load()) < t.maxWorkerCount {
 				w := t.pool.Get().(*worker)
 				wg.Add(1)
@@ -191,6 +193,7 @@ for1:
 // Stop 停止任务池（需异步调用），但是RunXX仍然会等待任务运行结束
 // 如果Job任务没有监听ctx完成自行退出，则RunXX永远不会退出。可以尝试使用Shutdown强制退出
 func (t *Task) Stop() {
+	t.actions.Clear()
 	t.triggerAction(stoppingAction)
 	t.triggerAction(quitAfterDoneAction)
 }
@@ -207,6 +210,7 @@ func (t *Task) ShutdownNow() {
 //
 //	0 表示立即退出RunXX，等效于ShutdownNow
 func (t *Task) Shutdown(waitTimeout time.Duration) {
+	t.actions.Clear()
 	t.triggerAction(stoppingAction)
 	if waitTimeout > 0 {
 		time.AfterFunc(waitTimeout, func() {
@@ -217,8 +221,14 @@ func (t *Task) Shutdown(waitTimeout time.Duration) {
 	}
 }
 
+// RunningCount 正在运行的worker数量
 func (t *Task) RunningCount() int {
 	return int(t.runningCount.Load())
+}
+
+// IdleWorkerCount 空闲的worker数量
+func (t *Task) IdleWorkerCount() int {
+	return t.maxWorkerCount - t.RunningCount()
 }
 
 // RemainJobs 剩余没执行完的任务
