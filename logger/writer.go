@@ -53,7 +53,7 @@ func (log *Logger) parseFields(fields []any) []zap.Field {
 		case zap.Field:
 			result = append(result, k)
 		case stackTracer:
-			result = append(result, zap.Strings("static-"+conv.Itoa(i), stackToLines(k)))
+			result = append(result, zap.Strings("error-"+conv.Itoa(i), stackToLines(k)))
 		case error:
 			result = append(result, zap.Error(k))
 		case string:
