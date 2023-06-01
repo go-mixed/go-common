@@ -14,34 +14,224 @@ import (
 	"time"
 )
 
-type SignBaseFields struct {
-	TimeStamp    int64  `json:"ts" form:"ts" query:"ts"`
-	Nonce        string `json:"nonce" form:"nonce" query:"nonce"`
-	Sign         string `json:"sign" form:"sign" query:"sign"`
-	SignedFields string `json:"signed_fields,omitempty" form:"signed_fields,omitempty" query:"signed_fields,omitempty"`
+const defaultTimestampUnit = time.Second // 默认时间戳单位，支持：time.Second, time.Millisecond, time.Microsecond, time.Nanosecond
+
+// BaseSignature 签名基础结构，继承此结构体，可实现签名功能
+//
+//	type A struct {
+//		BaseSignature
+//		B string `json:"b"`
+//		C string `json:"c"`
+//	}
+//	a := &A{}
+//	a.BuildSignatures(a, "SecretKey", nil, false)
+//	a.CheckSignatures(a, "SecretKey", false)
+type BaseSignature struct {
+	Timestamp     int64 `json:"timestamp" form:"timestamp" query:"timestamp"`
+	timestampUnit time.Duration
+	Nonce         string `json:"nonce" form:"nonce" query:"nonce"`
+	Sign          string `json:"sign" form:"sign" query:"sign"`
+	SignedFields  string `json:"signed_fields,omitempty" form:"signed_fields,omitempty" query:"signed_fields,omitempty"`
 }
 
-// MakeSignature 传入values（url.Values）, 生成签名并附加到 values 中
-//
-//	如果 signedFields 为空，则所有字段都参与签名
-func MakeSignature(secretKey string, values url.Values, signedFields []string) url.Values {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	if len(signedFields) > 0 {
-		signedFields = append(signedFields, "ts", "nonce", "signed_fields")
-		values.Set("signed_fields", strings.Join(signedFields, ","))
+type iSignature interface {
+	SetSign(sign string)
+	GetSign() string
+	SetTimestamp(now time.Time)
+	GetTimestamp() time.Time
+	SetTimestampUnit(unit time.Duration)
+	SetNonce(nonce string)
+	GetNonce() string
+	SetSignedFields(fields []string)
+	GetSignedFields() []string
+}
+
+var _ iSignature = (*BaseSignature)(nil)
+
+// SetTimestamp 设置时间戳
+func (s *BaseSignature) SetTimestamp(now time.Time) {
+	if !now.IsZero() {
+		now = time.Now()
 	}
 
-	values.Set("ts", conv.I64toa(time.Now().Unix()))
-	values.Set("nonce", conv.Itoa(r.Intn(999999-100000)+100000)) // >=6位数字
-	values.Set("sign", CalcSignature(secretKey, values, signedFields, true))
+	var timestampUnit = s.timestampUnit
 
-	return values
+switch1:
+	switch timestampUnit {
+	case time.Millisecond:
+		s.Timestamp = now.UnixMilli()
+	case time.Microsecond:
+		s.Timestamp = now.UnixMicro()
+	case time.Nanosecond:
+		s.Timestamp = now.UnixNano()
+	case time.Second:
+		s.Timestamp = now.Unix()
+	default:
+		timestampUnit = defaultTimestampUnit
+		goto switch1
+	}
 }
 
-// MakeMapSignature 传入map和待签名的signedFields，生成签名并附加到map中
+// GetTimestamp 获取时间戳
+func (s *BaseSignature) GetTimestamp() time.Time {
+	if s.Timestamp <= 0 {
+		return time.Time{}
+	}
+
+	var timestampUnit = s.timestampUnit
+
+switch1:
+	switch timestampUnit {
+	case time.Millisecond:
+		return time.UnixMilli(s.Timestamp)
+	case time.Microsecond:
+		return time.UnixMicro(s.Timestamp)
+	case time.Nanosecond:
+		return time.Unix(s.Timestamp/1e9, s.Timestamp%1e9)
+	case time.Second:
+		return time.Unix(s.Timestamp, 0)
+	default:
+		timestampUnit = defaultTimestampUnit
+		goto switch1
+	}
+}
+
+// SetTimestampUnit 设置时间戳的单位
+func (s *BaseSignature) SetTimestampUnit(unit time.Duration) {
+	s.timestampUnit = unit
+}
+
+// SetNonce 设置噪音值
+func (s *BaseSignature) SetNonce(nonce string) {
+	s.Nonce = strings.TrimSpace(nonce)
+}
+
+// GetNonce 获取噪音值
+func (s *BaseSignature) GetNonce() string {
+	return strings.TrimSpace(s.Nonce)
+}
+
+// SetSign 设置签名的值
+func (s *BaseSignature) SetSign(sign string) {
+	s.Sign = strings.TrimSpace(sign)
+}
+
+// GetSign 获取签名的值
+func (s *BaseSignature) GetSign() string {
+	return strings.TrimSpace(s.Sign)
+}
+
+// SetSignedFields 设置需要签名的字段，注意：字段名需要是Struct中字段tag名
+func (s *BaseSignature) SetSignedFields(fields []string) {
+	if len(fields) > 0 {
+		// 添加签名的基础字段，并排序
+		fields = append(fields, "timestamp", "nonce", "signed_fields")
+		sort.Strings(fields)
+		fields = listUtils.Unique(fields...)
+		s.SignedFields = strings.Join(fields, ",")
+	} else {
+		s.SignedFields = ""
+	}
+}
+
+// GetSignedFields 获取需要签名的字段，注意：字段名是Struct中字段tag名
+func (s *BaseSignature) GetSignedFields() []string {
+	return strings.Split(strings.TrimSpace(s.SignedFields), ",")
+}
+
+// BuildSignature 生成签名
+//
+// obj: 需要签名的对象，BaseSignature的子类
+// secretKey: 签名密钥
+// signedFields: 需要签名的字段，注意：字段名需要是Struct中字段tag名
+// withBlank: 是否包含空值字段
+func (s *BaseSignature) BuildSignature(obj iSignature, secretKey string, signedFields []string, withBlank bool) {
+	// 设置基本字段
+	obj.SetSignedFields(signedFields)
+	obj.SetTimestamp(time.Now())
+	obj.SetNonce(conv.Itoa(rand.New(rand.NewSource(time.Now().UnixNano())).Intn(999999-100000) + 100000)) // >=6位数字
+
+	// 将对象转换为url.Values
+	values := ToUrlValues(obj, "json")
+	delete(values, "sign")
+
+	obj.SetSign(CalcSignature(secretKey, values, signedFields, withBlank))
+}
+
+// CheckSignature 验证签名。返回：是否验证通过，错误信息
+//
+// obj: 需要签名的对象，BaseSignature的子类
+// secretKey: 签名密钥
+// withBlank: 是否包含空值字段
+func (s *BaseSignature) CheckSignature(obj iSignature, secretKey string, withBlank bool) (bool, error) {
+	if obj.GetSign() == "" {
+		return false, errors.Errorf("sign is empty. query: %v", obj)
+	}
+
+	nonce := obj.GetNonce()
+	signature := obj.GetSign()
+	timestamp := obj.GetTimestamp()
+	signedFields := obj.GetSignedFields()
+
+	if len(nonce) < 6 {
+		return false, errors.Errorf("nonce length is too short, must >= 6. query: %v", obj)
+	}
+
+	if math.Abs(time.Since(timestamp).Seconds()) >= 60. {
+		return false, errors.Errorf("out of time: %s(%d). query: %v", timestamp, timestamp.UnixMilli(), obj)
+	}
+
+	values := ToUrlValues(obj, "json")
+	delete(values, "sign")
+
+	if strings.EqualFold(CalcSignature(secretKey, values, signedFields, withBlank), signature) {
+		return true, nil
+	}
+
+	return false, errors.Errorf("the signature is invalid: %s", signature)
+}
+
+// CalcSignature 输入values（url.Values）的数据，计算为签名，如果withBlank为false，值为空白字符串的不参与签名
+func CalcSignature(secretKey string, values url.Values, signedFields []string, withBlank bool) string {
+
+	var buf strings.Builder
+
+	// 对keys排序
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		// 字段不在signedFields中，不参与签名；signedFields为空，所有字段都参与签名
+		if len(signedFields) > 0 && listUtils.StrIndexOf(signedFields, key, true) < 0 {
+			continue
+		}
+		// 删除空白
+		if !withBlank && values.Get(key) == "" {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys) // key的正序排序
+
+	//"k1=v1&k2=v2" + key
+	for i, k := range keys {
+		buf.WriteString(k)
+		buf.WriteString("=")
+		buf.WriteString(values.Get(k))
+		if i != len(keys)-1 { // 末尾不用&
+			buf.WriteString("&")
+		}
+	}
+	buf.WriteString(secretKey)
+
+	res := textUtils.Md5(buf.String())
+
+	utils.GetGlobalILogger().Debugf("Sign %s ==> %s", buf.String(), res)
+	return res
+}
+
+// BuildMapSignature 传入map和待签名的signedFields，生成签名并附加到map中
 //
 //	如果signedFields为空，则所有字段都参与签名
-func MakeMapSignature(secretKey string, data map[string]any, signedFields []string) map[string]any {
+func BuildMapSignature(secretKey string, data map[string]any, signedFields []string) map[string]any {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	if len(signedFields) > 0 {
 		signedFields = append(signedFields, "ts", "nonce", "signed_fields")
@@ -53,13 +243,6 @@ func MakeMapSignature(secretKey string, data map[string]any, signedFields []stri
 	data["sign"] = CalcMapSignature(secretKey, data, signedFields, true)
 
 	return data
-}
-
-// MakeArgumentsSignature 传入kv对，生成签名并返回 SignBaseFields
-//
-//	kvs的长度必须为偶数，key => value，并且所有的key都会参与签名
-func MakeArgumentsSignature(secretKey string, kvs ...any) *SignBaseFields {
-	return (&SignBaseFields{}).BuildSignature(secretKey, kvs...)
 }
 
 // CalcMapSignature 输入map的数据，计算为签名，
@@ -107,69 +290,6 @@ func CalcMapSignature(secretKey string, data map[string]any, signedFields []stri
 	return res
 }
 
-// CalcSignature 输入values（url.Values）的数据，计算为签名，如果withBlank为false，值为空白字符串的不参与签名
-func CalcSignature(secretKey string, values url.Values, signedFields []string, withBlank bool) string {
-
-	var buf strings.Builder
-
-	// 对keys排序
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		// 字段不在signedFields中，不参与签名；signedFields为空，所有字段都参与签名
-		if len(signedFields) > 0 && listUtils.StrIndexOf(signedFields, key, true) < 0 {
-			continue
-		}
-		// 删除空白
-		if !withBlank && values.Get(key) == "" {
-			continue
-		}
-		keys = append(keys, key)
-	}
-	sort.Strings(keys) // key的正序排序
-
-	//"k1=v1&k2=v2" + key
-	for i, k := range keys {
-		buf.WriteString(k)
-		buf.WriteString("=")
-		buf.WriteString(values.Get(k))
-		if i != len(keys)-1 { // 末尾不用&
-			buf.WriteString("&")
-		}
-	}
-	buf.WriteString(secretKey)
-
-	res := textUtils.Md5(buf.String())
-
-	utils.GetGlobalILogger().Debugf("Sign %s ==> %s", buf.String(), res)
-	return res
-}
-
-// CheckSignature 校验values的数据是否正确，并且和values['sign']中的签名是否正确
-//
-//	会尝试从values中查找signed_fields，如果没有，则所有字段全参与签名
-func CheckSignature(secretKey string, values url.Values) (bool, error) {
-	nonce := strings.TrimSpace(values.Get("nonce"))
-	signature := strings.TrimSpace(values.Get("sign"))
-	timestamp := conv.Atoi64(values.Get("ts"), 0)
-	signedFields := strings.Split(values.Get("signed_fields"), ",")
-	values.Del("sign")
-
-	if len(nonce) < 6 {
-		return false, errors.Errorf("nonce length is too short, must >= 6. query: %s", values.Encode())
-	}
-
-	if math.Abs(float64(timestamp-time.Now().Unix())) >= 60 {
-		return false, errors.Errorf("out of time: %d. query: %s", timestamp, values.Encode())
-	}
-
-	_s := CalcSignature(secretKey, values, signedFields, true)
-	if strings.EqualFold(_s, signature) {
-		return true, nil
-	}
-
-	return false, errors.Errorf("the signature is invalid: %s", signature)
-}
-
 // CheckMapSignature 校验map的数据是否正确，并且和map['sign']中的签名是否正确
 //
 //	会尝试从map中查找signed_fields，如果没有，则所有字段全参与签名
@@ -197,76 +317,4 @@ func CheckMapSignature(secretKey string, m map[string]any) (bool, error) {
 	}
 
 	return false, errors.Errorf("the signature is invalid: %s", signature)
-}
-
-func argsToSignatureValues(kvs ...any) (url.Values, []string) {
-	if len(kvs)%2 != 0 {
-		panic("Arguments Signature: kvs must be even, key => value")
-	}
-
-	signedFields := []string{"ts", "nonce", "signed_fields"}
-
-	var values url.Values = url.Values{}
-	for i := 0; i < len(kvs); i += 2 {
-		k, _ := kvs[i].(string)
-		values.Set(k, textUtils.ToString(kvs[i+1], false))
-		signedFields = append(signedFields, k)
-	}
-
-	return values, signedFields
-}
-
-func (f *SignBaseFields) validate() error {
-	if len(f.Nonce) < 6 {
-		return errors.Errorf("nonce length is too short, must >= 6")
-	}
-
-	if math.Abs(float64(f.TimeStamp-time.Now().Unix())) >= 60 {
-		return errors.Errorf("out of signature time(60s)")
-	}
-
-	return nil
-}
-
-func (f *SignBaseFields) BuildSignature(secretKey string, kvs ...any) *SignBaseFields {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	var fields *SignBaseFields = f
-	if f == nil {
-		fields = &SignBaseFields{}
-	}
-	values, signedFields := argsToSignatureValues(kvs...)
-
-	fields.TimeStamp = time.Now().Unix()
-	fields.Nonce = conv.Itoa(r.Intn(999999-100000) + 100000)
-	fields.SignedFields = strings.Join(signedFields, ",")
-	values.Set("ts", conv.I64toa(fields.TimeStamp))
-	values.Set("nonce", fields.Nonce)
-	values.Set("signed_fields", fields.SignedFields)
-
-	fields.Sign = CalcSignature(secretKey, values, signedFields, true)
-	return fields
-}
-
-func (f *SignBaseFields) CheckSignature(secretKey string, kvs ...any) error {
-	if f == nil {
-		return errors.Errorf("SignBaseFields is nil, did you set the sign, ts, nonce, [signed_fields] fields?")
-	}
-
-	if err := f.validate(); err != nil {
-		return err
-	}
-
-	values, signedFields := argsToSignatureValues(kvs...)
-	values.Set("ts", conv.I64toa(f.TimeStamp))
-	values.Set("nonce", f.Nonce)
-	values.Set("signed_fields", f.SignedFields)
-	values.Del("sign")
-
-	_s := CalcSignature(secretKey, values, signedFields, true)
-	if strings.EqualFold(_s, f.Sign) {
-		return nil
-	}
-
-	return errors.Errorf("the signature is invalid: %s", f.Sign)
 }

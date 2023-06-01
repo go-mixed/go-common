@@ -2,81 +2,8 @@ package listUtils
 
 import (
 	"github.com/pkg/errors"
-	"golang.org/x/exp/constraints"
 	"reflect"
-	"strings"
 )
-
-// Find 类似slice.IndexOf, 需要传递fn来判断是否相等
-// 找不到返回-1
-func Find[T comparable](slice []T, fn func(value T) bool) int {
-	for i := 0; i < len(slice); i++ {
-		if fn(slice[i]) {
-			return i
-		}
-	}
-	return -1
-}
-
-// IndexOf 简化版slice.IndexOf
-func IndexOf[T comparable](slice []T, findMe T) int {
-	return Find(slice, func(value T) bool {
-		return value == findMe
-	})
-}
-
-// StrIndexOf 字符串数组的IndexOf
-func StrIndexOf(slice []string, findMe string, ignoreCase bool) int {
-	if ignoreCase {
-		findMe = strings.ToLower(findMe)
-	}
-	return Find(slice, func(value string) bool {
-		if ignoreCase {
-			value = strings.ToLower(value)
-		}
-		return findMe == value
-	})
-}
-
-func SliceRemove[T comparable](slice []T, removeMe T) []T {
-	var result []T
-	for i := 0; i < len(slice); i++ {
-		if slice[i] != removeMe {
-			result = append(result, slice[i])
-		}
-	}
-	return result
-}
-
-// Min 返回slice中最小的值
-func Min[T constraints.Ordered](s ...T) T {
-	if len(s) == 0 {
-		var zero T
-		return zero
-	}
-	m := s[0]
-	for _, v := range s {
-		if m > v {
-			m = v
-		}
-	}
-	return m
-}
-
-// Max 返回slice中最大的值
-func Max[T constraints.Ordered](s ...T) T {
-	if len(s) == 0 {
-		var zero T
-		return zero
-	}
-	m := s[0]
-	for _, v := range s {
-		if m < v {
-			m = v
-		}
-	}
-	return m
-}
 
 // ToInterfaces 将any 转为 []any, 因为不能直接slice.([]any)
 //

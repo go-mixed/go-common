@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"github.com/pkg/errors"
+	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"net"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -96,6 +99,71 @@ func ValuesToJson(values *url.Values) []byte {
 	}
 
 	return buf
+}
+
+// ToUrlValues 将map/struct/slice/string转化为url.Values。
+//
+//	如果是string，则会尝试使用url.ParseQuery进行转换
+//	如果是map，则会将key/value转换为string，tag传入""
+//	如果是struct，则会将struct的字段的tag名（比如json）作为key。注意：匿名字段会展开；子Struct一律会转换为json
+func ToUrlValues(data any, tag string) url.Values {
+	var result url.Values
+	if data == nil {
+		return result
+	}
+
+	vOf := reflect.ValueOf(data)
+	if vOf.Kind() == reflect.Ptr && vOf.IsNil() {
+		return result
+	}
+
+	if vOf.Kind() == reflect.Ptr {
+		vOf = vOf.Elem()
+	}
+
+	switch vOf.Kind() {
+	case reflect.String:
+		result, _ = url.ParseQuery(vOf.String())
+	case reflect.Map:
+		for _, kOf := range vOf.MapKeys() {
+			k := fmt.Sprintf("%v", kOf.Interface())
+			result.Set(k, textUtils.ToString(vOf.MapIndex(kOf).Interface(), true))
+		}
+	case reflect.Struct:
+		tOf := vOf.Type()
+		for i := 0; i < tOf.NumField(); i++ {
+			field := tOf.Field(i)
+			// 如果是私有字段，则跳过
+			if !field.IsExported() {
+				continue
+			}
+
+			name := field.Name
+			if tag != "" {
+				tagName, ok := field.Tag.Lookup(tag)
+				if ok && tagName != "-" && tagName != "_" {
+					segments := strings.Split(tagName, ",")
+					name = segments[0]
+				}
+			}
+			// 如果是匿名字段，则展开
+			if field.Anonymous {
+				c := ToUrlValues(vOf.Field(i).Interface(), tag)
+				for k := range c {
+					result.Set(k, c.Get(k))
+				}
+				continue
+			}
+
+			result.Set(name, textUtils.ToString(vOf.Field(i).Interface(), true))
+		}
+	case reflect.Slice:
+		for i := 0; i < vOf.Len(); i++ {
+			result.Set(conv.Itoa(i), textUtils.ToString(vOf.Index(i).Interface(), true))
+		}
+	}
+
+	return result
 }
 
 // MapToUrlValues 一个简单的map -> url.Values, 需要传入需要转换的字节名列表

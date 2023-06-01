@@ -1,34 +1,25 @@
-package utils
+package mapUtils
 
 import (
 	"fmt"
 	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"reflect"
+	"strings"
 )
 
-// MapKeys 获取map的所有keys MapKeys({1: 'a', 2: 'c'})
-func MapKeys[K comparable, V any](data map[K]V) []K {
-	keys := make([]K, 0, len(data))
-	for k := range data {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// MapValues 获取map的所有values MapValues({1: 'a', 2: 'c'})
-func MapValues[K comparable, V any](data map[K]V) []V {
-	values := make([]V, 0, len(data))
-	for _, v := range data {
-		values = append(values, v)
-	}
-	return values
-}
-
+// ToMap 将map/struct/slice转换为map[string]any
+//
+//	如果是map，则尝试转换为map[string]any
+//	如果是struct，则key是字段的tag。注意：私有字段不会被转换；匿名字段会被展开；子集不会展开
 func ToMap(data any, tag string) (map[string]any, error) {
 	var result = map[string]any{}
 
+	if data == nil {
+		return result, nil
+	}
+
 	vOf := reflect.ValueOf(data)
-	if data == nil || (vOf.Kind() == reflect.Ptr && vOf.IsNil()) {
+	if vOf.Kind() == reflect.Ptr && vOf.IsNil() {
 		return result, nil
 	}
 
@@ -46,13 +37,30 @@ func ToMap(data any, tag string) (map[string]any, error) {
 		tOf := vOf.Type()
 		for i := 0; i < tOf.NumField(); i++ {
 			field := tOf.Field(i)
+			// 如果是私有字段，跳过
+			if !field.IsExported() {
+				continue
+			}
 			name := field.Name
 			if tag != "" {
 				tagName, ok := field.Tag.Lookup(tag)
 				if ok && tagName != "-" && tagName != "_" {
-					name = tagName
+					segments := strings.Split(tagName, ",")
+					name = segments[0]
 				}
 			}
+			// 如果是匿名字段，展开
+			if field.Anonymous {
+				children, err := ToMap(vOf.Field(i).Interface(), tag)
+				if err != nil {
+					return nil, err
+				}
+				for k := range children {
+					result[k] = children[k]
+				}
+				continue
+			}
+
 			result[name] = vOf.Field(i).Interface()
 		}
 	case reflect.Slice:
