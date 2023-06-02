@@ -1,5 +1,16 @@
 package mapUtils
 
+// 优先使用golang.org/x/exp/maps中的方法
+// maps.Keys 返回map中所有的key
+// maps.Values 返回map中所有的value
+// maps.DeleteFunc 删除map中满足条件的key
+// maps.Equal 判断两个map是否相等
+// maps.EqualFunc 判断两个map是否相等，使用自定义的比较函数
+// maps.Clear 清空map
+// maps.Clone 复制map
+// maps.Copy 复制map
+
+// Filter 通过fn筛选map中的元素，fn返回true则保留
 func Filter[KT comparable, T any](m map[KT]T, fn func(key KT, value T) bool) map[KT]T {
 	var result = make(map[KT]T)
 	for k, v := range m {
@@ -10,30 +21,35 @@ func Filter[KT comparable, T any](m map[KT]T, fn func(key KT, value T) bool) map
 	return result
 }
 
-// Keys 获取map的所有keys MapKeys({1: 'a', 2: 'c'})
-func Keys[K comparable, V any](data map[K]V) []K {
-	keys := make([]K, 0, len(data))
-	for k := range data {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// Values 获取map的所有values MapValues({1: 'a', 2: 'c'})
-func Values[K comparable, V any](data map[K]V) []V {
-	values := make([]V, 0, len(data))
-	for _, v := range data {
-		values = append(values, v)
-	}
-	return values
-}
-
-// Pluck 从map中提取出元素的某个属性，返回一个新的map。fn为提取函数，返回值为新key，新value
-func Pluck[T ~map[K]V, K comparable, V any, R any](data T, fn func(key K, value V) (K, R)) map[K]R {
+// Map 遍历map，对每个元素执行fn，返回一个新的map
+func Map[T ~map[K]V, K comparable, V any, R any](data T, fn func(key K, value V) (K, R)) map[K]R {
 	var result map[K]R
 	for k, v := range data {
 		nK, nV := fn(k, v)
 		result[nK] = nV
+	}
+	return result
+}
+
+// Combine 将两个slice合并成一个map，第一个slice为key，第二个slice为value
+func Combine[K comparable, V any](keys []K, values []V) map[K]V {
+	if len(keys) != len(values) {
+		panic("keys and values must have same length")
+	}
+	result := make(map[K]V)
+	for i, k := range keys {
+		result[k] = values[i]
+	}
+	return result
+}
+
+// Merge 将多个map合并成一个map，如果key重复，后面的map会覆盖前面的map
+func Merge[K comparable, V any](maps ...map[K]V) map[K]V {
+	result := make(map[K]V)
+	for _, m := range maps {
+		for k, v := range m {
+			result[k] = v
+		}
 	}
 	return result
 }

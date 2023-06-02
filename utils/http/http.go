@@ -107,7 +107,7 @@ func ValuesToJson(values *url.Values) []byte {
 //	如果是map，则会将key/value转换为string，tag传入""
 //	如果是struct，则会将struct的字段的tag名（比如json）作为key。注意：匿名字段会展开；子Struct一律会转换为json
 func ToUrlValues(data any, tag string) url.Values {
-	var result url.Values
+	var result url.Values = url.Values{}
 	if data == nil {
 		return result
 	}
