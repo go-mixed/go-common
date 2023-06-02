@@ -27,3 +27,13 @@ func Values[K comparable, V any](data map[K]V) []V {
 	}
 	return values
 }
+
+// Pluck 从map中提取出元素的某个属性，返回一个新的map。fn为提取函数，返回值为新key，新value
+func Pluck[T ~map[K]V, K comparable, V any, R any](data T, fn func(key K, value V) (K, R)) map[K]R {
+	var result map[K]R
+	for k, v := range data {
+		nK, nV := fn(k, v)
+		result[nK] = nV
+	}
+	return result
+}

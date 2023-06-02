@@ -110,3 +110,12 @@ func Unique[T comparable](s ...T) []T {
 	}
 	return result
 }
+
+// Pluck 从slice中提取出元素的某个属性，返回一个新的slice。fn为提取函数，返回值为新slice的元素
+func Pluck[T ~[]V, V any, R any](slice T, fn func(key int, value V) R) []R {
+	var result []R
+	for i, v := range slice {
+		result = append(result, fn(i, v))
+	}
+	return result
+}
