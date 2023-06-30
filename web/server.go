@@ -6,12 +6,12 @@ import (
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/http"
-	list_utils "gopkg.in/go-mixed/go-common.v1/utils/list"
-	text_utils "gopkg.in/go-mixed/go-common.v1/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"net/http"
 	"os"
 	"os/signal"
@@ -93,14 +93,14 @@ func (c *HttpServer) HasDefaultDomain() bool {
 
 // ContainsDomain 是否包含此域名, 此函数是判断完全相等, 如果需要匹配通配符, 使用 MatchDomain
 func (c *HttpServer) ContainsDomain(domain string) bool {
-	return list_utils.Find(c.orderedDomainConfigs, func(value *DomainConfig) bool {
+	return slices.IndexFunc(c.orderedDomainConfigs, func(value *DomainConfig) bool {
 		return strings.EqualFold(value.domain, domain)
 	}) >= 0
 }
 
 // ContainsCert 是否包含此证书, 需要cert/key都相等
 func (c *HttpServer) ContainsCert(cert *Certificate) bool {
-	return list_utils.Find(c.certs, func(value *Certificate) bool {
+	return slices.IndexFunc(c.certs, func(value *Certificate) bool {
 		return os.SameFile(cert.CertFileInfo(), value.CertFileInfo()) && os.SameFile(cert.KeyFileInfo(), value.KeyFileInfo())
 	}) >= 0
 }
@@ -254,7 +254,7 @@ func (c *HttpServer) MatchDomain(domain string) *DomainConfig {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		for _, domainConfig := range c.orderedDomainConfigs {
-			if text_utils.WildcardMatch(domainConfig.domain, domain) {
+			if textUtils.WildcardMatch(domainConfig.domain, domain) {
 				return domainConfig
 			}
 		}

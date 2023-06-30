@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-// Domains 重写http_utils.Domains 为orm.Domains
+// Domains 重写httpUtils.Domains 为orm.Domains
 type Domains httpUtils.Domains
 
 // Value return json value, implement driver.Valuer interface

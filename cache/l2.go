@@ -60,7 +60,7 @@ func (l *L2Cache) MGet(keys []string, expire time.Duration, actual any) (utils.K
 		}
 	}
 
-	//res, err := l.memCache.Remember("mget:"+text_utils.Md5(strings.Join(keys, "|")), expire, func() (any, error) {
+	//res, err := l.memCache.Remember("mget:"+textUtils.Md5(strings.Join(keys, "|")), expire, func() (any, error) {
 	//	return l.cache.MGet(keys, nil)
 	//})
 	//if err != nil {
