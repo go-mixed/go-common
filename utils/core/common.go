@@ -70,16 +70,20 @@ func IsNil(v any) bool {
 
 // IsZero 判断是否为零值
 func IsZero(v any) bool {
-	// 指针为nil
+	if v == nil {
+		return true
+	}
+	return reflect.ValueOf(v).IsZero()
+	/*// 指针为nil
 	if IsNil(v) {
 		return true
 	}
 
 	// 非指针类型，深度比较
-	return reflect.DeepEqual(v, reflect.Zero(reflect.TypeOf(v)).Interface())
+	return reflect.DeepEqual(v, reflect.Zero(reflect.TypeOf(v)).Interface())*/
 }
 
-// IsZeroT 判断是否为零值，T必须是可比较的类型
+// IsZeroT 判断是否为零值，T必须是可比较的类型，性能比IsZero高
 func IsZeroT[T comparable](v T) bool {
 	var zero T
 	return v == zero
