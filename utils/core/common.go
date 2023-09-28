@@ -59,13 +59,30 @@ func GetFrame(skipFrames int) runtime.Frame {
 	return frame
 }
 
-// IsInterfaceNil 指针是否为nil
-func IsInterfaceNil(v any) bool {
+// IsNil 指针是否为nil，非指针类型返回false
+func IsNil(v any) bool {
 	if v == nil {
 		return true
 	}
 	vOf := reflect.ValueOf(v)
 	return vOf.Kind() == reflect.Ptr && vOf.IsNil()
+}
+
+// IsZero 判断是否为零值
+func IsZero(v any) bool {
+	// 指针为nil
+	if IsNil(v) {
+		return true
+	}
+
+	// 非指针类型，深度比较
+	return reflect.DeepEqual(v, reflect.Zero(reflect.TypeOf(v)).Interface())
+}
+
+// IsZeroT 判断是否为零值，T必须是可比较的类型
+func IsZeroT[T comparable](v T) bool {
+	var zero T
+	return v == zero
 }
 
 // NestAccess 递归访问map/struct/slice

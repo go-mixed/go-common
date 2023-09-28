@@ -34,7 +34,7 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual any) ([]byte, err
 	}
 
 	_val, ok := val.([]byte)
-	if ok && _val != nil && !core.IsInterfaceNil(actual) {
+	if ok && _val != nil && !core.IsNil(actual) {
 		if err = l.cache.DecoderFunc(_val, actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %s of error: %s", val, err.Error())
 			return _val, err
@@ -45,7 +45,7 @@ func (l *L2Cache) Get(key string, expire time.Duration, actual any) ([]byte, err
 }
 
 // MGet 由多个Get构成, 需要维护时, 只需要清理单个Get的缓存即可
-// 没有使用 l.Get 是因为避免 IsInterfaceNil 的反射运算浪费时间
+// 没有使用 l.Get 是因为避免 IsNil 的反射运算浪费时间
 func (l *L2Cache) MGet(keys []string, expire time.Duration, actual any) (utils.KVs, error) {
 	var _res utils.KVs
 	for _, key := range keys {
@@ -67,7 +67,7 @@ func (l *L2Cache) MGet(keys []string, expire time.Duration, actual any) (utils.K
 	//	return nil, err
 	//}
 	//_res, ok := res.(utils.KVs)
-	if /*ok &&*/ len(_res) > 0 && !core.IsInterfaceNil(actual) {
+	if /*ok &&*/ len(_res) > 0 && !core.IsNil(actual) {
 		if err := textUtils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err
@@ -97,7 +97,7 @@ func (l *L2Cache) ScanPrefix(keyPrefix string, expire time.Duration, actual any)
 		return nil, err
 	}
 	_res, ok := res.(utils.KVs)
-	if ok && len(_res) > 0 && !core.IsInterfaceNil(actual) {
+	if ok && len(_res) > 0 && !core.IsNil(actual) {
 		if err = textUtils.ListDecodeAny(l.cache.DecoderFunc, _res.Values(), actual); err != nil {
 			l.logger.Errorf("[L2]unmarshal: %v of error: %s", _res.Values(), err.Error())
 			return nil, err

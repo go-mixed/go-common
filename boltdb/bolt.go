@@ -108,7 +108,7 @@ func (b *BoltBucket) Get(key string, actual any) ([]byte, error) {
 	var buf []byte
 	err := b.View(func(bucket *bolt.Bucket) error {
 		var _buf []byte
-		if _buf = bucket.Get([]byte(key)); _buf != nil && !core.IsInterfaceNil(actual) {
+		if _buf = bucket.Get([]byte(key)); _buf != nil && !core.IsNil(actual) {
 			if err := b.DecoderFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
 				return errors.WithStack(err)
@@ -162,7 +162,7 @@ func (b *BoltBucket) GetAll(actual any) (utils.KVs, error) {
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			kvs = kvs.Append(string(k), core.CopyFrom(v)) // GC 后v会被清空，必须Copy
 		}
-		if actual != nil && !core.IsInterfaceNil(actual) {
+		if actual != nil && !core.IsNil(actual) {
 			if err := textUtils.ListDecodeAny(b.DecoderFunc, kvs.Values(), actual); err != nil {
 				b.logger.Errorf("[Bolt]Get data and decode error: %s", err.Error())
 				return errors.WithStack(err)
@@ -273,7 +273,7 @@ func (b *BoltBucket) FindLte(key string, actual any) (utils.KV, error) {
 			}
 		}
 
-		if _buf != nil && !core.IsInterfaceNil(actual) {
+		if _buf != nil && !core.IsNil(actual) {
 			if err := b.DecoderFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
 				return errors.WithStack(err)
@@ -303,7 +303,7 @@ func (b *BoltBucket) FindLt(key string, actual any) (utils.KV, error) {
 			}
 		}
 
-		if _buf != nil && !core.IsInterfaceNil(actual) {
+		if _buf != nil && !core.IsNil(actual) {
 			err := b.DecoderFunc(_buf, actual)
 			if err != nil {
 				b.logger.Errorf("[Bolt]FindLte data and decode error: %s", err.Error())
@@ -330,7 +330,7 @@ func (b *BoltBucket) FindGte(key string, actual any) (utils.KV, error) {
 		_key, _buf = cursor.Seek(_key) // 如果没有找到key, 会返回下一项, 如果到了结尾 _key/buf为nil
 		key = string(_key)
 
-		if _buf != nil && !core.IsInterfaceNil(actual) {
+		if _buf != nil && !core.IsNil(actual) {
 			if err := b.DecoderFunc(_buf, actual); err != nil {
 				b.logger.Errorf("[Bolt]FindGte data and decode error: %s", err.Error())
 				return errors.WithStack(err)

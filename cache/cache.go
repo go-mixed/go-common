@@ -49,7 +49,7 @@ func (c *Cache) ScanRangeFn(keyStart, keyEnd string, keyPrefix string, limit int
 		return nextKey, kvs, err
 	}
 
-	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
+	if !core.IsNil(result) && len(kvs) > 0 {
 		if err = textUtils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
 			return "", nil, err
 		}
@@ -103,7 +103,7 @@ func (c *Cache) ScanPrefixFn(keyPrefix string, result any, rangeFunc RangeFunc) 
 		}
 	}
 
-	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
+	if !core.IsNil(result) && len(kvs) > 0 {
 		if err = textUtils.ListDecodeAny(c.decoderFunc, kvs.Values(), result); err != nil {
 			return nil, err
 		}

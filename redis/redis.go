@@ -117,7 +117,7 @@ func (c *Redis) Get(key string, result any) ([]byte, error) {
 		return nil, nil
 	}
 
-	if !core.IsInterfaceNil(result) {
+	if !core.IsNil(result) {
 		if err = c.DecoderFunc([]byte(val), result); err != nil {
 			c.Logger.Errorf("[Redis]unmarshal: %s of error: %s", val, err.Error())
 			return []byte(val), errors.WithStack(err)
@@ -148,7 +148,7 @@ func (c *Redis) MGet(keys []string, result any) (utils.KVs, error) {
 			kvs = kvs.Append(keys[i], nil)
 		}
 	}
-	if !core.IsInterfaceNil(result) && len(kvs) > 0 {
+	if !core.IsNil(result) && len(kvs) > 0 {
 		if err = textUtils.ListDecodeAny(c.DecoderFunc, kvs.Values(), result); err != nil {
 			c.Logger.Errorf("[Redis]unmarshal: %v of error: %s", kvs.Values(), err.Error())
 			return nil, errors.WithStack(err)

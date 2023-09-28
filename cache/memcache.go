@@ -57,7 +57,7 @@ func (c *MemoryCache) Remember(k string, expire time.Duration, callback func() (
 	} else {
 		if v, err := callback(); err != nil {
 			return v, err
-		} else if v != nil && !core.IsInterfaceNil(v) { // 只有非nil时才能存储
+		} else if v != nil && !core.IsNil(v) { // 只有非nil时才能存储
 			c.Set(k, v, expire)
 			return v, nil
 		}
