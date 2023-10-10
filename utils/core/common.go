@@ -125,3 +125,27 @@ func CopyFrom[T any](src []T) []T {
 	copy(dest, src)
 	return dest
 }
+
+// New 创建对象
+//   - 如果非指针类型，返回该类型的零值（利用泛型的特性）；
+//   - 如果是指针类型，返回new(T)；
+//   - 如果是map、slice、chan类型，返回make后的map、slice、chan
+func New[T any]() T {
+	var v T
+	typeOf := reflect.TypeOf(v)
+
+	switch typeOf.Kind() {
+	case reflect.Ptr:
+		elemPtr := reflect.New(typeOf.Elem())
+		return elemPtr.Interface().(T)
+	case reflect.Map: // map需要make
+		return reflect.MakeMap(typeOf).Interface().(T)
+	case reflect.Slice: // slice需要make
+		return reflect.MakeSlice(typeOf, 0, 0).Interface().(T)
+	case reflect.Chan: // chan需要make
+		return reflect.MakeChan(typeOf, 0).Interface().(T)
+	}
+
+	// 其它类型使用泛型的特性返回零值即可
+	return v
+}
