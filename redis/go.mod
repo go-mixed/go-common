@@ -3,10 +3,10 @@ module gopkg.in/go-mixed/go-common.v1/redis.v1
 go 1.19
 
 require (
-	github.com/go-redis/redis/v9 v9.0.0-rc.2
 	github.com/pkg/errors v0.9.1
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20230426022801-8546787dec41
-	gopkg.in/go-mixed/go-common.v1/cache.v1 v1.0.0-20230427150041-c20662302cf4
+	github.com/redis/go-redis/v9 v9.4.0
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20231010110122-d23aa8aff7b1
+	gopkg.in/go-mixed/go-common.v1/cache.v1 v1.0.0-20231010110122-d23aa8aff7b1
 )
 
 require (
@@ -16,6 +16,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
-	golang.org/x/net v0.4.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
+	golang.org/x/text v0.14.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

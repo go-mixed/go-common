@@ -2,7 +2,7 @@ package redis
 
 import (
 	"context"
-	"github.com/go-redis/redis/v9"
+	"github.com/redis/go-redis/v9"
 	"gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
